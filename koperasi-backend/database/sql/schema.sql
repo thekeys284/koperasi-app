@@ -9,20 +9,20 @@ SET FOREIGN_KEY_CHECKS=0;
 -- ==========================================================
 -- 1. USERS
 -- ==========================================================
-CREATE TABLE IF NOT EXISTS `users` (
-  `id` int NOT NULL AUTO_INCREMENT PRIMARY KEY,
-  `full_name` varchar(100) NOT NULL,
-  `username` varchar(100) NOT NULL,
-  `email` varchar(255) NOT NULL,
-  `satker` varchar(255) NOT NULL,
-  `password` varchar(100) NOT NULL,
-  `role` enum('user','operator','admin') NOT NULL,
-  `limit` int DEFAULT 0,
-  `limit_total` int DEFAULT 0,
-  `profile_picture` varchar(255) DEFAULT NULL,
-  `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP
-) ENGINE=InnoDB;
+-- CREATE TABLE IF NOT EXISTS `users` (
+--   `id` int NOT NULL AUTO_INCREMENT PRIMARY KEY,
+--   `full_name` varchar(100) NOT NULL,
+--   `username` varchar(100) NOT NULL,
+--   `email` varchar(255) NOT NULL,
+--   `satker` varchar(255) NOT NULL,
+--   `password` varchar(100) NOT NULL,
+--   `role` enum('user','operator','admin') NOT NULL,
+--   `limit` int DEFAULT 0,
+--   `limit_total` int DEFAULT 0,
+--   `profile_picture` varchar(255) DEFAULT NULL,
+--   `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+--   `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP
+-- ) ENGINE=InnoDB;
 
 -- ==========================================================
 -- 2. CATEGORIES
@@ -93,6 +93,29 @@ CREATE TABLE IF NOT EXISTS `price_logs` (
 ) ENGINE=InnoDB;
 
 -- ==========================================================
+-- 12. METODE PEMBAYARAN
+-- ==========================================================
+CREATE TABLE payment_methods (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    method_name VARCHAR(50) NOT NULL, -- 'Cash', 'QRIS', 'Tempo'
+    is_active BOOLEAN DEFAULT TRUE
+) ENGINE=InnoDB;
+
+-- ==========================================================
+-- 12. DETAIL PEMBAYARAN TEMPO
+-- ==========================================================
+CREATE TABLE IF NOT EXISTS credit_payments (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    sale_id INT NOT NULL,
+    user_id BIGINT UNSIGNED NOT NULL, -- Siapa yang berhutang
+    amount_paid DECIMAL(12,2) DEFAULT 0.00,
+    payment_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    note VARCHAR(255),
+    FOREIGN KEY (sale_id) REFERENCES sales(id),
+    FOREIGN KEY (user_id) REFERENCES users(id)
+) ENGINE=InnoDB;
+
+-- ==========================================================
 -- 7. SALES
 -- ==========================================================
 CREATE TABLE IF NOT EXISTS `sales` (
@@ -100,8 +123,11 @@ CREATE TABLE IF NOT EXISTS `sales` (
   invoice_number VARCHAR(50) UNIQUE NOT NULL,
   total_bill DECIMAL(12,2) DEFAULT 0.00,
   total_discount DECIMAL(12,2) DEFAULT 0.00,
+  payment_method_id INT, -- Masukkan langsung di sini
+  payment_status ENUM('PAID', 'PENDING', 'PARTIAL') DEFAULT 'PAID', -- Masukkan langsung di sini
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  FOREIGN KEY (payment_method_id) REFERENCES payment_methods(id) -- Foreign key langsung di sini
 ) ENGINE=InnoDB;
 
 -- ==========================================================
@@ -148,7 +174,7 @@ CREATE TABLE IF NOT EXISTS `activity_logs` (
   message_text VARCHAR(255) NOT NULL,
   message_summary VARCHAR(255) NOT NULL,
   role ENUM('admin','operator','user') NOT NULL,
-  user_id INT NOT NULL,
+  user_id BIGINT UNSIGNED NOT NULL,
   message_icon VARCHAR(50) NOT NULL,
   message_date_time DATETIME DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (user_id) REFERENCES users(id)
@@ -160,7 +186,7 @@ CREATE TABLE IF NOT EXISTS `activity_logs` (
 CREATE TABLE IF NOT EXISTS `submissions` (
   id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
   loan_type TEXT NOT NULL,
-  load_date TEXT,
+  loan_date TEXT,
   loan_amount TEXT NOT NULL,
   loan_duration TEXT NOT NULL,
   is_read TINYINT(1) DEFAULT 0,
@@ -168,19 +194,22 @@ CREATE TABLE IF NOT EXISTS `submissions` (
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   status VARCHAR(255),
   submission_date DATETIME DEFAULT CURRENT_TIMESTAMP,
-  user_id INT NOT NULL,
+  user_id BIGINT UNSIGNED NOT NULL,
   FOREIGN KEY (user_id) REFERENCES users(id)
 ) ENGINE=InnoDB;
+
+
+
 
 -- ==========================================================
 -- DUMMY DATA
 -- ==========================================================
 
-INSERT IGNORE INTO users (id, full_name, username, email, satker, password, role)
-VALUES
-(1,'Admin Minimarket','admin','admin@mini.local','Pusat','admin123','admin'),
-(2,'Operator Toko','operator','operator@mini.local','Cabang A','operator123','operator'),
-(3,'User Biasa','user1','user1@mini.local','Cabang A','user123','user');
+-- INSERT IGNORE INTO users (id, full_name, username, email, satker, password, role)
+-- VALUES
+-- (1,'Admin Minimarket','admin','admin@mini.local','Pusat','admin123','admin'),
+-- (2,'Operator Toko','operator','operator@mini.local','Cabang A','operator123','operator'),
+-- (3,'User Biasa','user1','user1@mini.local','Cabang A','user123','user');
 
 INSERT IGNORE INTO categories (id, category_name, description)
 VALUES
