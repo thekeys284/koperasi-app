@@ -10,7 +10,8 @@ use Illuminate\Support\Facades\Hash;
 class UserController extends Controller
 {
     public function index(){
-        return User::where('role','user')->get();
+        return User::whereIn('role',['user','admin'])->get();
+        // return User::all();
     }
 
     public function store (Request $request){
@@ -69,7 +70,7 @@ class UserController extends Controller
         }
 
         // response sukses 
-        return response()->jsno([
+        return response()->json([
             'status' => 'success',
             'data' => [
                 'profile' => [
@@ -87,10 +88,58 @@ class UserController extends Controller
                     'usage_percentage'=>$user->limit_total > 0 ? round((($user->limit_total - $user->limit) / $user->limit_total) * 100, 2) : 0,
                 ],
                 'history' => [
-                    'recent_submissions' => $user->submissions,
+                    'recent_submissions' => $user->submission,
                     'recent_activities'  => $user->activityLogs
                 ]
             ]
         ],200);
+    }
+
+    public function update(Request $request, $id){
+        $user = User::findOrFail($id);
+
+        // validasi input
+        $validated = $request->validate([
+            'name' => 'sometimes|required|string|max:100',
+            'email' => 'sometimes|required|email|unique:users,email,'.$id,
+            'satker' => 'sometimes|string',
+            'limit_total' => 'sometimes|numeric|min:0',
+            'role' => 'sometimes|in:admin, operator, user',
+            'profile_picture' => 'nullable|image|mimes:jpg,jpeg,png|max:2048'
+        ]);
+
+        // logika update limit jika limit total diubah oleh admin
+        if($request->has('limit_total')){
+            // hitung selisih untuk memperbarui sisa limit saat ini
+            $diff = $request->limit_total - $user->limit_total;
+            $user->limit +=$diff;
+        }
+
+        // logika update foto profil 
+        if($request->hasFile('profile_picture')){
+            // hapus foto lama jika ada dan bukan file default
+            if($user->profile_picture){
+                Storage::delete('public/profiles/'.$user->profile_picture);
+            }
+        }
+
+        // simpan foto baru
+        $file = $request-> file('profile_picture');
+        $filename = time().'_'.$user->username.'_'.$file->getClientOriginalExtension();
+        $file->storeAs('public/profiles',$filename);
+
+        $user->profile_picture=$filename;
+    
+
+    // update sisa data (kecuali password dan profile picture yang dihandle manual)
+    $user->fill($request->except(['profile_picture', 'password']));
+    $user->save();
+
+    return response()->json([
+        'status' => 'success',
+        'message' => 'Data anggota berhasil diperbarui',
+        'data' => $user
+    ],200);
+
     }
 }

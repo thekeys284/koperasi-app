@@ -1,10 +1,10 @@
-<? 
+<?php
 use App\Http\Controllers\Api\ProductController;
 use App\Http\Controllers\Api\TransactionController;
 
 // API Master Data
 
-use App\Http\Controller\Api\UserController;
+use App\Http\Controllers\Api\UserController;
 use App\Http\Controllers\Api\ReportController;
 use App\Http\Controllers\Api\SubmissionController;
 use App\Http\Controllers\Api\CreditController;
@@ -14,7 +14,8 @@ use App\Http\Controllers\Api\MasterController;
 Route::prefix('users')->group(function(){
     Route::get('/', [UserController::class, 'index']);
     Route::post('/', [UserController::class, 'store']);
-    Route::get('{id}', [UserController::class, 'show']);
+    Route::get('/{id}', [UserController::class, 'show']);
+    Route::post('/{id}',[UserController::class, 'update']);
 });
 
 // Route::get('/products', [ProductController::class, 'index']);
