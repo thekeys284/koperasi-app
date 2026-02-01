@@ -56,8 +56,41 @@ class UserController extends Controller
                 $query->latest();
             },
             'activity_log' => function($query){
-                $wuery->latest()->limit(10);
+                $query->latest()->limit(10);
             }
         ])->find($id);
+
+        // cek jika user ditemukan
+        if (!$user){
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Anggota dengan ID '.$id.' tidak ditemukan.'
+            ], 404);
+        }
+
+        // response sukses 
+        return response()->jsno([
+            'status' => 'success',
+            'data' => [
+                'profile' => [
+                    'id' => $user->id,
+                    'full_name' => $user->name,
+                    'satker' => $user->satker,
+                    'role' => $user->role, 
+                    'email' => $user->email,
+                    'username' => $user->username,
+                    'profile_picture' => $user->profile_picture ? asset('storage/profiles'.$user->profile_picture):null,
+                ],
+                'finance' => [
+                    'remaining_limit'=>$user->limit, 
+                    'total_limit'=>$user->limit_total, 
+                    'usage_percentage'=>$user->limit_total > 0 ? round((($user->limit_total - $user->limit) / $user->limit_total) * 100, 2) : 0,
+                ],
+                'history' => [
+                    'recent_submissions' => $user->submissions,
+                    'recent_activities'  => $user->activityLogs
+                ]
+            ]
+        ],200);
     }
 }
