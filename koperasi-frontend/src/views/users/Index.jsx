@@ -3,7 +3,8 @@ import {
     Table, TableBody, TableCell, TableHead, TableRow, Typography, TableContainer,
     Paper, CircularProgress, Box, Chip
 } from '@mui/material';
-import MainCard from '../../../../components/cards/MainCard';
+import MainCard from '../../components/cards/MainCard.jsx';
+
 
 import api from 'api/axios';
 const UserPage = () => {

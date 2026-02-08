@@ -1,9 +1,24 @@
+// {
+//   "compilerOptions": {
+//     "composite": true,
+//     "module": "ESNext",
+//     "moduleResolution": "Node",
+//     "allowSyntheticDefaultImports": true
+//   },
+//   "include": ["vite.config.mjs"]
+// }
 {
   "compilerOptions": {
-    "composite": true,
+    "target": "ESNext",
     "module": "ESNext",
     "moduleResolution": "Node",
-    "allowSyntheticDefaultImports": true
+    "allowSyntheticDefaultImports": true,
+    "allowJs": true,
+    "outDir": "./dist",
+    "baseUrl": "./",
+    "paths": {
+      "@/*": ["src/*"]
+    }
   },
-  "include": ["vite.config.mjs"]
+  "include": ["src", "vite.config.mjs"]
 }

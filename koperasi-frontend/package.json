@@ -8,11 +8,12 @@
     "@fontsource/inter": "5.2.8",
     "@fontsource/poppins": "5.2.7",
     "@fontsource/roboto": "5.2.9",
-    "@mui/icons-material": "7.3.5",
-    "@mui/material": "7.3.5",
+    "@mui/icons-material": "^7.3.5",
+    "@mui/material": "^7.3.5",
     "@tabler/icons-react": "3.35.0",
     "@vitejs/plugin-react": "5.1.1",
     "apexcharts": "5.3.6",
+    "axios": "^1.13.4",
     "framer-motion": "12.23.25",
     "lodash-es": "^4.17.23",
     "material-ui-popup-state": "5.3.6",
@@ -39,7 +40,6 @@
     "prettier": "prettier --write \"src/**/*.{js,jsx,ts,tsx}\"",
     "dev": "vite"
   },
-  
   "eslintConfig": {
     "extends": [
       "react-app",
