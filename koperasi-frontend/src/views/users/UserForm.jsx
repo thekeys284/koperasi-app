@@ -1,0 +1,208 @@
+import { useEffect, useState } from "react";
+import { useNavigate, useParams } from "react-router-dom";
+import { Button, TextField, Grid, MenuItem, Box, Typography} from "@mui/material";
+import MainCard from '../../components/cards/MainCard.jsx';
+import api from "@/api/axios.js";
+
+const UserForm = () =>{
+    const {id} = useParams(); //ambil id jika ambil mode edit
+    const navigate = useNavigate();
+    const isEdit = Boolean(id);
+
+    const [formData, setFormData] = useState({
+        name:'',
+        username:'',
+        email:'',
+        password:'',
+        satker:'',
+        role:'user',
+        limit_total: 0
+    });
+
+    useEffect(()=>{
+        if (isEdit){//ambil data lama jika edit
+            api.get(`/users/${id}`).then((res)=>{
+                setFormData({
+                    name: res.data.name,
+                    username: res.data.username,
+                    email:res.data.email,
+                    satker:res.data.satker,
+                    role: res.data.role,
+                    limit_total: res.data.limit_total,
+                    password:''
+                });
+            });
+        }
+    },[id]);
+
+    const handleSubmit = async (e) =>{
+        e.preventDefault();
+
+        const data = new FormData();
+        data.append('name', formData.name);
+        data.append('username', formData.username);
+        data.append('email', formData.email);
+        data.append('satker', formData.satker);
+        data.append('role', formData.role);
+        data.append('limit_total', formData.limit_total)
+
+        // kirim password saat add user atau ada edit password
+        if(formData.password){
+            data.append('password', formData.password);
+        }
+
+        // jika ada foto yang diupload
+        if(selectedFile){
+            data.append('profile_picture', selectedFile);
+        }
+
+        try {
+            if (isEdit){
+                // kirim via post tapi tambahkan dengan field method PUT
+                data.append('_method', 'PUT');
+                await api.post(`/users/${id}`, data,{
+                    headers:{'Content-Type':'multipart/form-data'}
+                });
+            } else{
+                await api.post('/users', data,{
+                    headers:{'Content-Type':'multipart/form-data'}
+                });
+            }
+            navigate('/admin/users');
+        } catch (error) {
+            console.error("Gagal Menyimpan", error.response?.data||error.message);
+        }
+    };
+
+    return (
+        <MainCard title={isEdit ? "Edit Anggota" : "Tamabah Anggota Baru"}>
+            <form onSubmit={handleSubmit}>
+                <Grid container spacing={3}>
+                    <Grid size={{ xs: 12, sm: 2 }}
+                        sx={{
+                            display: 'flex',
+                            alignItems: 'center'
+                        }}>
+                        <Typography variant="body1">
+                            <b>Nama Lengkap</b>
+                        </Typography>
+                    </Grid>
+                    <Grid size={{xs:12, sm:10}}>
+                        <TextField
+                            fullWidth label ="Nama Lengkap"
+                            value={formData.name}
+                            onChange={(e)=>setFormData({...formData, name: e.target.value})}/>
+                    </Grid>
+                    <Grid size={{ xs: 12, sm: 2 }}
+                        sx={{
+                            display: 'flex',
+                            alignItems: 'center'
+                        }}>
+                        <Typography variant="body1">
+                            <b>Email</b>
+                        </Typography>
+                    </Grid>
+                    <Grid  size={{xs:12, sm:10}}>
+                        <TextField 
+                            fullWidth label = "Email"
+                            value={formData.email}
+                            onChange={(e)=>setFormData({...formData, email:e.target.value})}/>
+                    </Grid>
+                    <Grid size={{ xs: 12, sm: 2 }}
+                        sx={{
+                            display: 'flex',
+                            alignItems: 'center'
+                        }}>
+                        <Typography variant="body1">
+                            <b>Username</b>
+                        </Typography>
+                    </Grid>
+                    <Grid size={{xs:12, sm:4}}>
+                        <TextField
+                            fullWidth label = "Username"
+                            value={formData.username}
+                            onChange={(e)=>setFormData({...formData, username: e.target.value})}/>
+                    </Grid>
+                    <Grid size={{ xs: 12, sm: 2 }}
+                        sx={{
+                            display: 'flex',
+                            justifyContent:'right',
+                            alignItems: 'center'
+                        }}>
+                        <Typography variant="body1">
+                            <b>Password</b>
+                        </Typography>
+                    </Grid>
+                    <Grid size={{xs:12, sm:4}}>
+                        <TextField
+                            fullWidth label = "Password"
+                            value={formData.password}
+                            onChange={(e)=>setFormData({...formData, password:e.target.value})}/>
+                    </Grid>
+                    <Grid size={{ xs: 12, sm: 2 }}
+                        sx={{
+                            display: 'flex',
+                            alignItems: 'center'
+                        }}>
+                        <Typography variant="body1">
+                            <b>Satuan Kerja</b>
+                        </Typography>
+                    </Grid>
+                    <Grid size={{xs:12, sm:4}}>
+                        <TextField 
+                            fullWidth label="Satuan Kerja"
+                            value={formData.satker}
+                            onChange={(e)=>setFormData({...formData, satker:e.target.value})}/>
+                    </Grid>
+                     <Grid size={{ xs: 12, sm: 2 }}
+                        sx={{
+                            display: 'flex',
+                            justifyContent:'right',
+                            alignItems: 'center'
+                        }}>
+                        <Typography variant="body1">
+                            <b>Role</b>
+                        </Typography>
+                    </Grid>
+                    <Grid size={{xs:12, sm:4}}>
+                        <TextField
+                            select fullWidth label = "Role"
+                            value={formData.role}
+                            onChange={(e)=>setFormData({...formData, role:e.target.value})}>
+                                <MenuItem value="admin">Admin</MenuItem>        
+                                <MenuItem value="user">User</MenuItem>
+                                <MenuItem value="operator">Operator</MenuItem>
+                        </TextField>
+                    </Grid>
+                    <Grid size={{ xs: 12, sm: 2 }}
+                        sx={{
+                            display: 'flex',
+                            alignItems: 'center'
+                        }}>
+                        <Typography variant="body1">
+                            <b>Limit Total</b>
+                        </Typography>
+                    </Grid>
+                    <Grid item size={12} sm={6}>
+                        <TextField
+                            fullWidth label = "Limit Total"
+                            value={formData.limit_total}
+                            onChange={(e)=>setFormData({...formData, limit_total:e.target.value})}/>
+                    </Grid>
+                    <Grid item xs={12}> 
+                        <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 2, pt:2}}>
+                            <Button variant="outlined" onClick={() => navigate('/admin/users')}>
+                                Batal
+                            </Button>
+                            <Button variant="contained" type="submit" color="primary">
+                                Simpan
+                            </Button>
+                        </Box>
+                    </Grid>
+                </Grid>
+            </form>
+        </MainCard>
+    );
+};
+
+export default UserForm;

@@ -3,10 +3,14 @@ import { lazy } from 'react';
 // project imports
 import MainLayout from 'layout/MainLayout';
 import Loadable from 'ui-component/Loadable';
-import UserPage from 'views/users/Index';
+// import UserPage from 'views/users/Index';
 
 // dashboard routing
 const DashboardDefault = Loadable(lazy(() => import('views/dashboard/Default')));
+
+// master data koperasi
+const UserForm = Loadable(lazy(()=>import('views/users/UserForm')));
+const UserPage = Loadable(lazy(()=>import('views/users/Index')));
 
 // utilities routing
 const UtilsTypography = Loadable(lazy(() => import('views/utilities/Typography')));
@@ -35,6 +39,30 @@ const MainRoutes = {
         }
       ]
     },
+    // menu admin
+    {
+      path:'admin',
+      children:[
+        {
+          path:'users',
+          children:[
+            {
+              path:'',
+              element:<UserPage />
+            },
+            {
+              path:'add',
+              element:<UserForm />
+            },
+            {
+              path:'edit/:id',
+              element:<UserForm />
+            }
+          ]
+        }
+      ]
+    },
+    
     {
       path: 'typography',
       element: <UtilsTypography />
@@ -51,10 +79,10 @@ const MainRoutes = {
       path: '/sample-page',
       element: <SamplePage />
     }, 
-    {
-      path: '/users',
-      element: <UserPage />
-    }
+    // {
+    //   path: '/users',
+    //   element: <UserPage />
+    // }
   ]
 };
 
