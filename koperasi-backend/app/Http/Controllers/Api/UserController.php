@@ -10,7 +10,7 @@ use Illuminate\Support\Facades\Hash;
 class UserController extends Controller
 {
     public function index(){
-        return User::whereIn('role',['user','admin'])->get();
+        return User::whereIn('role',['user','admin', 'operator'])->get();
         // return User::all();
     }
 
@@ -53,46 +53,49 @@ class UserController extends Controller
 
     public function show($id){
         $user = User::with([
-            'submission' => function($query){
+            'submission' => function ($query) {
                 $query->latest();
             },
-            'activity_log' => function($query){
-                $query->latest()->limit(10);
+            'activityLogs' => function ($query) { // samakan dengan nama relasi di model
+                $query->orderBy('message_date_time', 'desc')->limit(10);
             }
         ])->find($id);
 
-        // cek jika user ditemukan
-        if (!$user){
+        // cek jika user tidak ditemukan
+        if (!$user) {
             return response()->json([
                 'status' => 'error',
-                'message' => 'Anggota dengan ID '.$id.' tidak ditemukan.'
+                'message' => 'Anggota dengan ID ' . $id . ' tidak ditemukan.'
             ], 404);
-        }
-
+        };
         // response sukses 
         return response()->json([
-            'status' => 'success',
-            'data' => [
-                'profile' => [
-                    'id' => $user->id,
-                    'full_name' => $user->name,
-                    'satker' => $user->satker,
-                    'role' => $user->role, 
-                    'email' => $user->email,
-                    'username' => $user->username,
-                    'profile_picture' => $user->profile_picture ? asset('storage/profiles'.$user->profile_picture):null,
-                ],
-                'finance' => [
-                    'remaining_limit'=>$user->limit, 
-                    'total_limit'=>$user->limit_total, 
-                    'usage_percentage'=>$user->limit_total > 0 ? round((($user->limit_total - $user->limit) / $user->limit_total) * 100, 2) : 0,
-                ],
-                'history' => [
-                    'recent_submissions' => $user->submission,
-                    'recent_activities'  => $user->activityLogs
+        'status' => 'success',
+        'data' => [
+            'profile' => [
+                'id' => $user->id,
+                'full_name' => $user->name,
+                'satker' => $user->satker,
+                'role' => $user->role,
+                'email' => $user->email,
+                'username' => $user->username,
+                'profile_picture' => $user->profile_picture
+                    ? asset('storage/profiles/' . $user->profile_picture) // FIX slash
+                    : null,
+            ],
+            'finance' => [
+                'remaining_limit' => $user->limit ?? 0,
+                'total_limit' => $user->limit_total ?? 0,
+                'usage_percentage' => ($user->limit_total ?? 0) > 0
+                    ? round((($user->limit_total - $user->limit) / $user->limit_total) * 100, 2)
+                    : 0,
+            ],
+            'history' => [
+                'recent_submissions' => $user->submission ?? [],
+                'recent_activities'  => $user->activityLogs ?? [] // samakan
                 ]
             ]
-        ],200);
+        ], 200);
     }
 
     public function update(Request $request, $id){

@@ -40,7 +40,7 @@ const UserPage = () => {
 
     const handleEdit = (id)=>{
         console.log("Edit user ID:", id);
-        // navigate("/users/edit/${id}");
+        navigate(`/admin/users/edit/${id}`);
     }
 
     const handleDelete = async (id) => {

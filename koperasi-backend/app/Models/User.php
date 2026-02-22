@@ -7,6 +7,8 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use App\Models\Submission;
+use App\Models\ActivityLog;
 
 class User extends Authenticatable
 {
@@ -49,7 +51,7 @@ class User extends Authenticatable
         return $this->hasMany(Submission::class);
     }
 
-    public function activity_log(){
-        return $this->hasMany(Activity_log::class);
+    public function activityLogs(){
+        return $this->hasMany(ActivityLog::class);
     }
 }

@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { Button, TextField, Grid, MenuItem, Box, Typography, Autocomplete} from "@mui/material";
+import { Button, TextField, Grid, MenuItem, Box, Typography} from "@mui/material";
 import MainCard from '../../components/cards/MainCard.jsx';
 import api from "@/api/axios.js";
 import { InputAdornment, IconButton} from "@mui/material";
@@ -16,83 +16,34 @@ const UserForm = () =>{
         username:'',
         email:'',
         password:'',
-        satker:'3500',
-        role:'',
-        limit_total: ''
+        satker:'',
+        role:'user',
+        limit_total: 0
     });
 
     const [selectedFile, setSelectedFile] = useState(null);
     const [preview, setPreview] = useState(null);
     const [showPassword, setShowPassword] = useState(false);
 
-    const satkerOptions = [
-        { value: '3500', label: 'BPS Provinsi Jawa Timur' },
-        { value: '3501', label: 'BPS Kabupaten Pacitan' },
-        { value: '3502', label: 'BPS Kabupaten Ponorogo' },
-        { value: '3503', label: 'BPS Kabupaten Trenggalek' },
-        { value: '3504', label: 'BPS Kabupaten Tulungagung' },
-        { value: '3505', label: 'BPS Kabupaten Blitar' },
-        { value: '3506', label: 'BPS Kabupaten Kediri' },
-        { value: '3507', label: 'BPS Kabupaten Malang' },
-        { value: '3508', label: 'BPS Kabupaten Lumajang' },
-        { value: '3509', label: 'BPS Kabupaten Jember' },
-        { value: '3510', label: 'BPS Kabupaten Banyuwangi' },
-        { value: '3511', label: 'BPS Kabupaten Bondowoso' },
-        { value: '3512', label: 'BPS Kabupaten Situbondo' },
-        { value: '3513', label: 'BPS Kabupaten Probolinggo' },
-        { value: '3514', label: 'BPS Kabupaten Pasuruan' },
-        { value: '3515', label: 'BPS Kabupaten Sidoarjo' },
-        { value: '3516', label: 'BPS Kabupaten Mojokerto' },
-        { value: '3517', label: 'BPS Kabupaten Jombang' },
-        { value: '3518', label: 'BPS Kabupaten Nganjuk' },
-        { value: '3519', label: 'BPS Kabupaten Madiun' },
-        { value: '3520', label: 'BPS Kabupaten Magetan' },
-        { value: '3521', label: 'BPS Kabupaten Ngawi' },
-        { value: '3522', label: 'BPS Kabupaten Bojonegoro' },
-        { value: '3523', label: 'BPS Kabupaten Tuban' },
-        { value: '3524', label: 'BPS Kabupaten Lamongan' },
-        { value: '3525', label: 'BPS Kabupaten Gresik' },
-        { value: '3526', label: 'BPS Kabupaten Bangkalan' },
-        { value: '3527', label: 'BPS Kabupaten Sampang' },
-        { value: '3528', label: 'BPS Kabupaten Pamekasan' },
-        { value: '3529', label: 'BPS Kabupaten Sumenep' },
-        { value: '3571', label: 'BPS Kota Kediri' },
-        { value: '3572', label: 'BPS Kota Blitar' },
-        { value: '3573', label: 'BPS Kota Malang' },
-        { value: '3574', label: 'BPS Kota Probolinggo' },
-        { value: '3575', label: 'BPS Kota Pasuruan' },
-        { value: '3576', label: 'BPS Kota Mojokerto' },
-        { value: '3577', label: 'BPS Kota Madiun' },
-        { value: '3578', label: 'BPS Kota Surabaya' },
-        { value: '3579', label: 'BPS Kota Batu' }
-    ];
-
-    useEffect(() => {
-        if (isEdit) { //ambil data lama jika edit
-            api.get(`/users/${id}`)
-                .then((res) => {
-                    const profile = res.data.data.profile;
-                    const finance = res.data.data.finance;
-
-                    setFormData({
-                        name: profile.full_name || '',
-                        username: profile.username || '',
-                        email: profile.email || '',
-                        satker: profile.satker || '',   // HARUS value yang cocok dengan satkerOptions.value
-                        role: profile.role || '',
-                        limit_total: finance.total_limit || '',
-                        password: ''
-                    });
-
-                    if (profile.profile_picture) {
-                        setPreview(profile.profile_picture); // langsung URL
-                    }
-                })
-                .catch(err => {
-                    console.error("Gagal mengambil data user", err);
+    useEffect(()=>{
+        if (isEdit){//ambil data lama jika edit
+            api.get(`/users/${id}`).then((res)=>{
+                setFormData({
+                    name: res.data.name,
+                    username: res.data.username,
+                    email:res.data.email,
+                    satker:res.data.satker,
+                    role: res.data.role,
+                    limit_total: res.data.limit_total,
+                    password:''
                 });
+
+                if (res.data.profile_picture_url) {
+                    setPreview(res.data.profile_picture_url);
+                }
+            });
         }
-    }, [id]);
+    },[id]);
 
     const handleSubmit = async (e) =>{
         e.preventDefault();
@@ -103,7 +54,7 @@ const UserForm = () =>{
         data.append('email', formData.email);
         data.append('satker', formData.satker);
         data.append('role', formData.role);
-        data.append('limit_total', parseFloat(formData.limit_total || 0));
+        data.append('limit_total', formData.limit_total)
 
         // kirim password saat add user atau ada edit password
         if(formData.password){
@@ -119,7 +70,7 @@ const UserForm = () =>{
             if (isEdit){
                 // kirim via post tapi tambahkan dengan field method PUT
                 data.append('_method', 'PUT');
-                await api.put(`/users/${id}`, data,{
+                await api.post(`/users/${id}`, data,{
                     headers:{'Content-Type':'multipart/form-data'}
                 });
             } else{
@@ -195,22 +146,26 @@ const UserForm = () =>{
                     <Grid size={{xs:12, sm:4}}>
                         <TextField
                             fullWidth label = "Password"
-                            type={showPassword ? "text" : "password"}
+                            type={showPassword ? 'text' : 'password'}
                             value={formData.password}
                             onChange={(e)=>setFormData({...formData, password:e.target.value})}
+                            helperText={
+                                isEdit
+                                ? "Kosongkan jika tidak ingin mengganti password"
+                                : ""
+                            }
                             InputProps={{
                                 endAdornment: (
                                     <InputAdornment position="end">
-                                    <IconButton
-                                        onClick={() => setShowPassword(!showPassword)}
-                                        edge="end"
-                                    >
-                                        {showPassword ? <VisibilityOff /> : <Visibility />}
-                                    </IconButton>
+                                        <IconButton
+                                            onClick={() => setShowPassword(!showPassword)}
+                                            edge="end"
+                                        >
+                                            {showPassword ? <VisibilityOff /> : <Visibility />}
+                                        </IconButton>
                                     </InputAdornment>
                                 )
-                                }}
-                        />
+                            }}/>
                     </Grid>
                     <Grid size={{ xs: 12, sm: 2 }}
                         sx={{
@@ -222,14 +177,10 @@ const UserForm = () =>{
                         </Typography>
                     </Grid>
                     <Grid size={{xs:12, sm:4}}>
-                         <Autocomplete
-                            options={satkerOptions}
-                            getOptionLabel={(option) => option.label} // pastikan label tampil
-                            value={satkerOptions.find(opt => opt.value === formData.satker) || null}
-                            onChange={(event, newValue) => setFormData({ ...formData, satker: newValue?.value || '' })}
-                            renderInput={(params) => <TextField {...params} label="Satuan Kerja" fullWidth />} 
-                            ListboxProps={{ style: { maxHeight: 200 } }}    
-                        />
+                        <TextField 
+                            fullWidth label="Satuan Kerja"
+                            value={formData.satker}
+                            onChange={(e)=>setFormData({...formData, satker:e.target.value})}/>
                     </Grid>
                      <Grid size={{ xs: 12, sm: 2 }}
                         sx={{
@@ -260,30 +211,24 @@ const UserForm = () =>{
                             <b>Limit Total</b>
                         </Typography>
                     </Grid>
-                    <Grid size={{ xs: 12, sm: 4 }}
-                        sx={{ display: 'flex', alignItems: 'center' }}>
+                    <Grid item size={12} sm={6}>
                         <TextField
                             fullWidth label = "Limit Total"
                             value={formData.limit_total}
                             onChange={(e)=>setFormData({...formData, limit_total:e.target.value})}/>
                     </Grid>
                     <Grid size={{ xs: 12, sm: 2 }}
-                        sx={{
-                            display: 'flex',
-                            justifyContent:'right',
-                            alignItems: 'center'
-                        }}>
+                        sx={{ display: 'flex', alignItems: 'center' }}>
                         <Typography variant="body1">
                             <b>Foto Profil</b>
                         </Typography>
                     </Grid>
 
-                    <Grid size={{xs:12, sm:4}}>
+                    <Grid size={{ xs: 12, sm: 10 }}>
                         <Button
                             variant="outlined"
                             component="label"
                             fullWidth
-                            sx={{ height: '56px' }}
                         >
                             {selectedFile ? selectedFile.name : "Pilih File"}
                             <input
@@ -294,13 +239,12 @@ const UserForm = () =>{
                             />
                         </Button>
                     </Grid>
-                    <Grid size={{xs:12, sm:12}} sx={{ display: 'flex', justifyContent: 'flex-end', pt: 2 }}>
-                        <Grid size={{ xs: 12, sm: 6 }} sx={{ display: 'flex', justifyContent: 'flex-end' }}></Grid>
-                        <Box sx={{ display: 'flex', justifyContent: 'right', gap: 4, pt:4, flex: 8}}>
-                            <Button variant="outlined" onClick={() => navigate('/admin/users')} sx={{ flex: 4 }}>
+                    <Grid item xs={12}> 
+                        <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 2, pt:2}}>
+                            <Button variant="outlined" onClick={() => navigate('/admin/users')}>
                                 Batal
                             </Button>
-                            <Button variant="contained" type="submit" color="primary" sx={{ flex: 4 }}>
+                            <Button variant="contained" type="submit" color="primary">
                                 Simpan
                             </Button>
                         </Box>
