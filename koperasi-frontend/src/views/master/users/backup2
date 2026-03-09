@@ -5,7 +5,7 @@ import {
     Table, TableBody, TableCell, TableHead, TableRow, Typography, TableContainer,
     Paper, CircularProgress, Box, Chip, Button
 } from '@mui/material';
-import MainCard from '../../components/cards/MainCard.jsx';
+import MainCard from '../../../components/cards/MainCard.jsx';
 // import MainCard from 'ui-component/cards/MainCard';
 
 
