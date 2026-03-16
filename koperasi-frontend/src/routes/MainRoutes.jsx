@@ -9,8 +9,8 @@ import Loadable from 'ui-component/Loadable';
 const DashboardDefault = Loadable(lazy(() => import('views/dashboard/Default')));
 
 // master data koperasi
-const UserForm = Loadable(lazy(()=>import('views/users/UserForm')));
-const UserPage = Loadable(lazy(()=>import('views/users/Index')));
+const UserForm = Loadable(lazy(() => import('views/users/UserForm')));
+const UserPage = Loadable(lazy(() => import('views/users/Index')));
 
 // utilities routing
 const UtilsTypography = Loadable(lazy(() => import('views/utilities/Typography')));
@@ -19,6 +19,10 @@ const UtilsShadow = Loadable(lazy(() => import('views/utilities/Shadow')));
 
 // sample page routing
 const SamplePage = Loadable(lazy(() => import('views/sample-page')));
+
+// lead routing
+const LeadLoan = Loadable(lazy(() => import('views/lead/LeadLoan')));
+const LeadLoanDetail = Loadable(lazy(() => import('views/lead/LeadLoanDetail')));
 
 // ==============================|| MAIN ROUTING ||============================== //
 
@@ -39,30 +43,49 @@ const MainRoutes = {
         }
       ]
     },
-    // menu admin
+    // menu lead
     {
-      path:'admin',
-      children:[
+      path: 'lead',
+      children: [
         {
-          path:'users',
-          children:[
+          path: 'loans',
+          children: [
             {
-              path:'',
-              element:<UserPage />
+              path: '',
+              element: <LeadLoan />
             },
             {
-              path:'add',
-              element:<UserForm />
-            },
-            {
-              path:'edit/:id',
-              element:<UserForm />
+              path: 'detail/:id',
+              element: <LeadLoanDetail />
             }
           ]
         }
       ]
     },
-    
+    // menu admin
+    {
+      path: 'admin',
+      children: [
+        {
+          path: 'users',
+          children: [
+            {
+              path: '',
+              element: <UserPage />
+            },
+            {
+              path: 'add',
+              element: <UserForm />
+            },
+            {
+              path: 'edit/:id',
+              element: <UserForm />
+            }
+          ]
+        }
+      ]
+    },
+
     {
       path: 'typography',
       element: <UtilsTypography />
@@ -78,7 +101,7 @@ const MainRoutes = {
     {
       path: '/sample-page',
       element: <SamplePage />
-    }, 
+    },
     // {
     //   path: '/users',
     //   element: <UserPage />
