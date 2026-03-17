@@ -1,7 +1,7 @@
 <?php
 
 namespace App\Http\Controllers\Api;
-
+use Illuminate\Support\Facades\Storage;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use App\Models\User;
@@ -101,7 +101,6 @@ class UserController extends Controller
     public function update(Request $request, $id){
         $user = User::findOrFail($id);
 
-        // validasi input
         $validated = $request->validate([
             'name' => 'sometimes|required|string|max:100',
             'email' => 'sometimes|required|email|unique:users,email,'.$id,
@@ -111,42 +110,60 @@ class UserController extends Controller
             'profile_picture' => 'nullable|image|mimes:jpg,jpeg,png|max:2048'
         ]);
 
-        // logika update limit jika limit total diubah oleh admin
         if($request->has('limit_total')){
-            // hitung selisih untuk memperbarui sisa limit saat ini
             $diff = $request->limit_total - $user->limit_total;
-            $user->limit +=$diff;
+            $user->limit_total = $request->limit_total; // pastikan total limit update
+            $user->limit += $diff; // sesuaikan sisa limit
         }
 
-        // logika update foto profil 
         if($request->hasFile('profile_picture')){
-            // hapus foto lama jika ada dan bukan file default
-            if($user->profile_picture && Storage::exist('public/profile/'.$user->profile_picture)){
+            if($user->profile_picture && Storage::exists('public/profiles/'.$user->profile_picture)){
                 Storage::delete('public/profiles/'.$user->profile_picture);
             }
-
-            // simpan foto baru
-            $file = $request-> file('profile_picture');
-            $filename = time().'_'.$user->username.'_'.$file->getClientOriginalExtension();
-            $file->storeAs('public/profiles',$filename);
-
-            $user->profile_picture=$filename;
+            $file = $request->file('profile_picture');
+            $filename = time().'_'.$user->username.'.'.$file->getClientOriginalExtension();
+            $file->storeAs('public/profiles', $filename);
+            $user->profile_picture = $filename;
         }
 
-    // update sisa data (kecuali password dan profile picture yang dihandle manual)
-    $user->fill($request->except(['profile_picture', 'password','_method']));
+        $user->fill($request->except(['profile_picture', 'password','_method']));
 
-    // jika ada update password
-    if($request->filled('password')){
-        $user->password = bcrypt($request->password);
+        if($request->filled('password')){
+            $user->password = bcrypt($request->password);
+        }
+
+        $user->save();
+
+        return response()->json([
+            'status' => 'success',
+            'message' => 'Data anggota berhasil diperbarui',
+            'data' => $user
+        ],200);
     }
-    $user->save();
 
-    return response()->json([
-        'status' => 'success',
-        'message' => 'Data anggota berhasil diperbarui',
-        'data' => $user
-    ],200);
+    public function destroy($id)
+    {
+        $user = User::find($id);
 
+        // cek jika user tidak ditemukan
+        if (!$user) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'User dengan ID ' . $id . ' tidak ditemukan.'
+            ], 404);
+        }
+
+        // hapus foto profil jika ada
+        if ($user->profile_picture && Storage::exists('public/profiles/' . $user->profile_picture)) {
+            Storage::delete('public/profiles/' . $user->profile_picture);
+        }
+
+        // hapus user
+        $user->delete();
+
+        return response()->json([
+            'status' => 'success',
+            'message' => 'User berhasil dihapus'
+        ], 200);
     }
 }

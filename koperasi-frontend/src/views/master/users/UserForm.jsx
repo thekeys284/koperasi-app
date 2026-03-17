@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Button, TextField, Grid, MenuItem, Box, Typography, Autocomplete} from "@mui/material";
-import MainCard from '../../components/cards/MainCard.jsx';
+import MainCard from '../../../components/cards/MainCard.jsx';
 import api from "@/api/axios.js";
 import { InputAdornment, IconButton} from "@mui/material";
 import { Visibility, VisibilityOff } from "@mui/icons-material";
@@ -117,9 +117,8 @@ const UserForm = () =>{
 
         try {
             if (isEdit){
-                // kirim via post tapi tambahkan dengan field method PUT
                 data.append('_method', 'PUT');
-                await api.put(`/users/${id}`, data,{
+                await api.post(`/users/${id}`, data,{
                     headers:{'Content-Type':'multipart/form-data'}
                 });
             } else{

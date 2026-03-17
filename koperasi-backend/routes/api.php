@@ -1,6 +1,7 @@
 <?php
 use App\Http\Controllers\Api\ProductController;
 use App\Http\Controllers\Api\TransactionController;
+use App\Http\Controllers\Api\CategoryController;
 
 // API Master Data
 
@@ -16,8 +17,22 @@ Route::prefix('users')->group(function(){
     Route::post('/', [UserController::class, 'store']);
     Route::get('/{id}', [UserController::class, 'show']);
     Route::post('/{id}',[UserController::class, 'update']);
+    Route::post('/delete/{id}', [UserController::class, 'destroy']);
 });
 
+Route::prefix('products')->group(function(){
+    Route::get('/', [ProductController::class, 'index']);
+    Route::post('/', [ProductController::class, 'store']);
+    Route::get('/{id}', [ProductController::class, 'show']);
+    Route::post('/{id}',[ProductController::class, 'update']);
+});
+
+Route::prefix('categories')->group(function(){
+    Route::get('/', [CategoryController::class, 'index']);
+    Route::post('/', [CategoryController::class, 'store']);
+    Route::get('/{id}', [CategoryController::class, 'show']);
+    Route::post('/{id}',[CategoryController::class, 'update']);
+});
 // Route::get('/products', [ProductController::class, 'index']);
 // Route::get('/categories', [MasterController::class, 'categories']);
 // Route::get('/units', [MasterController::class, 'units']);
