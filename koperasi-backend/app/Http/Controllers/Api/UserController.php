@@ -10,26 +10,25 @@ use Illuminate\Support\Facades\Hash;
 class UserController extends Controller
 {
     public function index(){
-        return User::whereIn('role',['user','admin', 'operator'])->get();
-        // return User::all();
+        // return User::whereIn('role',['user','admin', 'operator'])->get();
+        return response()->json(User::latest()->get());
     }
 
     public function store (Request $request){
 
         // Validasi Input
         $validated = $request->validate([
-             'name' => 'required|string',
-             'username' => 'required|unique:users',
-             'email' => 'required|email|unique:users',
-             'password' => 'required|min:6',
-             'satker' => 'string',
-             'role' => 'string', 
-             'limit_total' => 'numeric|min:0',
-             'profile_picture' => 'nullable|image|mimes:jpg,jpeg,png|max:2048',
+             'name'             => 'required|string',
+             'username'         => 'required|unique:users, username',
+             'email'            => 'required|email|unique:users, email',
+             'password'         => 'required|min:6',
+             'satker'           => 'string',
+             'role'             => 'required|in:admin,operator,user,pj_toko,pj_pinjaman,ketua', 
+             'profile_picture'  => 'nullable|image|mimes:jpg,jpeg,png|max:2048',
         ]);
 
         // Enkripsi password
-        $validated['password'] = bcrypt($validated['password']);
+        $validated['password'] = Hash::make($request->password);
 
         // set sisa limit awal agar sama dengan limit total
         $validated['limit'] = $request->limit_total;
