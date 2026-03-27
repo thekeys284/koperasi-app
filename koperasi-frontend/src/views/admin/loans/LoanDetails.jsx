@@ -16,6 +16,7 @@ import {
   Stack,
   Breadcrumbs,
   Link,
+  LinearProgress,
 } from "@mui/material";
 
 import DownloadIcon from "@mui/icons-material/Download";
@@ -54,6 +55,18 @@ export default function LoanDetails() {
         <Typography color="text.primary">Detail Pinjaman</Typography>
       </Breadcrumbs>
 
+      {/* LABEL */}
+      <Chip
+        label="Pinjaman Aktif"
+        sx={{
+          background: "#DBEAFE",
+          color: "#2563EB",
+          fontWeight: 600,
+          mb: 1,
+        }}
+        size="small"
+      />
+
       {/* HEADER */}
       <Stack
         direction="row"
@@ -61,14 +74,7 @@ export default function LoanDetails() {
         alignItems="center"
         mt={1}
       >
-        <Box>
-          <Chip
-            label="PINJAMAN AKTIF"
-            size="small"
-            color="primary"
-            sx={{ mb: 1 }}
-          />
-
+        <Box> 
           <Typography variant="h5" fontWeight={700}>
             ID Pinjam: #PJM-2023001
           </Typography>
@@ -77,84 +83,132 @@ export default function LoanDetails() {
         <Button
           variant="contained"
           startIcon={<DownloadIcon />}
-          sx={{ borderRadius: 3 }}
+          sx={{
+            borderRadius: "8px",
+            textTransform: "none",
+            fontWeight: 600,
+            px: 3,
+            py: 0.8,
+            backgroundColor: "#2563EB",
+            boxShadow: "0 4px 14px 0 rgba(37, 99, 235, 0.39)",
+            "&:hover": {
+              backgroundColor: "#1D4ED8",
+              boxShadow: "0 6px 20px rgba(37, 99, 235, 0.23)",
+            }
+          }}
         >
           Cetak Rekap
         </Button>
       </Stack>
 
-      {/* STAT CARD */}
-      <Box
-        sx={{
-          display: "flex",
-          gap: "24px",
-          mt: 4,
-          flexWrap: "wrap",
-        }}
-      >
-        <StatCard
-          title="Total Pinjaman Pokok"
-          value="Rp 5.000.000"
-          color="blue"
-          icon={<img src={fileBlueIcon} width={24} />}
-        />
+      {/* STAT CARDS */}
+      <Stack direction={{ xs: 'column', sm: 'row' }} spacing={3} mt={4} width="100%">
+        <Card sx={{ flex: 1, borderRadius: 3, border: "1px solid #E5E7EB", boxShadow: "none" }}>
+          <CardContent>
+            <Typography fontSize={15} fontWeight={600} color="#64748B" mb={1}>
+              Total Pinjaman Pokok
+            </Typography>
+            </Typography>
+            <Typography fontSize={28} fontWeight={800} color="#16A34A">
+              Rp 2.000.000
+            </Typography>
+            <LinearProgress
+              variant="determinate"
+              value={40}
+              sx={{
+                mt: 1.5,
+                borderRadius: 2,
+                height: 6,
+                backgroundColor: "#E5E7EB",
+                "& .MuiLinearProgress-bar": {
+                  backgroundColor: "#16A34A",
+                  borderRadius: 2,
+                },
+              }}
+            />
+          </CardContent>
+        </Card>
 
-        <StatCard
-          title="Total Terbayar"
-          value="Rp 2.000.000"
-          color="green"
-          icon={<img src={checkGreenIcon} width={24} />}
-        />
-
-        <StatCard
-          title="Sisa Pinjaman"
-          value="Rp 3.000.000"
-          color="orange"
-          icon={<img src={alertOrangeIcon} width={24} />}
-        />
-      </Box>
+        <Card sx={{ flex: 1, borderRadius: 3, border: "1px solid #E5E7EB", boxShadow: "none" }}>
+          <CardContent>
+            <Typography fontSize={15} fontWeight={600} color="#64748B" mb={1}>
+              Sisa Pinjaman
+            </Typography>
+            <Typography fontSize={28} fontWeight={800} color="#EF4444">
+              Rp 3.000.000
+            </Typography>
+            <Typography fontSize={13} fontWeight={500} color="#94A3B8" sx={{ display: "block", mt: 1 }}>
+              3 dari 5 cicilan tersisa
+            </Typography>
+          </CardContent>
+        </Card>
+      </Stack>
 
       {/* INFORMASI PINJAMAN */}
-      <Card sx={{ mt: 4, borderRadius: 3 }}>
-        <CardContent>
-          <Stack
-            direction="row"
-            justifyContent="space-between"
-            alignItems="center"
-            mb={2}
-          >
-            <Typography fontWeight={700}>Informasi Pinjaman</Typography>
+      <Card sx={{ mt: 4, borderRadius: 3, border: "1px solid #E5E7EB", boxShadow: "none" }}>
+        <Stack
+          direction="row"
+          justifyContent="space-between"
+          alignItems="center"
+          sx={{ p: 2, px: 3 }}
+        >
+          <Typography fontWeight={700} color="#1E293B">Informasi Pinjaman</Typography>
 
-            <Chip label="KONSUMTIF" size="small" color="secondary" />
-          </Stack>
+          <Chip
+            label="KONSUMTIF"
+            size="small"
+            sx={{
+              background: "#F3E8FF",
+              color: "#9333EA",
+              fontWeight: 700,
+            }}
+          />
+        </Stack>
 
-          <Grid container spacing={2}>
-            <Grid item xs={6}>
-              <Typography color="text.secondary">Jenis Pinjaman</Typography>
-              <Typography>Konsumtif</Typography>
-            </Grid>
-
-            <Grid item xs={6}>
-              <Typography color="text.secondary">Jumlah Pinjaman</Typography>
-              <Typography>Rp 5.000.000</Typography>
-            </Grid>
-
-            <Grid item xs={6}>
-              <Typography color="text.secondary">Tenor</Typography>
-              <Typography>5 Bulan</Typography>
-            </Grid>
-
-            <Grid item xs={6}>
-              <Typography color="text.secondary">Tgl Potong</Typography>
-              <Typography>12 Okt 2023</Typography>
-            </Grid>
-
-            <Grid item xs={6}>
-              <Typography color="text.secondary">Tgl Pengajuan</Typography>
-              <Typography>10 Okt 2023</Typography>
-            </Grid>
-          </Grid>
-        </CardContent>
+        <Table>
+          <TableBody>
+            <TableRow>
+              <TableCell sx={{ width: "30%", color: "#334155", fontWeight: 600, borderBottom: "none", borderTop: "1px solid #E5E7EB", px: 3, py: 1.5 }}>
+                Jenis Pinjaman
+              </TableCell>
+              <TableCell sx={{ color: "#64748B", borderBottom: "none", borderTop: "1px solid #E5E7EB", px: 3, py: 1.5 }}>
+                Konsumtif
+              </TableCell>
+            </TableRow>
+            <TableRow>
+              <TableCell sx={{ width: "30%", color: "#334155", fontWeight: 600, borderBottom: "none", px: 3, py: 1.5 }}>
+                Jumlah Pinjaman
+              </TableCell>
+              <TableCell sx={{ color: "#64748B", borderBottom: "none", px: 3, py: 1.5 }}>
+                Rp 5.000.000
+              </TableCell>
+            </TableRow>
+            <TableRow>
+              <TableCell sx={{ width: "30%", color: "#334155", fontWeight: 600, borderBottom: "none", px: 3, py: 1.5 }}>
+                Tenor
+              </TableCell>
+              <TableCell sx={{ color: "#64748B", borderBottom: "none", px: 3, py: 1.5 }}>
+                5 Bulan
+              </TableCell>
+            </TableRow>
+            <TableRow>
+              <TableCell sx={{ width: "30%", color: "#334155", fontWeight: 600, borderBottom: "none", px: 3, py: 1.5 }}>
+                Tgl Potong
+              </TableCell>
+              <TableCell sx={{ color: "#64748B", borderBottom: "none", px: 3, py: 1.5 }}>
+                12 Okt 2023
+              </TableCell>
+            </TableRow>
+            <TableRow>
+              <TableCell sx={{ width: "30%", color: "#334155", fontWeight: 600, borderBottom: "none", px: 3, py: 1.5 }}>
+                Tgl Pengajuan
+              </TableCell>
+              <TableCell sx={{ color: "#64748B", borderBottom: "none", px: 3, py: 1.5 }}>
+                10 Okt 2023
+              </TableCell>
+            </TableRow>
+          </TableBody>
+        </Table>
       </Card>
 
       {/* JADWAL CICILAN */}
@@ -164,25 +218,44 @@ export default function LoanDetails() {
             Jadwal Pembayaran Cicilan
           </Typography>
 
-          <Table>
-            <TableHead>
-              <TableRow
-                sx={{
-                  backgroundColor: "#f3f4f6",
-                  "& .MuiTableCell-head": {
-                    fontWeight: 700,
-                    fontSize: "12px",
-                    color: "#64748b",
-                  },
-                }}
-              >
-                <TableCell>ID CICILAN</TableCell>
-                <TableCell>CICILAN KE</TableCell>
-                <TableCell>TANGGAL JATUH TEMPO</TableCell>
-                <TableCell>NOMINAL</TableCell>
-                <TableCell>STATUS</TableCell>
-              </TableRow>
-            </TableHead>
+          <Box sx={{ overflowX: "auto" }}>
+            <Table
+              sx={{
+                minWidth: 600,
+                "& .MuiTableBody-root .MuiTableRow-root": {
+                  transition: "background-color 0.2s",
+                },
+                "& .MuiTableBody-root .MuiTableRow-root:hover": {
+                  backgroundColor: "#F8FAFC",
+                },
+                "& .MuiTableCell-root": {
+                  borderBottom: "1px solid #F1F5F9",
+                  py: 2,
+                  px: 2,
+                },
+              }}
+            >
+              <TableHead>
+                <TableRow
+                  sx={{
+                    backgroundColor: "#F8FAFC",
+                    "& .MuiTableCell-head": {
+                      fontWeight: 700,
+                      fontSize: "12px",
+                      color: "#475569",
+                      letterSpacing: "0.5px",
+                      textTransform: "uppercase",
+                      borderBottom: "2px solid #E2E8F0",
+                    },
+                  }}
+                >
+                  <TableCell>ID CICILAN</TableCell>
+                  <TableCell>CICILAN KE</TableCell>
+                  <TableCell>TANGGAL JATUH TEMPO</TableCell>
+                  <TableCell>NOMINAL</TableCell>
+                  <TableCell>STATUS</TableCell>
+                </TableRow>
+              </TableHead>
 
             <TableBody>
               <TableRow>
@@ -242,7 +315,8 @@ export default function LoanDetails() {
                 </TableCell>
               </TableRow>
             </TableBody>
-          </Table>
+            </Table>
+          </Box>
         </CardContent>
       </Card>
 

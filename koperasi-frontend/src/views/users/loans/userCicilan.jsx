@@ -21,6 +21,7 @@ import {
 
 import NavigateNextIcon from "@mui/icons-material/NavigateNext";
 import MoreVertIcon from "@mui/icons-material/MoreVert";
+import DownloadIcon from "@mui/icons-material/Download";
 
 import PostponeInstallmentModal from "../../../ui-component/cards/Loans/User/userTundaCicilan";
 
@@ -104,54 +105,74 @@ const UserCicilan = () => {
                     ID Pinjam: #PJM-2023001
                 </Typography>
 
-                <Button variant="contained">
+                <Button 
+                    variant="contained"
+                    startIcon={<DownloadIcon />}
+                    sx={{
+                        borderRadius: "8px",
+                        textTransform: "none",
+                        fontWeight: 600,
+                        px: 3,
+                        py: 0.8,
+                        backgroundColor: "#2563EB",
+                        boxShadow: "0 4px 14px 0 rgba(37, 99, 235, 0.39)",
+                        "&:hover": {
+                            backgroundColor: "#1D4ED8",
+                            boxShadow: "0 6px 20px rgba(37, 99, 235, 0.23)",
+                        }
+                    }}
+                >
                     Cetak Rekap
                 </Button>
             </Stack>
 
             {/* STAT CARDS */}
-            <Stack direction="row" spacing={3} mb={4}>
-
-                <Card sx={{ flex: 1, borderRadius: 3 }}>
+            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={3} mb={4} width="100%">
+                <Card sx={{ flex: 1, borderRadius: 3, border: "1px solid #E5E7EB", boxShadow: "none" }}>
                     <CardContent>
-                        <Typography color="text.secondary">
+                        <Typography fontSize={15} fontWeight={600} color="#64748B" mb={1}>
                             Total Pinjaman Pokok
                         </Typography>
-                        <Typography fontWeight={800} fontSize={22} color="primary">
+                        <Typography fontSize={28} fontWeight={800} color="#2563EB">
                             Rp 5.000.000
                         </Typography>
                     </CardContent>
                 </Card>
 
-                <Card sx={{ flex: 1, borderRadius: 3 }}>
+                <Card sx={{ flex: 1, borderRadius: 3, border: "1px solid #E5E7EB", boxShadow: "none" }}>
                     <CardContent>
-                        <Typography color="text.secondary">
+                        <Typography fontSize={15} fontWeight={600} color="#64748B" mb={1}>
                             Total Terbayar
                         </Typography>
-
-                        <Typography fontWeight={800} fontSize={22} color="#16A34A">
+                        <Typography fontSize={28} fontWeight={800} color="#16A34A">
                             Rp 2.000.000
                         </Typography>
-
                         <LinearProgress
                             variant="determinate"
                             value={40}
-                            sx={{ mt: 2, borderRadius: 2 }}
+                            sx={{
+                                mt: 1.5,
+                                borderRadius: 2,
+                                height: 6,
+                                backgroundColor: "#E5E7EB",
+                                "& .MuiLinearProgress-bar": {
+                                    backgroundColor: "#16A34A",
+                                    borderRadius: 2,
+                                },
+                            }}
                         />
                     </CardContent>
                 </Card>
 
-                <Card sx={{ flex: 1, borderRadius: 3 }}>
+                <Card sx={{ flex: 1, borderRadius: 3, border: "1px solid #E5E7EB", boxShadow: "none" }}>
                     <CardContent>
-                        <Typography color="text.secondary">
+                        <Typography fontSize={15} fontWeight={600} color="#64748B" mb={1}>
                             Sisa Pinjaman
                         </Typography>
-
-                        <Typography fontWeight={800} fontSize={22} color="#DC2626">
+                        <Typography fontSize={28} fontWeight={800} color="#EF4444">
                             Rp 3.000.000
                         </Typography>
-
-                        <Typography fontSize={12} color="text.secondary">
+                        <Typography fontSize={13} fontWeight={500} color="#94A3B8" sx={{ display: "block", mt: 1 }}>
                             3 dari 5 cicilan tersisa
                         </Typography>
                     </CardContent>
@@ -159,69 +180,70 @@ const UserCicilan = () => {
             </Stack>
 
             {/* INFORMASI PINJAMAN */}
-            <Card sx={{ borderRadius: 3, mb: 4 }}>
-                <CardContent>
+            <Card sx={{ borderRadius: 3, border: "1px solid #E5E7EB", boxShadow: "none", mb: 4 }}>
+                <Stack
+                    direction="row"
+                    justifyContent="space-between"
+                    alignItems="center"
+                    sx={{ p: 2, px: 3 }}
+                >
+                    <Typography fontWeight={700} color="#1E293B">Informasi Pinjaman</Typography>
 
-                    <Stack
-                        direction="row"
-                        justifyContent="space-between"
-                        mb={2}
-                    >
-                        <Typography fontWeight={700}>
-                            Informasi Pinjaman
-                        </Typography>
+                    <Chip
+                        label="KONSUMTIF"
+                        size="small"
+                        sx={{
+                            background: "#F3E8FF",
+                            color: "#9333EA",
+                            fontWeight: 700,
+                        }}
+                    />
+                </Stack>
 
-                        <Chip
-                            label="KONSUMTIF"
-                            size="small"
-                            sx={{
-                                background: "#F3E8FF",
-                                color: "#9333EA",
-                                fontWeight: 700,
-                            }}
-                        />
-                    </Stack>
-
-                    <Stack spacing={2}>
-
-                        <Stack direction="row" justifyContent="space-between">
-                            <Typography color="text.secondary">
+                <Table>
+                    <TableBody>
+                        <TableRow>
+                            <TableCell sx={{ width: "30%", color: "#334155", fontWeight: 600, borderBottom: "none", borderTop: "1px solid #E5E7EB", px: 3, py: 1.5 }}>
                                 Jenis Pinjaman
-                            </Typography>
-                            <Typography>Konsumtif</Typography>
-                        </Stack>
-
-                        <Stack direction="row" justifyContent="space-between">
-                            <Typography color="text.secondary">
+                            </TableCell>
+                            <TableCell sx={{ color: "#64748B", borderBottom: "none", borderTop: "1px solid #E5E7EB", px: 3, py: 1.5 }}>
+                                Konsumtif
+                            </TableCell>
+                        </TableRow>
+                        <TableRow>
+                            <TableCell sx={{ width: "30%", color: "#334155", fontWeight: 600, borderBottom: "none", px: 3, py: 1.5 }}>
                                 Jumlah Pinjaman
-                            </Typography>
-                            <Typography>Rp 5.000.000</Typography>
-                        </Stack>
-
-                        <Stack direction="row" justifyContent="space-between">
-                            <Typography color="text.secondary">
+                            </TableCell>
+                            <TableCell sx={{ color: "#64748B", borderBottom: "none", px: 3, py: 1.5 }}>
+                                Rp 5.000.000
+                            </TableCell>
+                        </TableRow>
+                        <TableRow>
+                            <TableCell sx={{ width: "30%", color: "#334155", fontWeight: 600, borderBottom: "none", px: 3, py: 1.5 }}>
                                 Tenor
-                            </Typography>
-                            <Typography>5 Bulan</Typography>
-                        </Stack>
-
-                        <Stack direction="row" justifyContent="space-between">
-                            <Typography color="text.secondary">
+                            </TableCell>
+                            <TableCell sx={{ color: "#64748B", borderBottom: "none", px: 3, py: 1.5 }}>
+                                5 Bulan
+                            </TableCell>
+                        </TableRow>
+                        <TableRow>
+                            <TableCell sx={{ width: "30%", color: "#334155", fontWeight: 600, borderBottom: "none", px: 3, py: 1.5 }}>
                                 Tgl Potong
-                            </Typography>
-                            <Typography>12 Okt 2023</Typography>
-                        </Stack>
-
-                        <Stack direction="row" justifyContent="space-between">
-                            <Typography color="text.secondary">
+                            </TableCell>
+                            <TableCell sx={{ color: "#64748B", borderBottom: "none", px: 3, py: 1.5 }}>
+                                12 Okt 2023
+                            </TableCell>
+                        </TableRow>
+                        <TableRow>
+                            <TableCell sx={{ width: "30%", color: "#334155", fontWeight: 600, borderBottom: "none", px: 3, py: 1.5 }}>
                                 Tgl Pengajuan
-                            </Typography>
-                            <Typography>10 Okt 2023</Typography>
-                        </Stack>
-
-                    </Stack>
-
-                </CardContent>
+                            </TableCell>
+                            <TableCell sx={{ color: "#64748B", borderBottom: "none", px: 3, py: 1.5 }}>
+                                10 Okt 2023
+                            </TableCell>
+                        </TableRow>
+                    </TableBody>
+                </Table>
             </Card>
 
             {/* JADWAL CICILAN */}
@@ -269,26 +291,46 @@ const UserCicilan = () => {
                         </Stack>
                     </Stack>
 
-                    <Table>
+                    <Box sx={{ overflowX: "auto" }}>
+                        <Table
+                            sx={{
+                                minWidth: 600,
+                                "& .MuiTableBody-root .MuiTableRow-root": {
+                                    transition: "background-color 0.2s",
+                                },
+                                "& .MuiTableBody-root .MuiTableRow-root:hover": {
+                                    backgroundColor: "#F8FAFC",
+                                },
+                                "& .MuiTableCell-root": {
+                                    borderBottom: "1px solid #F1F5F9",
+                                    py: 2,
+                                    px: 2,
+                                },
+                            }}
+                        >
 
-                        <TableHead>
-                            <TableRow
-                                sx={{
-                                    background: "#F3F4F6",
-                                    "& .MuiTableCell-head": {
-                                        fontWeight: 700,
-                                        fontSize: 12,
-                                        color: "#64748B",
-                                    },
-                                }}
-                            >
-                                <TableCell>ID CICILAN</TableCell>
-                                <TableCell>CICILAN KE-</TableCell>
-                                <TableCell>TANGGAL JATUH TEMPO</TableCell>
-                                <TableCell>NOMINAL</TableCell>
-                                <TableCell>STATUS</TableCell>
-                            </TableRow>
-                        </TableHead>
+                            <TableHead>
+                                <TableRow
+                                    sx={{
+                                        backgroundColor: "#F8FAFC",
+                                        "& .MuiTableCell-head": {
+                                            fontWeight: 700,
+                                            fontSize: "12px",
+                                            color: "#475569",
+                                            letterSpacing: "0.5px",
+                                            textTransform: "uppercase",
+                                            borderBottom: "2px solid #E2E8F0",
+                                        },
+                                    }}
+                                >
+                                    <TableCell>ID CICILAN</TableCell>
+                                    <TableCell>CICILAN KE-</TableCell>
+                                    <TableCell>TANGGAL JATUH TEMPO</TableCell>
+                                    <TableCell>NOMINAL</TableCell>
+                                    <TableCell>STATUS</TableCell>
+                                    <TableCell align="center">AKSI</TableCell>
+                                </TableRow>
+                            </TableHead>
 
                         <TableBody>
 
@@ -300,6 +342,7 @@ const UserCicilan = () => {
                                 <TableCell>
                                     <StatusChip status="paid" />
                                 </TableCell>
+                                <TableCell align="center"></TableCell>
                             </TableRow>
 
                             <TableRow>
@@ -310,6 +353,7 @@ const UserCicilan = () => {
                                 <TableCell>
                                     <StatusChip status="paid" />
                                 </TableCell>
+                                <TableCell align="center"></TableCell>
                             </TableRow>
 
                             <TableRow sx={{ background: "#F9FAFB" }}>
@@ -318,12 +362,27 @@ const UserCicilan = () => {
                                 <TableCell>12 Des 2023</TableCell>
                                 <TableCell>Rp 1.000.000</TableCell>
                                 <TableCell>
-                                    <Stack direction="row" alignItems="center" spacing={1}>
-                                        <StatusChip status="unpaid" />
-                                        <IconButton size="small" onClick={() => setOpenPostpone(true)}>
-                                            <MoreVertIcon fontSize="small" />
-                                        </IconButton>
-                                    </Stack>
+                                    <StatusChip status="unpaid" />
+                                </TableCell>
+                                <TableCell align="center">
+                                    <Button
+                                        size="small"
+                                        variant="contained"
+                                        onClick={() => setOpenPostpone(true)}
+                                        sx={{
+                                            borderRadius: "6px",
+                                            textTransform: "none",
+                                            fontWeight: 600,
+                                            backgroundColor: "#3B82F6",
+                                            color: "#FFFFFF",
+                                            boxShadow: "0 2px 8px rgba(59, 130, 246, 0.25)",
+                                            "&:hover": {
+                                                backgroundColor: "#2563EB",
+                                            }
+                                        }}
+                                    >
+                                        Tunda Cicilan
+                                    </Button>
                                 </TableCell>
                             </TableRow>
 
@@ -335,6 +394,7 @@ const UserCicilan = () => {
                                 <TableCell>
                                     <StatusChip status="locked" />
                                 </TableCell>
+                                <TableCell align="center"></TableCell>
                             </TableRow>
 
                             <TableRow>
@@ -345,10 +405,12 @@ const UserCicilan = () => {
                                 <TableCell>
                                     <StatusChip status="locked" />
                                 </TableCell>
+                                <TableCell align="center"></TableCell>
                             </TableRow>
 
                         </TableBody>
-                    </Table>
+                        </Table>
+                    </Box>
 
                 </CardContent>
             </Card>

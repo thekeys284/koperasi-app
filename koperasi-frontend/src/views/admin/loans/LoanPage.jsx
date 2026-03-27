@@ -28,6 +28,7 @@ import {
 } from "@mui/material";
 
 import NavigateNextIcon from "@mui/icons-material/NavigateNext";
+import MoreVertIcon from "@mui/icons-material/MoreVert";
 
 import FilterListIcon from "@mui/icons-material/FilterList";
 
@@ -60,6 +61,26 @@ const StatusBadge = ({ status }) => {
         background: config.bg,
         color: config.color,
         fontWeight: 600,
+      }}
+    />
+  );
+};
+
+const LoanTypeBadge = ({ type }) => {
+  const config = {
+    konsumtif: { bg: "#F3E8FF", color: "#9333EA" },
+    produktif: { bg: "#DBEAFE", color: "#2563EB" },
+  };
+
+  return (
+    <Chip
+      label={type}
+      size="small"
+      sx={{
+        background: config[type].bg,
+        color: config[type].color,
+        fontWeight: 600,
+        textTransform: "uppercase",
       }}
     />
   );
@@ -130,27 +151,45 @@ const LoanPage = () => {
             Daftar Penundaan Pinjaman
           </Typography>
 
-          <Table>
-            <TableHead>
-              <TableRow
-                sx={{
-                  backgroundColor: "#f3f4f6",
-                  "& .MuiTableCell-head": {
-                    fontWeight: 800,
-                    color: "#64748b",
-                    fontSize: "12px",
-                    letterSpacing: "0.5px",
-                  },
-                }}
-              >
-                <TableCell>ID & TGL PENGAJUAN</TableCell>
-                <TableCell>ANGGOTA</TableCell>
-                <TableCell>JENIS & JUMLAH</TableCell>
-                <TableCell>TENOR</TableCell>
-                <TableCell>STATUS</TableCell>
-                <TableCell>AKSI</TableCell>
-              </TableRow>
-            </TableHead>
+          <Box sx={{ overflowX: "auto" }}>
+            <Table
+              sx={{
+                minWidth: 600,
+                "& .MuiTableBody-root .MuiTableRow-root": {
+                  transition: "background-color 0.2s",
+                },
+                "& .MuiTableBody-root .MuiTableRow-root:hover": {
+                  backgroundColor: "#F8FAFC",
+                },
+                "& .MuiTableCell-root": {
+                  borderBottom: "1px solid #F1F5F9",
+                  py: 2,
+                  px: 2,
+                },
+              }}
+            >
+              <TableHead>
+                <TableRow
+                  sx={{
+                    backgroundColor: "#F8FAFC",
+                    "& .MuiTableCell-head": {
+                      fontWeight: 700,
+                      fontSize: "12px",
+                      color: "#475569",
+                      letterSpacing: "0.5px",
+                      textTransform: "uppercase",
+                      borderBottom: "2px solid #E2E8F0",
+                    },
+                  }}
+                >
+                  <TableCell>ID & TGL PENGAJUAN</TableCell>
+                  <TableCell>ANGGOTA</TableCell>
+                  <TableCell>JENIS & JUMLAH</TableCell>
+                  <TableCell>TENOR</TableCell>
+                  <TableCell>STATUS</TableCell>
+                  <TableCell>DETAIL</TableCell>
+                </TableRow>
+              </TableHead>
 
             <TableBody>
               <TableRow>
@@ -171,7 +210,7 @@ const LoanPage = () => {
                 </TableCell>
 
                 <TableCell>
-                  <Typography>Pinjaman Produktif</Typography>
+                  <LoanTypeBadge type="produktif" />
                   <Typography fontWeight={700}>Rp 5.000.000</Typography>
                 </TableCell>
 
@@ -182,16 +221,14 @@ const LoanPage = () => {
                 </TableCell>
 
                 <TableCell>
-                  <Button
-                    size="small"
-                    onClick={() => navigate("/admin/loans/details")}
-                  >
-                    Detail
-                  </Button>
+                  <IconButton onClick={() => navigate("/admin/loans/details")}>
+                    <MoreVertIcon />
+                  </IconButton>
                 </TableCell>
               </TableRow>
             </TableBody>
-          </Table>
+            </Table>
+          </Box>
 
           <Stack
             direction="row"
@@ -234,7 +271,7 @@ const LoanPage = () => {
               Daftar Pinjaman Aktif
             </Typography>
 
-            <Stack direction="row" spacing={1}>
+            {/* <Stack direction="row" spacing={1}>
               <Select size="small" defaultValue="semua">
                 <MenuItem value="semua">Semua Status</MenuItem>
                 <MenuItem value="aktif">Aktif</MenuItem>
@@ -244,30 +281,48 @@ const LoanPage = () => {
               <IconButton>
                 <FilterListIcon />
               </IconButton>
-            </Stack>
+            </Stack> */}
           </Stack>
 
-          <Table>
-            <TableHead>
-              <TableRow
-                sx={{
-                  backgroundColor: "#f3f4f6",
-                  "& .MuiTableCell-head": {
-                    fontWeight: 800,
-                    color: "#64748b",
-                    fontSize: "12px",
-                    letterSpacing: "0.5px",
-                  },
-                }}
-              >
-                <TableCell>ID & TGL PENGAJUAN</TableCell>
-                <TableCell>ANGGOTA</TableCell>
-                <TableCell>JENIS & JUMLAH</TableCell>
-                <TableCell>TENOR</TableCell>
-                <TableCell>STATUS</TableCell>
-                <TableCell>AKSI</TableCell>
-              </TableRow>
-            </TableHead>
+          <Box sx={{ overflowX: "auto" }}>
+            <Table
+              sx={{
+                minWidth: 600,
+                "& .MuiTableBody-root .MuiTableRow-root": {
+                  transition: "background-color 0.2s",
+                },
+                "& .MuiTableBody-root .MuiTableRow-root:hover": {
+                  backgroundColor: "#F8FAFC",
+                },
+                "& .MuiTableCell-root": {
+                  borderBottom: "1px solid #F1F5F9",
+                  py: 2,
+                  px: 2,
+                },
+              }}
+            >
+              <TableHead>
+                <TableRow
+                  sx={{
+                    backgroundColor: "#F8FAFC",
+                    "& .MuiTableCell-head": {
+                      fontWeight: 700,
+                      fontSize: "12px",
+                      color: "#475569",
+                      letterSpacing: "0.5px",
+                      textTransform: "uppercase",
+                      borderBottom: "2px solid #E2E8F0",
+                    },
+                  }}
+                >
+                  <TableCell>ID & TGL PENGAJUAN</TableCell>
+                  <TableCell>ANGGOTA</TableCell>
+                  <TableCell>JENIS & JUMLAH</TableCell>
+                  <TableCell>TENOR</TableCell>
+                  <TableCell>STATUS</TableCell>
+                  <TableCell>DETAIL</TableCell>
+                </TableRow>
+              </TableHead>
 
             <TableBody>
               <TableRow>
@@ -288,7 +343,7 @@ const LoanPage = () => {
                 </TableCell>
 
                 <TableCell>
-                  <Typography>Pinjaman Konsumtif</Typography>
+                  <LoanTypeBadge type="konsumtif" />
                   <Typography fontWeight={700}>Rp 5.000.000</Typography>
                 </TableCell>
 
@@ -299,16 +354,14 @@ const LoanPage = () => {
                 </TableCell>
 
                 <TableCell>
-                  <Button
-                    size="small"
-                    onClick={() => navigate("/admin/loans/details")}
-                  >
-                    Detail
-                  </Button>
+                  <IconButton onClick={() => navigate("/admin/loans/details")}>
+                    <MoreVertIcon />
+                  </IconButton>
                 </TableCell>
               </TableRow>
             </TableBody>
-          </Table>
+            </Table>
+          </Box>
 
           <Stack
             direction="row"
