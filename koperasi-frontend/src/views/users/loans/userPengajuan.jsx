@@ -12,216 +12,296 @@ import {
     Select,
     Button,
     InputAdornment,
-    Paper
+    Paper,
+    Alert
 } from "@mui/material";
 
-import MainCard from "ui-component/cards/MainCard";
 import {
     IconFileDescription,
-    IconLock,
-    IconInfoCircle,
+    IconPaperclip,
     IconChevronDown,
-    IconPaperclip
+    IconLock,
+    IconInfoCircle
 } from "@tabler/icons-react";
 
-const LeadLoanCreatePage = () => {
-    const [tipePinjaman, setTipePinjaman] = React.useState("produktif");
-    const [fileName, setFileName] = React.useState("");
-    const fileInputRef = React.useRef(null);
+const formatRupiah = (value) => {
+    if (!value) return "0";
+    return new Intl.NumberFormat("id-ID").format(value);
+};
 
-    const handleFileChange = (event) => {
-        const file = event.target.files[0];
-        if (file) {
-            setFileName(file.name);
+const cardSx = {
+    p: { xs: 2.5, sm: 3, md: 4 },
+    borderRadius: "20px",
+    bgcolor: "background.paper",
+    boxShadow: "0 1px 3px rgba(15, 23, 42, 0.08), 0 4px 12px rgba(15, 23, 42, 0.06)",
+    width: "100%",
+    boxSizing: "border-box"
+};
+
+const LeadLoanCreatePage = () => {
+    const [tipePinjaman, setTipePinjaman] = React.useState("konsumtif");
+    const [jumlah, setJumlah] = React.useState(0);
+    const [tenor, setTenor] = React.useState(3);
+    const [cicilan, setCicilan] = React.useState(0);
+    const [fileName, setFileName] = React.useState("");
+    const [bulanPotongGaji, setBulanPotongGaji] = React.useState("");
+    const fileRef = React.useRef();
+
+    React.useEffect(() => {
+        if (jumlah && tenor) {
+            setCicilan(Math.ceil(jumlah / tenor));
+        } else {
+            setCicilan(0);
         }
+    }, [jumlah, tenor]);
+
+    const handleJumlah = (e) => {
+        const raw = e.target.value.replace(/\D/g, "");
+        setJumlah(Number(raw));
     };
+
+    const handleFile = (e) => {
+        const file = e.target.files[0];
+        if (file) setFileName(file.name);
+    };
+
+    const tenorLabel = jumlah > 0 ? tenor : 0;
 
     return (
         <Box
             sx={{
-                p: { xs: 3, md: 5 },
-                maxWidth: 1600,
-                mx: "auto",
-                minHeight: "100vh"
+                width: "100%",
+                maxWidth: "100%",
+                boxSizing: "border-box",
+                pl: { xs: 2, sm: 3, md: 4, lg: 5 }
             }}
         >
-            {/* HEADER */}
-            <Box sx={{ mb: 4 }}>
-                <Typography variant="h2" fontWeight={800}> Pengajuan Pinjaman Baru </Typography>
-                <Typography color="#64748b" fontSize={16} mt={1}> Silakan lengkapi rincian pengajuan pinjaman Anda untuk proses verifikasi otomatis. </Typography>
-            </Box>
 
-            <Grid container spacing={4}>
-                {/* FORM */}
-                <Grid item xs={12} md={7}>
-                    <MainCard
-                        title={
-                            <Stack direction="row" spacing={1.5} alignItems="center">
-                                <IconFileDescription size="1.4rem" color="#2563eb" />
-                                <Typography variant="h3" fontWeight={700}>
-                                    Detail Pengajuan
-                                </Typography>
-                            </Stack>
-                        }
-                    >
-                        <Stack spacing={4}>
-                            {/* TIPE PINJAMAN */}
-                            <Box>
-                                <Typography fontWeight={600} fontSize={16} mb={1}>
-                                    Tipe Pinjaman
-                                </Typography>
+            <Typography
+                component="h1"
+                sx={{
+                    fontSize: { xs: 22, sm: 26, md: 28 },
+                    fontWeight: 800,
+                    color: "primary.dark",
+                    letterSpacing: "-0.02em"
+                }}
+            >
+                Pengajuan Pinjaman Baru
+            </Typography>
+            <Typography color="text.secondary" sx={{ mt: 0.5, mb: { xs: 3, md: 4 }, maxWidth: 720 }}>
+                Silakan lengkapi rincian pengajuan pinjaman Anda untuk proses verifikasi otomatis.
+            </Typography>
 
-                                <RadioGroup
-                                    row
-                                    value={tipePinjaman}
-                                    onChange={(e) => setTipePinjaman(e.target.value)}
-                                >
-                                    <FormControlLabel value="produktif" control={<Radio />} label="Produktif" />
-                                    <FormControlLabel value="konsumtif" control={<Radio />} label="Konsumtif" />
-                                </RadioGroup>
-                            </Box>
+            <Grid container spacing={{ xs: 2, md: 3 }} alignItems="flex-start">
 
-                            {/* UPLOAD */}
-                            {tipePinjaman === "konsumtif" && (
+                {/* LEFT: form + kebijakan */}
+                <Grid item xs={12} md={6} sx={{ display: "flex" }}>
+                    <Stack spacing={2.5} sx={{ width: "100%" }}>
+                        <Paper sx={{ ...cardSx, display: "flex", flexDirection: "column" }}>
+                            <Stack spacing={3}>
+                                <Stack direction="row" spacing={1} alignItems="center">
+                                    <IconFileDescription size={22} color="#1976d2" />
+                                    <Typography fontWeight={700} fontSize="1.05rem">
+                                        Detail Pengajuan
+                                    </Typography>
+                                </Stack>
+
                                 <Box>
-                                    <input
-                                        type="file"
-                                        ref={fileInputRef}
-                                        style={{ display: 'none' }}
-                                        onChange={handleFileChange}
-                                        accept="image/*,application/pdf"
-                                    />
+                                    <Typography fontWeight={600} mb={1} fontSize={14}>
+                                        Tipe Pinjaman
+                                    </Typography>
+                                    <RadioGroup
+                                        row
+                                        value={tipePinjaman}
+                                        onChange={(e) => setTipePinjaman(e.target.value)}
+                                    >
+                                        <FormControlLabel value="produktif" control={<Radio />} label="Produktif" />
+                                        <FormControlLabel value="konsumtif" control={<Radio />} label="Konsumtif" />
+                                    </RadioGroup>
+                                </Box>
+
+                                {tipePinjaman === "konsumtif" && (
+                                    <Box>
+                                        <Typography fontWeight={600} fontSize={14}>
+                                            Kirim Bukti Nota Pinjaman Konsumtif
+                                        </Typography>
+                                        <Typography fontSize={13} color="text.secondary" mb={1}>
+                                            Upload file nota pembelanjaan untuk tipe pinjaman konsumtif
+                                        </Typography>
+
+                                        <input hidden type="file" accept="image/*,.pdf" ref={fileRef} onChange={handleFile} />
+
+                                        <TextField
+                                            fullWidth
+                                            size="small"
+                                            value={fileName}
+                                            placeholder="Upload nota pembelian"
+                                            onClick={() => fileRef.current?.click()}
+                                            InputProps={{
+                                                readOnly: true,
+                                                startAdornment: (
+                                                    <InputAdornment position="start">
+                                                        <IconPaperclip size={18} stroke={1.5} />
+                                                    </InputAdornment>
+                                                ),
+                                                sx: { borderRadius: "12px" }
+                                            }}
+                                            sx={{ "& .MuiOutlinedInput-root": { cursor: "pointer" } }}
+                                        />
+                                    </Box>
+                                )}
+
+                                <Box>
+                                    <Typography fontWeight={600} mb={1} fontSize={14}>
+                                        Jumlah Pinjaman (IDR)
+                                    </Typography>
                                     <TextField
                                         fullWidth
-                                        size="medium"
-                                        value={fileName}
-                                        placeholder="Upload nota pembelian"
-                                        onClick={() => fileInputRef.current.click()}
+                                        size="small"
+                                        value={formatRupiah(jumlah)}
+                                        onChange={handleJumlah}
+                                        placeholder="0"
                                         InputProps={{
-                                            readOnly: true,
                                             startAdornment: (
-                                                <InputAdornment position="start">
-                                                    <IconPaperclip size="1.1rem" />
-                                                </InputAdornment>
+                                                <InputAdornment position="start">Rp</InputAdornment>
                                             ),
-                                            sx: {
-                                                height: 52,
-                                                cursor: 'pointer',
-                                                '& input': { cursor: 'pointer' }
-                                            }
+                                            sx: { borderRadius: "12px" }
                                         }}
                                     />
                                 </Box>
-                            )}
 
-                            {/* JUMLAH */}
-                            <TextField
-                                fullWidth
-                                size="medium"
-                                label="Jumlah Pinjaman"
-                                placeholder="0"
-                                InputProps={{
-                                    startAdornment: (
-                                        <InputAdornment position="start">Rp</InputAdornment>
-                                    ),
-                                    sx: { height: 52 }
-                                }}
-                            />
-
-                            {/* TENOR + POTONG GAJI */}
-                            <Grid container spacing={3}>
-                                <Grid item xs={12} sm={6}>
-                                    <Select
-                                        fullWidth
-                                        defaultValue="3"
-                                        IconComponent={IconChevronDown}
-                                        sx={{ height: 52 }}
-                                    >
-                                        <MenuItem value="3">3 Bulan</MenuItem>
-                                        <MenuItem value="6">6 Bulan</MenuItem>
-                                        <MenuItem value="12">12 Bulan</MenuItem>
-                                    </Select>
+                                <Grid container spacing={2} justifyContent={"space-evenly"}>
+                                    <Grid item size={6} xs={12} sm={6}>
+                                        <Typography fontWeight={600} mb={1} fontSize={14}>
+                                            Tenor (Bulan)
+                                        </Typography>
+                                        <Select
+                                            fullWidth
+                                            size="small"
+                                            value={tenor}
+                                            onChange={(e) => setTenor(Number(e.target.value))}
+                                            IconComponent={IconChevronDown}
+                                            sx={{ borderRadius: "12px" }}
+                                        >
+                                            <MenuItem value={3}>3 Bulan</MenuItem>
+                                            <MenuItem value={6}>6 Bulan</MenuItem>
+                                            <MenuItem value={12}>12 Bulan</MenuItem>
+                                        </Select>
+                                    </Grid>
+                                    <Grid item size={6} xs={12} sm={6}>
+                                        <Typography fontWeight={600} mb={1} fontSize={14}>
+                                            Bulan Potong Gaji
+                                        </Typography>
+                                        <TextField
+                                            fullWidth
+                                            size="small"
+                                            type="month"
+                                            value={bulanPotongGaji}
+                                            onChange={(e) => setBulanPotongGaji(e.target.value)}
+                                            placeholder="mm/yyyy"
+                                            InputLabelProps={{ shrink: true }}
+                                            InputProps={{ sx: { borderRadius: "12px" } }}
+                                        />
+                                    </Grid>
                                 </Grid>
 
-                                <Grid item xs={12} sm={6}>
+                                <Box>
+                                    <Typography fontWeight={600} mb={1} fontSize={14}>
+                                        Keterangan Pengajuan
+                                    </Typography>
                                     <TextField
                                         fullWidth
-                                        label="Mulai Potong Gaji"
-                                        type="month"
-                                        InputLabelProps={{ shrink: true }}
-                                        InputProps={{
-                                            sx: { height: 52 }
-                                        }}
+                                        multiline
+                                        minRows={3}
+                                        placeholder="Keterangan tambahan (opsional)"
+                                        InputProps={{ sx: { borderRadius: "12px", alignItems: "flex-start" } }}
                                     />
-                                </Grid>
-                            </Grid>
+                                </Box>
 
-                            {/* KETERANGAN */}
-                            <TextField
-                                fullWidth
-                                multiline
-                                rows={3}
-                                placeholder="Keterangan pengajuan"
-                            />
+                                <Button
+                                    fullWidth
+                                    variant="contained"
+                                    size="large"
+                                    sx={{
+                                        py: 1.75,
+                                        borderRadius: "12px",
+                                        fontWeight: 700,
+                                        textTransform: "none",
+                                        fontSize: "1rem",
+                                        boxShadow: "0 4px 14px rgba(25, 118, 210, 0.35)"
+                                    }}
+                                >
+                                    Ajukan Pinjaman
+                                </Button>
+                            </Stack>
+                        </Paper>
 
-                            {/* BUTTON */}
-                            <Button
-                                variant="contained"
-                                fullWidth
-                                sx={{
-                                    py: 2,
-                                    borderRadius: 3,
-                                    textTransform: "none",
-                                    fontWeight: 700,
-                                    fontSize: 16
-                                }}
-                            >
-                                Ajukan Pinjaman
-                            </Button>
-                        </Stack>
-                    </MainCard>
+                        <Alert
+                            severity="info"
+                            icon={<IconInfoCircle size={22} />}
+                            sx={{
+                                borderRadius: "16px",
+                                bgcolor: "#e3f2fd",
+                                color: "primary.dark",
+                                alignItems: "flex-start",
+                                "& .MuiAlert-message": { width: "100%" }
+                            }}
+                        >
+                            <Typography fontWeight={700} fontSize={14} mb={1}>
+                                Informasi Kebijakan
+                            </Typography>
+                            <Typography fontSize={13} color="text.secondary" component="div" sx={{ lineHeight: 1.6 }}>
+                                Pengajuan akan diverifikasi oleh tim koperasi sesuai ketentuan yang berlaku.
+                                <br />
+                                Pastikan dokumen dan nominal yang diisi sesuai dengan bukti transaksi.
+                                <br />
+                                Keputusan persetujuan mengacu pada saldo simpanan dan limit pinjaman anggota.
+                            </Typography>
+                        </Alert>
+                    </Stack>
                 </Grid>
 
-                {/* SUMMARY */}
-                <Grid item xs={12} md={5}>
-                    <Stack spacing={4}>
+                {/* RIGHT: ringkasan — tinggi mengikuti isi */}
+                <Grid item xs={12} md={6} sx={{ display: "flex", alignSelf: "flex-start" }}>
+                    <Paper sx={{ ...cardSx, display: "flex", flexDirection: "column" }}>
+                        <Typography fontWeight={700} fontSize="1.05rem" mb={2}>
+                            Ringkasan Pinjaman
+                        </Typography>
 
-                        <Paper sx={{ p: 4, borderRadius: 3 }}>
-                            <Typography variant="h4" fontWeight={700} mb={2}>
-                                Ringkasan Pinjaman
+                        <Typography fontSize={11} fontWeight={600} color="text.secondary" letterSpacing={0.8}>
+                            TOTAL PINJAMAN
+                        </Typography>
+                        <Typography fontSize={28} fontWeight={800} color="primary.main" sx={{ mt: 0.5, mb: 2 }}>
+                            Rp {formatRupiah(jumlah)}
+                        </Typography>
+
+                        <Box sx={{ p: 2, borderRadius: "12px", bgcolor: "#f1f5f9" }}>
+                            <Typography fontSize={13} color="text.secondary">
+                                Estimasi Cicilan / Bulan
                             </Typography>
-
-                            <Typography fontSize={36} fontWeight={800} color="#1d4ed8">
-                                Rp 0
+                            <Typography fontWeight={700} sx={{ mt: 0.5 }}>
+                                Rp {formatRupiah(cicilan)} / {tenorLabel} bulan
                             </Typography>
-
-                            <Box mt={3}>
-                                <Typography fontSize={14} color="#64748b">
-                                    Estimasi Cicilan / Bulan
+                            {jumlah > 0 ? (
+                                <Typography fontSize={12} color="text.secondary" mt={1.5} lineHeight={1.6} component="div">
+                                    Pinjaman sebesar Rp {formatRupiah(jumlah)} dibagi {tenor} bulan,
+                                    <br />
+                                    sehingga cicilan sebesar Rp {formatRupiah(cicilan)} per bulan.
                                 </Typography>
-                                <Typography fontSize={18} fontWeight={700}>
-                                    Rp 0 / 0 bulan
+                            ) : (
+                                <Typography fontSize={12} color="text.secondary" mt={1.5} lineHeight={1.6}>
+                                    Masukkan jumlah pinjaman untuk melihat simulasi cicilan.
                                 </Typography>
-                            </Box>
+                            )}
+                        </Box>
 
-                            <Stack direction="row" spacing={1} mt={3}>
-                                <IconLock size="1.1rem" />
-                                <Typography fontSize={13} color="#64748b">
-                                    Proses pengajuan aman dan terenkripsi
-                                </Typography>
-                            </Stack>
-                        </Paper>
-
-                        <Paper sx={{ p: 4, borderRadius: 3, bgcolor: "#eff6ff" }}>
-                            <Stack direction="row" spacing={2}>
-                                <IconInfoCircle size="1.4rem" color="#2563eb" />
-                                <Typography fontSize={14} color="#1e40af">
-                                    Persetujuan pinjaman akan melewati persetujuan ketua koperasi.
-                                </Typography>
-                            </Stack>
-                        </Paper>
-
-                    </Stack>
+                        <Stack direction="row" spacing={1} alignItems="flex-start" sx={{ mt: 2 }}>
+                            <IconLock size={18} stroke={1.5} color="#64748b" />
+                            <Typography fontSize={12} color="text.secondary">
+                                Proses pengajuan aman dan terenkripsi
+                            </Typography>
+                        </Stack>
+                    </Paper>
                 </Grid>
             </Grid>
         </Box>

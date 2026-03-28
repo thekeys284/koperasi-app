@@ -108,7 +108,6 @@ export default function LoanDetails() {
             <Typography fontSize={15} fontWeight={600} color="#64748B" mb={1}>
               Total Pinjaman Pokok
             </Typography>
-            </Typography>
             <Typography fontSize={28} fontWeight={800} color="#16A34A">
               Rp 2.000.000
             </Typography>

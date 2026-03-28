@@ -58,10 +58,11 @@ const ConfirmPaymentModal = ({ open, handleClose, loanData }) => {
         <Box>
           <Stack
             direction="row"
-            justifyContent="space-between"
+            justifyContent="flex-start"
+            gap={2}
             sx={{ p: 2 }}
           >
-            <Typography>ID Pinjaman</Typography>
+            <Typography sx={{ width: 160 }}>ID Pinjaman</Typography>
             <Typography fontWeight={600}>
               {loanData?.id || "#PJM-2023001"}
             </Typography>
@@ -71,10 +72,11 @@ const ConfirmPaymentModal = ({ open, handleClose, loanData }) => {
 
           <Stack
             direction="row"
-            justifyContent="space-between"
+            justifyContent="flex-start"
+            gap={2}
             sx={{ p: 2 }}
           >
-            <Typography>Cicilan ke-</Typography>
+            <Typography sx={{ width: 160 }}>Cicilan ke-</Typography>
             <Typography>{loanData?.installment || "3"}</Typography>
           </Stack>
 
@@ -82,10 +84,11 @@ const ConfirmPaymentModal = ({ open, handleClose, loanData }) => {
 
           <Stack
             direction="row"
-            justifyContent="space-between"
+            justifyContent="flex-start"
+            gap={2}
             sx={{ p: 2 }}
           >
-            <Typography>Nominal</Typography>
+            <Typography sx={{ width: 160 }}>Nominal</Typography>
             <Typography>Rp {loanData?.amount || "1.000.000"}</Typography>
           </Stack>
 
@@ -93,10 +96,11 @@ const ConfirmPaymentModal = ({ open, handleClose, loanData }) => {
 
           <Stack
             direction="row"
-            justifyContent="space-between"
+            justifyContent="flex-start"
+            gap={2}
             sx={{ p: 2 }}
           >
-            <Typography>Tgl Jatuh Tempo</Typography>
+            <Typography sx={{ width: 160 }}>Tgl Jatuh Tempo</Typography>
             <Typography>{loanData?.dueDate || "12 Des 2023"}</Typography>
           </Stack>
 

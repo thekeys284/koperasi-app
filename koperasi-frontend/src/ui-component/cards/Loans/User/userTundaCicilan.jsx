@@ -33,10 +33,11 @@ const PostponeInstallmentModal = ({ open, handleClose, data }) => {
     <>
       <Stack
         direction="row"
-        justifyContent="space-between"
-        sx={{ px: 3, py: 2 }}
+        justifyContent="flex-start"
+        gap={2}
+        sx={{ p: 2 }}
       >
-        <Typography color="text.secondary">{label}</Typography>
+        <Typography sx={{ width: 160 }}>{label}</Typography>
 
         <Typography fontWeight={600}>{value}</Typography>
       </Stack>
@@ -94,10 +95,9 @@ const PostponeInstallmentModal = ({ open, handleClose, data }) => {
 
         {/* ALASAN */}
 
-        <Box sx={{ px: 3, py: 2 }}>
+        <Box sx={{ p: 2 }}>
           <Typography
-            fontWeight={600}
-            color="text.secondary"
+            fontWeight={500}
             mb={1}
           >
             Alasan
@@ -110,11 +110,6 @@ const PostponeInstallmentModal = ({ open, handleClose, data }) => {
             placeholder="Tuliskan alasan penundaan..."
             value={reason}
             onChange={(e) => setReason(e.target.value)}
-            sx={{
-              "& .MuiOutlinedInput-root": {
-                borderRadius: 3,
-              },
-            }}
           />
         </Box>
 
@@ -126,26 +121,20 @@ const PostponeInstallmentModal = ({ open, handleClose, data }) => {
           direction="row"
           justifyContent="flex-end"
           spacing={2}
-          sx={{ px: 3, py: 2 }}
+          sx={{ p: 2 }}
         >
           <Button
             variant="contained"
+            color="inherit"
             onClick={handleClose}
-            sx={{
-              background: "#64748B",
-              "&:hover": { background: "#475569" },
-            }}
           >
             Batal
           </Button>
 
           <Button
             variant="contained"
+            color="primary"
             onClick={handleSubmit}
-            sx={{
-              background: "#2563EB",
-              "&:hover": { background: "#1D4ED8" },
-            }}
           >
             Ajukan Penundaan
           </Button>
