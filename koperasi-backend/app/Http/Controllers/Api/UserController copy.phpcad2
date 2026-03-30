@@ -35,7 +35,7 @@ class UserController extends Controller
         if($request->hasFile('profile_picture')){
             $file = $request->file('profile_picture');
             $filename = time().'_'.$request->username.'.'.$file->getClientOriginalExtension();
-            $file->storeAs('profiles', $filename, 'public');
+            $file->storeAs('public/profiles', $filename);
 
             $validated['profile_picture'] = $filename;
         }
@@ -49,23 +49,43 @@ class UserController extends Controller
     }
 
     public function show($id){
-        // $user = User::with([
-        //     'submission' => fn($q) => $q->latest(),
-        //     'activityLogs' => fn($q) => $q->latest()->limit(10)
-        // ])->findOrFail($id); 
-        // return new UserResource($user);
-        try {
-        // Pakai findOrFail supaya kalau ID gak ada, langsung 404 (bukan 500)
-        $user = User::with(['submission', 'activityLogs'])->findOrFail($id);
+        $user = User::with([
+            'submission' => function ($query) {
+                $query->latest();
+            },
+            'activityLogs' => function ($query) { // samakan dengan nama relasi di model
+                $query->orderBy('created_at', 'desc')->limit(10);
+            }
+        ])->find($id);
 
-        return new UserResource($user);
-        } catch (\Exception $e) {
-            // Ini bakal kasih tahu kamu error aslinya apa di log Laravel
+        // cek jika user tidak ditemukan
+        if (!$user) {
             return response()->json([
-                'message' => 'Terjadi kesalahan di server',
-                'error' => $e->getMessage() 
-            ], 500);
-        }
+                'status' => 'error',
+                'message' => 'Anggota dengan ID ' . $id . ' tidak ditemukan.'
+            ], 404);
+        };
+        // response sukses 
+        return response()->json([
+        'status' => 'success',
+        'data' => [
+            'profile' => [
+                'id' => $user->id,
+                'full_name' => $user->name,
+                'satker' => $user->satker,
+                'role' => $user->role,
+                'email' => $user->email,
+                'username' => $user->username,
+                'profile_picture' => $user->profile_picture
+                    ? asset('storage/profiles/' . $user->profile_picture) // FIX slash
+                    : null,
+            ],
+            'history' => [
+                'recent_submissions' => $user->submission ?? [],
+                'recent_activities'  => $user->activityLogs ?? [] // samakan
+                ]
+            ]
+        ], 200);
     }
 
     public function update(Request $request, $id){

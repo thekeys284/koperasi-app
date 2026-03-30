@@ -1,143 +1,128 @@
--- ==========================================================
--- RETAIL MINIMARKET DATABASE
--- FIFO, FEFO & PRICE HISTORY
--- SAFE RE-RUN SCRIPT (NO CREATE DATABASE)
--- ==========================================================
-
 SET FOREIGN_KEY_CHECKS=0;
 
--- ==========================================================
--- 1. USERS
--- ==========================================================
--- CREATE TABLE IF NOT EXISTS `users` (
---   `id` int NOT NULL AUTO_INCREMENT PRIMARY KEY,
---   `full_name` varchar(100) NOT NULL,
---   `username` varchar(100) NOT NULL,
---   `email` varchar(255) NOT NULL,
---   `satker` varchar(255) NOT NULL,
---   `password` varchar(100) NOT NULL,
---   `role` enum('user','operator','admin') NOT NULL,
---   `limit` int DEFAULT 0,
---   `limit_total` int DEFAULT 0,
---   `profile_picture` varchar(255) DEFAULT NULL,
---   `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
---   `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP
--- ) ENGINE=InnoDB;
-
--- ==========================================================
--- 2. CATEGORIES
--- ==========================================================
+-- categories
 CREATE TABLE IF NOT EXISTS `categories` (
-  id INT PRIMARY KEY AUTO_INCREMENT,
-  category_name VARCHAR(100) NOT NULL,
+  id BIGINT UNSIGNED PRIMARY KEY AUTO_INCREMENT,
+  name VARCHAR(100) NOT NULL,
   description TEXT,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 ) ENGINE=InnoDB;
 
--- ==========================================================
--- 3. UNITS
--- ==========================================================
+-- units
 CREATE TABLE IF NOT EXISTS `units` (
-  id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
-  unit_name VARCHAR(255),
+  id BIGINT UNSIGNED PRIMARY KEY AUTO_INCREMENT,
+  name VARCHAR(50) NOT NULL,
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
   updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 ) ENGINE=InnoDB;
 
--- ==========================================================
--- 4. PRODUCTS
--- ==========================================================
+-- products
 CREATE TABLE IF NOT EXISTS `products` (
-  id INT PRIMARY KEY AUTO_INCREMENT,
-  category_id INT,
+  id BIGINT UNSIGNED PRIMARY KEY AUTO_INCREMENT,
+  category_id BIGINT UNSIGNED,
+  unit_id BIGINT UNSIGNED,
   barcode VARCHAR(50) UNIQUE NOT NULL,
-  product_name VARCHAR(150) NOT NULL,
-  product_detail VARCHAR(150),
+  name VARCHAR(150) NOT NULL,
+  detail TEXT,
   current_selling_price DECIMAL(12,2) DEFAULT 0.00,
   min_stock INT DEFAULT 5,
   is_active BOOLEAN DEFAULT TRUE,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  FOREIGN KEY (category_id) REFERENCES categories(id)
+  FOREIGN KEY (category_id) REFERENCES categories(id) ON DELETE SET NULL,
+  FOREIGN KEY (unit_id) REFERENCES units(id) ON DELETE RESTRICT
+) ENGINE=InnoDB;
+CREATE INDEX idx_products_name ON products(name);
+
+-- konversi unit
+CREATE TABLE IF NOT EXISTS `unit_conversions`(
+  id BIGINT UNSIGNED PRIMARY KEY AUTO_INCREMENT,
+  product_id BIGINT UNSIGNED NOT NULL,
+  from_unit_id BIGINT UNSIGNED NOT NULL, -- Misal: ID untuk 'Lusin'
+  to_unit_id BIGINT UNSIGNED NOT NULL,   -- Misal: ID untuk 'PCS'
+  multiplier INT NOT NULL,               -- Misal: 12
+  FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE,
+  FOREIGN KEY (from_unit_id) REFERENCES units(id),
+  FOREIGN KEY (to_unit_id) REFERENCES units(id)
 ) ENGINE=InnoDB;
 
--- ==========================================================
--- 5. STOCK BATCHES
--- ==========================================================
+-- price logs
+CREATE TABLE IF NOT EXISTS `price_logs` (
+  id BIGINT UNSIGNED PRIMARY KEY AUTO_INCREMENT,
+  product_id BIGINT UNSIGNED NOT NULL,
+  user_id BIGINT UNSIGNED NOT NULL,
+  old_price DECIMAL(12,2) NOT NULL,
+  new_price DECIMAL(12,2) NOT NULL,
+  change_type ENUM('SELLING_PRICE','PURCHASE_PRICE') NOT NULL,
+  reason VARCHAR(255) NULL,
+  changed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE,
+  FOREIGN KEY (user_id) REFERENCES users(id)
+) ENGINE=InnoDB;
+
+-- stock batches
 CREATE TABLE IF NOT EXISTS `stock_batches` (
-  id INT PRIMARY KEY AUTO_INCREMENT,
-  product_id INT NOT NULL,
+  id BIGINT UNSIGNED PRIMARY KEY AUTO_INCREMENT,
+  product_id BIGINT UNSIGNED NOT NULL,
   purchase_price DECIMAL(12,2) NOT NULL,
   initial_qty INT NOT NULL,
   remaining_qty INT NOT NULL,
-  expiry_date DATE,
+  expiry_date DATE NULL,
   received_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  FOREIGN KEY (product_id) REFERENCES products(id),
-  INDEX (expiry_date),
-  INDEX (received_at)
+  FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE
+) ENGINE=InnoDB;
+CREATE INDEX idx_batches_fifo ON stock_batches(product_id, remaining_qty, received_at);
+CREATE INDEX idx_batches_fefo ON stock_batches(product_id, remaining_qty, expiry_date);
+
+-- stock adjustment
+CREATE TABLE IF NOT EXISTS `stock_adjustments` (
+  id BIGINT UNSIGNED PRIMARY KEY AUTO_INCREMENT,
+  user_id BIGINT UNSIGNED NOT NULL,
+  product_id BIGINT UNSIGNED NOT NULL,
+  batch_id BIGINT UNSIGNED NULL,
+  adjustment_qty INT NOT NULL,
+  type ENUM('DAMAGED', 'LOST', 'EXPIRED', 'CORRECTION') NOT NULL,
+  notes TEXT NULL, -- Catatan tambahan
+  adjusted_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (user_id) REFERENCES users(id),
+  FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE,
+  FOREIGN KEY (batch_id) REFERENCES stock_batches(id) ON DELETE SET NULL
 ) ENGINE=InnoDB;
 
--- ==========================================================
--- 6. PRICE LOGS
--- ==========================================================
-CREATE TABLE IF NOT EXISTS `price_logs` (
-  id INT PRIMARY KEY AUTO_INCREMENT,
-  product_id INT NOT NULL,
-  old_price DECIMAL(12,2),
-  new_price DECIMAL(12,2),
-  change_type ENUM('SELLING_PRICE','PURCHASE_PRICE') NOT NULL,
-  reason VARCHAR(255),
-  changed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  FOREIGN KEY (product_id) REFERENCES products(id)
+-- payment methods
+CREATE TABLE IF NOT EXISTS `payment_methods` (
+  id BIGINT UNSIGNED PRIMARY KEY AUTO_INCREMENT,
+  name VARCHAR(50) NOT NULL, 
+  description VARCHAR(255) NULL,
+  is_active BOOLEAN DEFAULT TRUE,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB;
 
--- ==========================================================
--- 12. METODE PEMBAYARAN
--- ==========================================================
-CREATE TABLE payment_methods (
-    id INT PRIMARY KEY AUTO_INCREMENT,
-    method_name VARCHAR(50) NOT NULL, -- 'Cash', 'QRIS', 'Tempo'
-    is_active BOOLEAN DEFAULT TRUE
-) ENGINE=InnoDB;
-
--- ==========================================================
--- 12. DETAIL PEMBAYARAN TEMPO
--- ==========================================================
-CREATE TABLE IF NOT EXISTS credit_payments (
-    id INT PRIMARY KEY AUTO_INCREMENT,
-    sale_id INT NOT NULL,
-    user_id BIGINT UNSIGNED NOT NULL, -- Siapa yang berhutang
-    amount_paid DECIMAL(12,2) DEFAULT 0.00,
-    payment_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    note VARCHAR(255),
-    FOREIGN KEY (sale_id) REFERENCES sales(id),
-    FOREIGN KEY (user_id) REFERENCES users(id)
-) ENGINE=InnoDB;
-
--- ==========================================================
--- 7. SALES
--- ==========================================================
+-- sales transaction
 CREATE TABLE IF NOT EXISTS `sales` (
-  id INT PRIMARY KEY AUTO_INCREMENT,
+  id BIGINT UNSIGNED PRIMARY KEY AUTO_INCREMENT,
   invoice_number VARCHAR(50) UNIQUE NOT NULL,
+  user_id BIGINT UNSIGNED NULL,
+  cashier_id BIGINT UNSIGNED NOT NULL,
   total_bill DECIMAL(12,2) DEFAULT 0.00,
   total_discount DECIMAL(12,2) DEFAULT 0.00,
-  payment_method_id INT, -- Masukkan langsung di sini
-  payment_status ENUM('PAID', 'PENDING', 'PARTIAL') DEFAULT 'PAID', -- Masukkan langsung di sini
+  payment_method_id BIGINT UNSIGNED NOT NULL,
+  payment_status ENUM('PAID', 'UNPAID', 'PARTIAL') DEFAULT 'PAID', 
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  FOREIGN KEY (payment_method_id) REFERENCES payment_methods(id) -- Foreign key langsung di sini
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL,
+  FOREIGN KEY (cashier_id) REFERENCES users(id),
+  FOREIGN KEY (payment_method_id) REFERENCES payment_methods(id)
 ) ENGINE=InnoDB;
+CREATE INDEX idx_sales_created_at ON sales(created_at);
 
--- ==========================================================
--- 8. SALE ITEMS
--- ==========================================================
+-- sale item
 CREATE TABLE IF NOT EXISTS `sale_items` (
-  id INT PRIMARY KEY AUTO_INCREMENT,
-  sale_id INT NOT NULL,
-  product_id INT NOT NULL,
-  batch_id INT NOT NULL,
+  id BIGINT UNSIGNED PRIMARY KEY AUTO_INCREMENT,
+  sale_id BIGINT UNSIGNED NOT NULL,
+  product_id BIGINT UNSIGNED NOT NULL,
+  batch_id BIGINT UNSIGNED NOT NULL,
   qty INT NOT NULL,
   normal_price DECIMAL(12,2) NOT NULL,
   discount_amount DECIMAL(12,2) DEFAULT 0.00,
@@ -151,112 +136,140 @@ CREATE TABLE IF NOT EXISTS `sale_items` (
   FOREIGN KEY (product_id) REFERENCES products(id)
 ) ENGINE=InnoDB;
 
--- ==========================================================
--- 9. STOCK ADJUSTMENTS
--- ==========================================================
-CREATE TABLE IF NOT EXISTS `stock_adjustments` (
-  id INT PRIMARY KEY AUTO_INCREMENT,
-  product_id INT NOT NULL,
-  batch_id INT NOT NULL,
-  adjustment_type ENUM('SHRINKAGE','DAMAGE','GIFT','CORRECTION') NOT NULL,
-  qty_change INT NOT NULL,
-  loss_value DECIMAL(12,2),
-  adjusted_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  note TEXT,
-  FOREIGN KEY (batch_id) REFERENCES stock_batches(id)
-) ENGINE=InnoDB;
-
--- ==========================================================
--- 10. ACTIVITY LOGS
--- ==========================================================
-CREATE TABLE IF NOT EXISTS `activity_logs` (
-  id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
-  message_text VARCHAR(255) NOT NULL,
-  message_summary VARCHAR(255) NOT NULL,
-  role ENUM('admin','operator','user') NOT NULL,
-  user_id BIGINT UNSIGNED NOT NULL,
-  message_icon VARCHAR(50) NOT NULL,
-  message_date_time DATETIME DEFAULT CURRENT_TIMESTAMP,
-  FOREIGN KEY (user_id) REFERENCES users(id)
-) ENGINE=InnoDB;
-
--- ==========================================================
--- 11. SUBMISSIONS
--- ==========================================================
-CREATE TABLE IF NOT EXISTS `submissions` (
-  id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
-  loan_type TEXT NOT NULL,
-  loan_date TEXT,
-  loan_amount TEXT NOT NULL,
-  loan_duration TEXT NOT NULL,
-  is_read TINYINT(1) DEFAULT 0,
+-- debts (Piutang Toko)
+CREATE TABLE IF NOT EXISTS `debts` (
+  id BIGINT UNSIGNED PRIMARY KEY AUTO_INCREMENT,
+  sale_id BIGINT UNSIGNED NOT NULL,
+  user_id BIGINT UNSIGNED NOT NULL, 
+  total_debt DECIMAL(12,2) NOT NULL,
+  remaining_debt DECIMAL(12,2) NOT NULL,
+  due_date DATE NOT NULL,
+  status ENUM('UNPAID', 'PARTIAL', 'PAID', 'BAD_DEBT') DEFAULT 'UNPAID',
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  status VARCHAR(255),
-  submission_date DATETIME DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (sale_id) REFERENCES sales(id) ON DELETE CASCADE,
+  FOREIGN KEY (user_id) REFERENCES users(id)
+) ENGINE=InnoDB;
+CREATE INDEX idx_debts_status ON debts(status);
+CREATE INDEX idx_debts_due_date ON debts(due_date);
+
+-- debt payments (Pembayaran Piutang Toko)
+CREATE TABLE IF NOT EXISTS `debt_payments` (
+  id BIGINT UNSIGNED PRIMARY KEY AUTO_INCREMENT,
+  debt_id BIGINT UNSIGNED NOT NULL,
+  -- Siapa yang melakukan input/update data ini (PJ Toko/Admin)
   user_id BIGINT UNSIGNED NOT NULL,
+  amount_paid DECIMAL(12,2) NOT NULL,
+  payment_date DATE NOT NULL,
+  payment_status ENUM('SUCCESS', 'FAILED') DEFAULT 'SUCCESS',
+  note TEXT NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (debt_id) REFERENCES debts(id) ON DELETE CASCADE,
+  FOREIGN KEY (user_id) REFERENCES users(id)
+) ENGINE=InnoDB;
+-- Index untuk mempermudah pencarian pembayaran piutang
+CREATE INDEX idx_debt_payments_debt_id ON debt_payments(debt_id);
+CREATE INDEX idx_debt_payments_payment_date ON debt_payments(payment_date); 
+
+-- submissions (Pengajuan Pinjaman)
+CREATE TABLE IF NOT EXISTS `submissions` (
+  id BIGINT UNSIGNED PRIMARY KEY AUTO_INCREMENT,
+  user_id BIGINT UNSIGNED NOT NULL, -- Siapa yang mengajukan
+  type ENUM('Konsumtif', 'Produktif') NOT NULL, -- Jenis pinjaman (Pinjaman Uang atau Barang)
+  amount_requested DECIMAL(12,2) NOT NULL, -- Jumlah yang dipinjam
+  tenor_months INT NOT NULL, -- Jangka waktu (bulan)
+  start_date DATE NOT NULL, -- Tanggal mulai pembayaran
+  reason TEXT, -- Alasan peminjaman
+  -- Tracking Persetujuan PJ Peminjaman
+  pj_id BIGINT UNSIGNED NULL, -- Siapa PJ yang memeriksa
+  pj_status ENUM('PENDING', 'APPROVED', 'REJECTED') DEFAULT 'PENDING',
+  pj_note TEXT NULL, -- Alasan jika ditolak oleh PJ
+  pj_action_at TIMESTAMP NULL,
+  -- Tracking Persetujuan Ketua Koperasi
+  chairman_id BIGINT UNSIGNED NULL, -- Siapa Ketua yang memeriksa
+  chairman_status ENUM('PENDING', 'APPROVED', 'REJECTED') DEFAULT 'PENDING',
+  chairman_note TEXT NULL, -- Alasan jika ditolak oleh Ketua
+  chairman_action_at TIMESTAMP NULL,
+  -- Status Akhir Pengajuan
+  final_status ENUM('WAITING', 'ON_PROGRESS', 'APPROVED', 'REJECTED', 'CANCELLED') DEFAULT 'WAITING',
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  FOREIGN KEY (user_id) REFERENCES users(id),
+  FOREIGN KEY (pj_id) REFERENCES users(id),
+  FOREIGN KEY (chairman_id) REFERENCES users(id)
+) ENGINE=InnoDB;
+
+-- loans (Pinjaman Uang yang Sedang Berjalan)
+CREATE TABLE IF NOT EXISTS `loans` (
+  id BIGINT UNSIGNED PRIMARY KEY AUTO_INCREMENT,
+  submission_id BIGINT UNSIGNED NOT NULL, -- Referensi dari pengajuan yang di-acc
+  user_id BIGINT UNSIGNED NOT NULL,
+  
+  total_loan DECIMAL(12,2) NOT NULL, -- Total pinjaman awal + bunga (jika ada)
+  remaining_loan DECIMAL(12,2) NOT NULL, -- Sisa hutang yang belum lunas
+  
+  monthly_installment DECIMAL(12,2) NOT NULL, -- Nominal yang harus dibayar tiap bulan
+  start_date DATE NOT NULL, -- Bulan mulai cicilan
+  end_date DATE NOT NULL, -- Bulan perkiraan lunas
+  
+  -- Status: 'ACTIVE', 'PAID', 'BAD_DEBT'
+  status ENUM('ACTIVE', 'PAID', 'BAD_DEBT') DEFAULT 'ACTIVE',
+  
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (submission_id) REFERENCES submissions(id),
   FOREIGN KEY (user_id) REFERENCES users(id)
 ) ENGINE=InnoDB;
 
+-- loan_recap_items (Catatan Rekap Bulanan)
+CREATE TABLE IF NOT EXISTS `loan_recap_items` (
+  id BIGINT UNSIGNED PRIMARY KEY AUTO_INCREMENT,
+  loan_id BIGINT UNSIGNED NOT NULL,
+  
+  recap_month INT NOT NULL, -- Bulan (1-12)
+  recap_year INT NOT NULL, -- Tahun (2026)
+  
+  amount_to_pay DECIMAL(12,2) NOT NULL, -- Nominal tagihan bulan ini
+  
+  -- Status dari Keuangan: 'PENDING', 'SUCCESS', 'FAILED'
+  payment_status ENUM('PENDING', 'SUCCESS', 'FAILED') DEFAULT 'PENDING',
+  
+  processed_by BIGINT UNSIGNED NULL, -- Siapa orang keuangan yang konfirmasi
+  processed_at TIMESTAMP NULL,
+  
+  note TEXT NULL, -- Catatan jika gagal bayar
+  
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (loan_id) REFERENCES loans(id),
+  FOREIGN KEY (processed_by) REFERENCES users(id)
+) ENGINE=InnoDB;
 
 
+-- activity_logs
+CREATE TABLE IF NOT EXISTS `activity_logs` (
+  -- Gunakan BIGINT UNSIGNED agar sinkron dengan users(id)
+  id BIGINT UNSIGNED PRIMARY KEY AUTO_INCREMENT,
+  
+  -- Judul singkat aktivitas, misal: "Penjualan Baru", "Update Harga"
+  title VARCHAR(100) NOT NULL,
+  
+  -- Detail lengkapnya, misal: "Admin Budi mengubah harga Indomie dari 3000 ke 3500"
+  message TEXT NOT NULL,
+  
+  -- User yang melakukan aktivitas
+  user_id BIGINT UNSIGNED NOT NULL,
+  
+  -- Icon untuk tampilan di Next.js, misal: 'shopping-cart', 'user-plus', 'alert-circle'
+  icon VARCHAR(50) DEFAULT 'info',
+  
+  -- Warna icon di UI (opsional, tapi bagus untuk Next.js), misal: 'success', 'danger', 'warning'
+  status_color VARCHAR(20) DEFAULT 'primary',
+  
+  -- Gunakan TIMESTAMP agar konsisten dengan tabel lainnya
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+) ENGINE=InnoDB;
 
--- ==========================================================
--- DUMMY DATA
--- ==========================================================
+-- Indexing untuk mempercepat loading dashboard
+CREATE INDEX idx_logs_created_at ON activity_logs(created_at);
 
--- INSERT IGNORE INTO users (id, full_name, username, email, satker, password, role)
--- VALUES
--- (1,'Admin Minimarket','admin','admin@mini.local','Pusat','admin123','admin'),
--- (2,'Operator Toko','operator','operator@mini.local','Cabang A','operator123','operator'),
--- (3,'User Biasa','user1','user1@mini.local','Cabang A','user123','user');
-
-INSERT IGNORE INTO categories (id, category_name, description)
-VALUES
-(1,'Makanan','Produk makanan dan minuman'),
-(2,'Non Makanan','Produk kebutuhan harian');
-
-INSERT IGNORE INTO units (id, unit_name)
-VALUES
-(1,'PCS'),(2,'BOX'),(3,'PACK');
-
-INSERT IGNORE INTO products
-(id, category_id, barcode, product_name, product_detail, current_selling_price)
-VALUES
-(1,1,'899100100001','Indomie Goreng','Mi instan',3500),
-(2,1,'899100100002','Aqua 600ml','Air mineral',4000),
-(3,2,'899200200001','Lifebuoy','Sabun mandi',5000);
-
-INSERT IGNORE INTO stock_batches
-(id, product_id, purchase_price, initial_qty, remaining_qty, expiry_date)
-VALUES
-(1,1,2500,100,100,'2026-01-01'),
-(2,2,3000,50,50,'2025-12-01'),
-(3,3,3500,80,80,NULL);
-
-INSERT IGNORE INTO price_logs
-(product_id, old_price, new_price, change_type, reason)
-VALUES
-(1,3000,3500,'SELLING_PRICE','Penyesuaian harga');
-
-INSERT IGNORE INTO sales
-(id, invoice_number, total_bill)
-VALUES
-(1,'INV-001',7000);
-
-INSERT IGNORE INTO sale_items
-(sale_id, product_id, batch_id, qty, normal_price, final_price, hpp_at_sale, item_profit)
-VALUES
-(1,1,1,2,3500,7000,2500,2000);
-
-INSERT IGNORE INTO activity_logs
-(message_text, message_summary, role, user_id, message_icon)
-VALUES
-('Transaksi berhasil','Penjualan INV-001','operator',2,'shopping-cart');
-
-INSERT IGNORE INTO submissions
-(loan_type, loan_amount, loan_duration, status, user_id)
-VALUES
-('Pinjaman Darurat','1000000','12 Bulan','PENDING',3);
-
-SET FOREIGN_KEY_CHECKS=1;

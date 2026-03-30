@@ -3,32 +3,60 @@ import { useEffect, useState } from 'react';
 import {
     Table, TableBody, TableCell, TableHead, TableRow,
     Typography, TableContainer, Paper, CircularProgress,
-    Box, Chip, Button
+    Box, Chip, Button, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle, Snackbar, Alert
 } from '@mui/material';
 
-import MainCard from '../../../components/cards/MainCard.jsx';
-import api from 'api/axios';
+import MainCard from '../../../ui-component/cards/MainCard.jsx';
+import api from '../../../api/axios';
 
 const UserPage = () => {
+    console.log("UserPage component rendered");
     const navigate = useNavigate();
 
     const [users, setUsers] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [openDelete, setOpenDelete] = useState(false);
+    const [selectedId, setSelectedId] = useState(null);
+    const [snackbar, setSnackbar] = useState({
+        open: false,
+        message: '',
+        severity: 'success' // bisa 'success', 'error', 'info', atau 'warning'
+    });
+
+    const handleCloseSnackbar = () => {
+        setSnackbar({ ...snackbar, open: false });
+    };
 
     useEffect(() => {
         fetchUsers();
     }, []);
 
-    const fetchUsers = async () => {
+    const fetchUsers = async () => { 
+        console.log("Fetching users...");
         try {
             setLoading(true);
             const response = await api.get('/users');
-            setUsers(response.data);
+            const results = response.data.data || [];
+            console.log("Data user berhasil diambil:", results);
+            setUsers(results);
         } catch (error) {
             console.error("Gagal mengambil data user:", error);
+            setUsers([]);
         } finally {
             setLoading(false);
         }
+    };
+
+    // Fungsi buka popup
+    const handleOpenDelete = (id) => {
+        setSelectedId(id);
+        setOpenDelete(true);
+    };
+
+    // Fungsi tutup popup
+    const handleCloseDelete = () => {
+        setOpenDelete(false);
+        setSelectedId(null);
     };
 
     const handleAdd = () => {
@@ -40,29 +68,27 @@ const UserPage = () => {
         navigate(`/admin/users/edit/${id}`);
     };
 
-    const handleDelete = async (id) => {
-        const confirmDelete = window.confirm("Yakin ingin menghapus user ini?");
-        if (!confirmDelete) return;
-
-        console.log("Hapus user ID:", id);
-
+    const handleDelete = async () => {
         try {
-            await api.post(`/users/delete/${id}`);
-
-            // update state tanpa reload
-            setUsers(prev => prev.filter(user => user.id !== id));
-
-            alert("User berhasil dihapus");
+            await api.delete(`/users/${selectedId}`);
+            setUsers(prev => prev.filter(user => user.id !== selectedId));
+            handleCloseDelete();
+            setSnackbar({
+                open: true,
+                message: 'Data anggota berhasil dihapus!',
+                severity: 'success'
+            });
         } catch (error) {
-            console.error("Gagal menghapus user:", error);
-            alert("Gagal menghapus user");
+            setSnackbar({
+                open: true,
+                message: 'Gagal menghapus data',
+                severity: 'error'
+            });
         }
     };
 
     return (
         <MainCard title="Data Anggota Koperasi">
-
-            {/* tombol tambah */}
             <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 2 }}>
                 <Button
                     variant="contained"
@@ -75,7 +101,7 @@ const UserPage = () => {
 
             {loading ? (
                 <Box sx={{ display: 'flex', justifyContent: 'center', p: 3 }}>
-                    <CircularProgress />
+                    <CircularProgress color="secondary"/>
                     <Typography sx={{ ml: 2 }}>
                         Memuat data dari server...
                     </Typography>
@@ -90,7 +116,6 @@ const UserPage = () => {
                                 <TableCell align="center"><strong>Username</strong></TableCell>
                                 <TableCell align="center"><strong>Satker</strong></TableCell>
                                 <TableCell align="center"><strong>Role</strong></TableCell>
-                                <TableCell align="right"><strong>Total Limit</strong></TableCell>
                                 <TableCell align="center"><strong>Aksi</strong></TableCell>
                             </TableRow>
                         </TableHead>
@@ -121,10 +146,6 @@ const UserPage = () => {
                                             />
                                         </TableCell>
 
-                                        <TableCell align="right">
-                                            Rp {new Intl.NumberFormat('id-ID').format(row.limit_total || 0)}
-                                        </TableCell>
-
                                         <TableCell align="center">
 
                                             <Button
@@ -141,7 +162,7 @@ const UserPage = () => {
                                                 size="small"
                                                 variant="contained"
                                                 color="error"
-                                                onClick={() => handleDelete(row.id)}
+                                                onClick={() => handleOpenDelete(row.id)}
                                             >
                                                 Delete
                                             </Button>
@@ -162,6 +183,47 @@ const UserPage = () => {
                     </Table>
                 </TableContainer>
             )}
+            {/* --- COMPONENT POPUP/DIALOG BERRY STYLE --- */}
+            <Dialog
+                open={openDelete}
+                onClose={handleCloseDelete}
+                aria-labelledby="alert-dialog-title"
+                aria-describedby="alert-dialog-description"
+                // Agar sudutnya melengkung khas Berry
+                PaperProps={{ sx: { borderRadius: '12px', p: 1 } }}
+            >
+                <DialogTitle id="alert-dialog-title" sx={{ fontWeight: 600 }}>
+                    Konfirmasi Hapus
+                </DialogTitle>
+                <DialogContent>
+                    <DialogContentText id="alert-dialog-description">
+                        Apakah Anda yakin ingin menghapus anggota ini? Tindakan ini tidak dapat dibatalkan.
+                    </DialogContentText>
+                </DialogContent>
+                <DialogActions sx={{ px: 3, pb: 2 }}>
+                    <Button onClick={handleCloseDelete} color="primary" variant="outlined">
+                        Batal
+                    </Button>
+                    <Button onClick={handleDelete} color="error" variant="contained" autoFocus>
+                        Ya, Hapus
+                    </Button>
+                </DialogActions>
+            </Dialog>
+            <Snackbar 
+                open={snackbar.open} 
+                autoHideDuration={3000} 
+                onClose={handleCloseSnackbar}
+                anchorOrigin={{ vertical: 'top', horizontal: 'right' }} // Muncul di pojok kanan bawah
+            >
+                <Alert 
+                    onClose={handleCloseSnackbar} 
+                    severity={snackbar.severity} 
+                    variant="filled" 
+                    sx={{ width: '100%', borderRadius: '8px' }}
+                >
+                    {snackbar.message}
+                </Alert>
+            </Snackbar>
         </MainCard>
     );
 };
