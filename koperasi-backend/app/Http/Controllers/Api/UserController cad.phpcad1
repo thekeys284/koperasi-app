@@ -1,0 +1,136 @@
+<?php
+
+namespace App\Http\Controllers\Api;
+
+use App\Http\Controllers\Controller;
+use App\Models\User;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Storage;
+
+class UserController extends Controller
+{
+    public function index()
+    {
+        return response()->json(User::latest()->get());
+    }
+
+    public function store(Request $request)
+    {
+        $validated = $request->validate([
+             'name'             => 'required|string',
+             'username'         => 'required|unique:users,username', // Fix space
+             'email'            => 'required|email|unique:users,email', // Fix space
+             'password'         => 'required|min:6',
+             'satker'           => 'nullable|string',
+             'role'             => 'required|in:admin,operator,user,pj_toko,pj_pinjaman,ketua', 
+             'profile_picture'  => 'nullable|image|mimes:jpg,jpeg,png|max:2048',
+        ]);
+
+        $validated['password'] = Hash::make($request->password);
+
+        if($request->hasFile('profile_picture')){
+            $file = $request->file('profile_picture');
+            $filename = time().'_'.$request->username.'.'.$file->getClientOriginalExtension();
+            $file->storeAs('public/profiles', $filename);
+            $validated['profile_picture'] = $filename;
+        }
+
+        $user = User::create($validated);
+
+        return response()->json([
+            'status'  => 'success',
+            'message' => 'User berhasil dibuat',
+            'user'    => $user
+        ], 201);
+    }
+
+    public function show($id)
+    {
+        // Gunakan eager loading untuk efisiensi
+        $user = User::with([
+            'submission' => fn($q) => $q->latest(),
+            'activityLogs' => fn($q) => $q->latest()->limit(10) // Gunakan latest() agar simpel
+        ])->find($id);
+
+        if (!$user) {
+            return response()->json(['status' => 'error', 'message' => 'Anggota tidak ditemukan.'], 404);
+        }
+
+        return response()->json([
+            'status' => 'success',
+            'data' => [
+                'profile' => [
+                    'id'              => $user->id,
+                    'full_name'       => $user->name,
+                    'satker'          => $user->satker,
+                    'role'            => $user->role,
+                    'email'           => $user->email,
+                    'username'        => $user->username,
+                    'profile_picture' => $user->profile_picture 
+                                         ? asset('storage/profiles/' . $user->profile_picture) 
+                                         : null,
+                ],
+                'history' => [
+                    'recent_submissions' => $user->submission,
+                    'recent_activities'  => $user->activityLogs
+                ]
+            ]
+        ], 200);
+    }
+
+    public function update(Request $request, $id)
+    {
+        $user = User::findOrFail($id);
+
+        $validated = $request->validate([
+            'name'            => 'sometimes|required|string|max:100',
+            'email'           => 'sometimes|required|email|unique:users,email,'.$id,
+            'satker'          => 'sometimes|nullable|string',
+            'role'            => 'sometimes|in:admin,operator,user,pj_toko,pj_pinjaman,ketua', // Update list role
+            'profile_picture' => 'nullable|image|mimes:jpg,jpeg,png|max:2048'
+        ]);
+
+        if($request->hasFile('profile_picture')){
+            if($user->profile_picture && Storage::exists('public/profiles/'.$user->profile_picture)){
+                Storage::delete('public/profiles/'.$user->profile_picture);
+            }
+            $file = $request->file('profile_picture');
+            $filename = time().'_'.$user->username.'.'.$file->getClientOriginalExtension();
+            $file->storeAs('public/profiles', $filename);
+            $user->profile_picture = $filename;
+        }
+
+        // Update data lain kecuali foto dan password
+        $user->fill($request->except(['profile_picture', 'password', '_method']));
+
+        if($request->filled('password')){
+            $user->password = Hash::make($request->password);
+        }
+
+        $user->save();
+
+        return response()->json([
+            'status'  => 'success',
+            'message' => 'Data anggota berhasil diperbarui',
+            'data'    => $user
+        ]);
+    }
+
+    public function destroy($id)
+    {
+        $user = User::find($id);
+
+        if (!$user) {
+            return response()->json(['status' => 'error', 'message' => 'User tidak ditemukan.'], 404);
+        }
+
+        if ($user->profile_picture && Storage::exists('public/profiles/' . $user->profile_picture)) {
+            Storage::delete('public/profiles/' . $user->profile_picture);
+        }
+
+        $user->delete();
+
+        return response()->json(['status' => 'success', 'message' => 'User berhasil dihapus'], 200);
+    }
+}

@@ -1,10 +1,9 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { Button, TextField, Grid, MenuItem, Box, Typography, Autocomplete} from "@mui/material";
+import { Button, TextField, Grid, MenuItem, Box, Typography, Autocomplete, InputAdornment, IconButton, Snackbar, Alert} from "@mui/material";
+import { Visibility, VisibilityOff } from "@mui/icons-material";
 import MainCard from '../../../components/cards/MainCard.jsx';
 import api from "@/api/axios.js";
-import { InputAdornment, IconButton} from "@mui/material";
-import { Visibility, VisibilityOff } from "@mui/icons-material";
 
 const UserForm = () =>{
     const {id} = useParams(); //ambil id jika ambil mode edit
@@ -24,6 +23,16 @@ const UserForm = () =>{
     const [selectedFile, setSelectedFile] = useState(null);
     const [preview, setPreview] = useState(null);
     const [showPassword, setShowPassword] = useState(false);
+    const [snackbar, setSnackbar] = useState({
+        open: false,
+        message: '',
+        severity: 'success' // bisa 'success', 'error', 'info', atau 'warning'
+    });
+
+    const handleCloseSnackbar = () => {
+        if (reason === 'clickaway') return;
+        setSnackbar({ ...snackbar, open: false });
+    };
 
     const satkerOptions = [
         { value: '3500', label: 'BPS Provinsi Jawa Timur' },
@@ -68,28 +77,29 @@ const UserForm = () =>{
     ];
 
     useEffect(() => {
-        if (isEdit) { //ambil data lama jika edit
+        if (isEdit) { 
             api.get(`/users/${id}`)
                 .then((res) => {
-                    const profile = res.data.data.profile;
-                    const finance = res.data.data.finance;
+                    if (res.data && res.data.data) {
+                        const user = res.data.data;
+                        setFormData({
+                            name: user.name || '',
+                            username: user.username || '',
+                            email: user.email || '',
+                            satker: user.satker || '3500',
+                            role: user.role || '',
+                            limit_total: user.limit_total || '',
+                            password: ''
+                        });
 
-                    setFormData({
-                        name: profile.full_name || '',
-                        username: profile.username || '',
-                        email: profile.email || '',
-                        satker: profile.satker || '',   // HARUS value yang cocok dengan satkerOptions.value
-                        role: profile.role || '',
-                        limit_total: finance.total_limit || '',
-                        password: ''
-                    });
-
-                    if (profile.profile_picture) {
-                        setPreview(profile.profile_picture); // langsung URL
+                        if (user.foto_url) {
+                            setPreview(user.foto_url);
+                        }
                     }
                 })
                 .catch(err => {
-                    console.error("Gagal mengambil data user", err);
+                    console.error("Detail Error dari Server:", err.response?.data);
+                    alert("Gagal memuat data: " + (err.response?.data?.message || "Server Error"));
                 });
         }
     }, [id]);
@@ -103,7 +113,6 @@ const UserForm = () =>{
         data.append('email', formData.email);
         data.append('satker', formData.satker);
         data.append('role', formData.role);
-        data.append('limit_total', parseFloat(formData.limit_total || 0));
 
         // kirim password saat add user atau ada edit password
         if(formData.password){
@@ -118,17 +127,26 @@ const UserForm = () =>{
         try {
             if (isEdit){
                 data.append('_method', 'PUT');
-                await api.post(`/users/${id}`, data,{
-                    headers:{'Content-Type':'multipart/form-data'}
-                });
-            } else{
-                await api.post('/users', data,{
-                    headers:{'Content-Type':'multipart/form-data'}
-                });
+                await api.post(`/users/${id}`, data); 
+            } else {
+                await api.post('/users', data);
             }
-            navigate('/admin/users');
+            setSnackbar({
+                open: true,
+                message: isEdit ? 'Data anggota berhasil diperbarui!' : 'Anggota baru berhasil ditambahkan!',
+                severity: 'success'
+            });
+
+            // 2. Beri jeda 1.5 detik agar user bisa baca pesan suksesnya, baru pindah halaman
+            setTimeout(() => {
+                navigate('/admin/users');
+            }, 1500);
         } catch (error) {
-            console.error("Gagal Menyimpan", error.response?.data||error.message);
+            setSnackbar({
+                open: true,
+                message: error.response?.data?.message || 'Terjadi kesalahan saat menyimpan data.',
+                severity: 'error'
+            });
         }
     };
 
@@ -197,13 +215,12 @@ const UserForm = () =>{
                             type={showPassword ? "text" : "password"}
                             value={formData.password}
                             onChange={(e)=>setFormData({...formData, password:e.target.value})}
+                            placeholder={isEdit ? "Kosongkan jika tidak ganti" : ""}
                             InputProps={{
                                 endAdornment: (
                                     <InputAdornment position="end">
                                     <IconButton
-                                        onClick={() => setShowPassword(!showPassword)}
-                                        edge="end"
-                                    >
+                                        onClick={() => setShowPassword(!showPassword)}>
                                         {showPassword ? <VisibilityOff /> : <Visibility />}
                                     </IconButton>
                                     </InputAdornment>
@@ -245,26 +262,13 @@ const UserForm = () =>{
                             select fullWidth label = "Role"
                             value={formData.role}
                             onChange={(e)=>setFormData({...formData, role:e.target.value})}>
-                                <MenuItem value="admin">Admin</MenuItem>        
+                                <MenuItem value="admin">Admin</MenuItem>
                                 <MenuItem value="user">User</MenuItem>
                                 <MenuItem value="operator">Operator</MenuItem>
+                                <MenuItem value="pj_toko">PJ Toko</MenuItem>
+                                <MenuItem value="pj_pinjaman">PJ Pinjaman</MenuItem>
+                                <MenuItem value="ketua">Ketua</MenuItem>
                         </TextField>
-                    </Grid>
-                    <Grid size={{ xs: 12, sm: 2 }}
-                        sx={{
-                            display: 'flex',
-                            alignItems: 'center'
-                        }}>
-                        <Typography variant="body1">
-                            <b>Limit Total</b>
-                        </Typography>
-                    </Grid>
-                    <Grid size={{ xs: 12, sm: 4 }}
-                        sx={{ display: 'flex', alignItems: 'center' }}>
-                        <TextField
-                            fullWidth label = "Limit Total"
-                            value={formData.limit_total}
-                            onChange={(e)=>setFormData({...formData, limit_total:e.target.value})}/>
                     </Grid>
                     <Grid size={{ xs: 12, sm: 2 }}
                         sx={{
@@ -289,10 +293,21 @@ const UserForm = () =>{
                                 type="file"
                                 hidden
                                 accept="image/*"
-                                onChange={(e) => setSelectedFile(e.target.files[0])}
+                                onChange={(e) => {
+                                    const file = e.target.files[0];
+                                    if (file) {
+                                        setSelectedFile(file);
+                                        setPreview(URL.createObjectURL(file)); 
+                                    }
+                                }}
                             />
                         </Button>
                     </Grid>
+                    {preview && (
+                        <Grid item xs={12} sx={{ display: 'flex', justifyContent: 'center' }}>
+                            <Box component="img" src={preview} sx={{ width: 100, height: 100, borderRadius: '50%', objectFit: 'cover', border: '2px solid #eee' }} />
+                        </Grid>
+                    )}
                     <Grid size={{xs:12, sm:12}} sx={{ display: 'flex', justifyContent: 'flex-end', pt: 2 }}>
                         <Grid size={{ xs: 12, sm: 6 }} sx={{ display: 'flex', justifyContent: 'flex-end' }}></Grid>
                         <Box sx={{ display: 'flex', justifyContent: 'right', gap: 4, pt:4, flex: 8}}>
@@ -306,6 +321,21 @@ const UserForm = () =>{
                     </Grid>
                 </Grid>
             </form>
+            <Snackbar 
+                open={snackbar.open} 
+                autoHideDuration={3000} 
+                onClose={handleCloseSnackbar}
+                anchorOrigin={{ vertical: 'top', horizontal: 'right' }} // Muncul di pojok kanan bawah
+            >
+                <Alert 
+                    onClose={handleCloseSnackbar} 
+                    severity={snackbar.severity} 
+                    variant="filled" // Agar warnanya solid khas Material UI modern
+                    sx={{ width: '100%', borderRadius: '8px' }}
+                >
+                    {snackbar.message}
+                </Alert>
+            </Snackbar>
         </MainCard>
     );
 };

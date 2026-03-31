@@ -44,11 +44,12 @@ export default defineConfig(({ mode }) => {
         //   find: 'assets',
         //   replacement: path.join(process.cwd(), 'src/assets')
         // },
-        '@':path.resolve(__dirname, 'src'),
+        '@': path.resolve(__dirname, 'src'),
         '@tabler/icons-react': '@tabler/icons-react/dist/esm/icons/index.mjs'
       }
     },
     base: API_URL,
-    plugins: [react(), jsconfigPaths()]
+    // base: '/',
+    plugins: [react(), jsconfigPaths()], 
   };
 });
