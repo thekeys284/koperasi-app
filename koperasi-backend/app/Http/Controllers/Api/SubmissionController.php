@@ -19,7 +19,8 @@ class SubmissionController extends Controller
     {
         try {
             // Get authenticated user (Normal) or Test User (via user_id field or default ID 1)
-            $user = auth()->user() ?: User::find($request->user_id ?: 5);
+            $userId = $request->user_id ?: 1;
+            $user = auth()->user() ?: User::find($userId);
 
             if (!$user) {
                 return response()->json([
@@ -135,20 +136,28 @@ class SubmissionController extends Controller
     {
         try {
             // Get user from auth or request for testing
-            $user = auth()->user() ?: User::find($request->user_id ?: 1);
+            $userId = $request->user_id ?: 1;
+            $user = auth()->user() ?: User::find($userId);
 
             if (!$user) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'User tidak ditemukan.'
+                    'message' => "User tidak ditemukan untuk user_id={$userId}."
                 ], 404);
             }
 
-            $submissions = Submission::where('user_id', $user->id)
-                ->orderBy('created_at', 'desc')
-                ->get()
-                ->map(function ($submission) {
-                    return [
+            // Admin or report mode: if ?all=1, show all pengajuan
+            if ($request->query('all')) {
+                $submissions = Submission::orderBy('created_at', 'desc')
+                    ->get();
+            } else {
+                $submissions = Submission::where('user_id', $user->id)
+                    ->orderBy('created_at', 'desc')
+                    ->get();
+            }
+
+            $submissions = $submissions->map(function ($submission) {
+                return [
                         'id' => $submission->id,
                         'submission_number' => 'SUB-' . str_pad($submission->id, 5, '0', STR_PAD_LEFT),
                         'type' => $submission->type,
