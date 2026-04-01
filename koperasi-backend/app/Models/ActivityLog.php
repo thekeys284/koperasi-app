@@ -7,11 +7,18 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class ActivityLog extends Model
 {
+    protected $table = 'activity_logs';
+
     protected $fillable = [
-        'message_text','message_summary','role','use_id','message_icon','message_date_time'
+        'user_id',
+        'title',
+        'message',
+        'icon',
+        'status_color',
     ];
 
-    public function user():BelongsTo{
+    public function user(): BelongsTo
+    {
         return $this->belongsTo(User::class);
     }
 }

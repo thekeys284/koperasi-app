@@ -29,7 +29,7 @@ class User extends Authenticatable
      *
      * @var list<string>
      */
-    protected $hidden = [ 
+    protected $hidden = [
         'password',
         'remember_token',
     ];
@@ -47,11 +47,18 @@ class User extends Authenticatable
         ];
     }
 
-    public function submission(){
+    public function submissions()
+    {
         return $this->hasMany(Submission::class);
     }
 
-    public function activityLogs(){
+    public function loans()
+    {
+        return $this->hasMany(Loan::class);
+    }
+
+    public function activityLogs()
+    {
         return $this->hasMany(ActivityLog::class);
     }
 }

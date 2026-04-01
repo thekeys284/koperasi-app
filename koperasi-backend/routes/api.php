@@ -38,32 +38,11 @@ Route::prefix('categories')->group(function(){
     Route::get('/{id}', [CategoryController::class, 'show']);
     Route::post('/{id}',[CategoryController::class, 'update']);
 });
-// Route::get('/products', [ProductController::class, 'index']);
-// Route::get('/categories', [MasterController::class, 'categories']);
-// Route::get('/units', [MasterController::class, 'units']);
-// Route::get('/payment-methods', [MasterController::class, 'paymentMethods']);
 
-// // --- TRANSAKSI (POS) ---
-// Route::post('/checkout', [TransactionController::class, 'store']);
-
-// // --- REKAP & LAPORAN ---
-// Route::prefix('reports')->group(function () {
-//     Route::get('/daily', [ReportController::class, 'dailySummary']); // Cash vs QRIS harian
-//     Route::get('/monthly-credit', [ReportController::class, 'monthlyCreditRecap']); // Rekap tempo bulanan
-// });
-
-// // --- PIUTANG / TEMPO ---
-// Route::prefix('credits')->group(function () {
-//     Route::get('/', [CreditController::class, 'index']); // Daftar orang berhutang
-//     Route::post('/pay', [CreditController::class, 'pay']); // Bayar cicilan
-// });
-
-// // --- SUBMISSIONS (PENGAJUAN) ---
-// Route::prefix('submissions')->group(function () {
-//     Route::get('/', [SubmissionController::class, 'index']); // Lihat semua (Admin)
-//     Route::post('/', [SubmissionController::class, 'store']); // Buat pengajuan (User)
-//     Route::patch('/{id}/status', [SubmissionController::class, 'updateStatus']); // Approve/Reject
-// });
-
-// // --- LOGS ---
-// Route::get('/activity-logs', [MasterController::class, 'logs']);
+// --- SUBMISSIONS (PENGAJUAN PINJAMAN) ---
+// Testing route (tanpa auth)
+Route::prefix('submissions')->group(function () {
+    Route::get('/', [SubmissionController::class, 'index']);
+    Route::post('/', [SubmissionController::class, 'store']);
+    Route::get('/{id}', [SubmissionController::class, 'show']);
+});
