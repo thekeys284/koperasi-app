@@ -11,36 +11,36 @@ class Loan extends Model
     protected $table = 'loans';
 
     protected $fillable = [
-        'submission_id',
         'user_id',
-        'total_loan',
-        'remaining_loan',
-        'monthly_installment',
-        'start_date',
-        'end_date',
-        'status'
+        'jenis_pinjaman',
+        'jumlah_pinjaman',
+        'lama_pembayaran',
+        'bulan_potong_gaji',
+        'file_path',
+        'status_pengajuan',
+        'tanggal_mulai_cicilan',
+        'tanggal_pengajuan',
+        'tgl_acc_ketua1',
+        'tgl_acc_ketua2',
     ];
 
     protected $casts = [
-        'total_loan' => 'decimal:2',
-        'remaining_loan' => 'decimal:2',
-        'monthly_installment' => 'decimal:2',
-        'start_date' => 'date',
-        'end_date' => 'date',
+        'jenis_pinjaman' => 'integer',
+        'jumlah_pinjaman' => 'decimal:2',
+        'lama_pembayaran' => 'integer',
+        'tanggal_mulai_cicilan' => 'date',
+        'tanggal_pengajuan' => 'datetime',
+        'tgl_acc_ketua1' => 'datetime',
+        'tgl_acc_ketua2' => 'datetime',
     ];
-
-    public function submission(): BelongsTo
-    {
-        return $this->belongsTo(Submission::class);
-    }
 
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
     }
 
-    public function recapItems(): HasMany
+    public function cicilan(): HasMany
     {
-        return $this->hasMany(LoanRecapItem::class);
+        return $this->hasMany(LoanCicilan::class, 'loans_id');
     }
 }

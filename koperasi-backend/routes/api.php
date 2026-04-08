@@ -6,12 +6,12 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Api\ProductController;
 use App\Http\Controllers\Api\TransactionController;
 use App\Http\Controllers\Api\CategoryController;
+use App\Http\Controllers\Api\LoanController;
 
 // API Master Data
 
 // use App\Http\Controllers\Api\UserController;
 use App\Http\Controllers\Api\ReportController;
-use App\Http\Controllers\Api\SubmissionController;
 use App\Http\Controllers\Api\CreditController;
 use App\Http\Controllers\Api\MasterController;
 
@@ -39,10 +39,17 @@ Route::prefix('categories')->group(function(){
     Route::post('/{id}',[CategoryController::class, 'update']);
 });
 
-// --- SUBMISSIONS (PENGAJUAN PINJAMAN) ---
-// Testing route (tanpa auth)
+// --- LOANS / SUBMISSIONS (PENGAJUAN PINJAMAN) ---
+Route::prefix('loans')->group(function () {
+    Route::get('/', [LoanController::class, 'index']);
+    Route::post('/', [LoanController::class, 'store']);
+    Route::get('/{id}', [LoanController::class, 'show']);
+    Route::patch('/{loan}/cicilan/{cicilan}', [LoanController::class, 'updateCicilan']);
+});
+
+// Alias lama supaya frontend lama tetap jalan
 Route::prefix('submissions')->group(function () {
-    Route::get('/', [SubmissionController::class, 'index']);
-    Route::post('/', [SubmissionController::class, 'store']);
-    Route::get('/{id}', [SubmissionController::class, 'show']);
+    Route::get('/', [LoanController::class, 'index']);
+    Route::post('/', [LoanController::class, 'store']);
+    Route::get('/{id}', [LoanController::class, 'show']);
 });

@@ -24,7 +24,7 @@ class UserController extends Controller
              'email'            => 'required|email|unique:users,email',
              'password'         => 'required|min:6',
              'satker'           => 'string',
-             'role'             => 'required|in:admin,operator,user,pj_toko,pj_pinjaman,ketua', 
+             'role'             => 'required|in:admin,operator,user,pj_toko,pj_pinjaman,ketua',
              'profile_picture'  => 'nullable|image|mimes:jpg,jpeg,png|max:2048',
         ]);
 
@@ -52,18 +52,22 @@ class UserController extends Controller
         // $user = User::with([
         //     'submission' => fn($q) => $q->latest(),
         //     'activityLogs' => fn($q) => $q->latest()->limit(10)
-        // ])->findOrFail($id); 
+        // ])->findOrFail($id);
         // return new UserResource($user);
         try {
         // Pakai findOrFail supaya kalau ID gak ada, langsung 404 (bukan 500)
-        $user = User::with(['submission', 'activityLogs'])->findOrFail($id);
+        $user = User::with([
+            'submissions' => fn($query) => $query->latest(),
+            'loans' => fn($query) => $query->latest(),
+            'activityLogs' => fn($query) => $query->latest(),
+        ])->findOrFail($id);
 
         return new UserResource($user);
         } catch (\Exception $e) {
             // Ini bakal kasih tahu kamu error aslinya apa di log Laravel
             return response()->json([
                 'message' => 'Terjadi kesalahan di server',
-                'error' => $e->getMessage() 
+                'error' => $e->getMessage()
             ], 500);
         }
     }

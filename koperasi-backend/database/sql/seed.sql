@@ -1,9 +1,9 @@
 -- 1. NONAKTIFKAN PENGECEKAN FOREIGN KEY
 SET FOREIGN_KEY_CHECKS=0;
 
--- 2. TRUNCATE TABLES SESUAI DEPENDENCY
+-- 2. TRUNCATE TABLES SESUAI DEPENDENCY (anak dulu, baru induk)
 TRUNCATE TABLE activity_logs;
-TRUNCATE TABLE loan_recap_items;
+TRUNCATE TABLE loan_cicilan;
 TRUNCATE TABLE loans;
 TRUNCATE TABLE submissions;
 TRUNCATE TABLE debt_payments;
@@ -35,7 +35,7 @@ ALTER TABLE debts AUTO_INCREMENT = 1;
 ALTER TABLE debt_payments AUTO_INCREMENT = 1;
 ALTER TABLE submissions AUTO_INCREMENT = 1;
 ALTER TABLE loans AUTO_INCREMENT = 1;
-ALTER TABLE loan_recap_items AUTO_INCREMENT = 1;
+ALTER TABLE loan_cicilan AUTO_INCREMENT = 1;
 ALTER TABLE activity_logs AUTO_INCREMENT = 1;
 ALTER TABLE payment_methods AUTO_INCREMENT = 1;
 ALTER TABLE price_logs AUTO_INCREMENT = 1;
@@ -46,7 +46,11 @@ INSERT INTO users (name, email, username, password, role, created_at, updated_at
 ('Siti Kasir', 'siti.kasir@koperasi.com', 'siti', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'operator', NOW(), NOW()),
 ('Budi PJ Toko', 'budi.toko@koperasi.com', 'budi', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'pj_toko', NOW(), NOW()),
 ('Agus Ketua Koperasi', 'agus.ketua@koperasi.com', 'agus', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'ketua', NOW(), NOW()),
-('Andi Anggota', 'andi.anggota@gmail.com', 'andi', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'user', NOW(), NOW());
+('Andi Anggota', 'andi.anggota@gmail.com', 'andi', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'user', NOW(), NOW()),
+('Rina Anggota', 'rina.anggota@koperasi.com', 'rina', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'user', NOW(), NOW()),
+('Dedi Anggota', 'dedi.anggota@koperasi.com', 'dedi', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'user', NOW(), NOW()),
+('Nia Anggota', 'nia.anggota@koperasi.com', 'nia', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'user', NOW(), NOW()),
+('Fajar Anggota', 'fajar.anggota@koperasi.com', 'fajar', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'user', NOW(), NOW());
 
 -- 5. MASTER DATA: CATEGORIES & UNITS
 INSERT INTO categories (name, description, created_at, updated_at) VALUES
@@ -100,28 +104,65 @@ INSERT INTO debts (sale_id, user_id, total_debt, remaining_debt, due_date, statu
 INSERT INTO debt_payments (debt_id, user_id, amount_paid, payment_date, payment_status, note, created_at) VALUES
 (1, 1, 20000.00, '2026-03-20', 'SUCCESS', 'Bayar cash sebagian', NOW());
 
--- 12. SUBMISSIONS, LOANS, & LOAN RECAP
--- INSERT INTO submissions (user_id, type, amount_requested, tenor_months, reason, pj_status, chairman_status, final_status, created_at, updated_at) VALUES
--- (5, 'Konsumtif', 1000000.00, 5, 'Biaya perbaikan atap rumah', 'APPROVED', 'APPROVED', 'APPROVED', NOW(), NOW());
+-- 12. SUBMISSIONS, LOANS, & LOAN CICILAN
 INSERT INTO submissions (
-  user_id, type, amount_requested, tenor_months, 
-  start_date, -- Tambahkan kolom ini
-  reason, pj_status, pj_action_at, 
-  chairman_status, chairman_action_at, 
+  user_id, type, amount_requested, tenor_months,
+  start_date,
+  reason, pj_status, pj_action_at,
+  chairman_status, chairman_action_at,
   final_status, created_at, updated_at
 ) VALUES (
-  5, 'Konsumtif', 1000000.00, 5, 
-  '2026-04-01', -- Nilai untuk start_date
-  'Biaya perbaikan atap rumah', 'APPROVED', NOW(), 
-  'APPROVED', NOW(), 
+  5, 'Konsumtif', 1000000.00, 5,
+  '2026-04-01',
+  'Biaya perbaikan atap rumah', 'APPROVED', NOW(),
+  'APPROVED', NOW(),
   'APPROVED', NOW(), NOW()
 );
 
-INSERT INTO loans (submission_id, user_id, total_loan, remaining_loan, monthly_installment, start_date, end_date, created_at) VALUES
-(1, 5, 1000000.00, 1000000.00, 200000.00, '2026-04-01', '2026-08-01', NOW());
 
-INSERT INTO loan_recap_items (loan_id, recap_month, recap_year, amount_to_pay, payment_status, created_at) VALUES
-(1, 4, 2026, 200000.00, 'PENDING', NOW());
+INSERT INTO loans (id, user_id, jenis_pinjaman, jumlah_pinjaman, lama_pembayaran, bulan_potong_gaji, file_path, status_pengajuan, tanggal_mulai_cicilan, tanggal_pengajuan, tgl_acc_ketua1, tgl_acc_ketua2) VALUES
+(1, 6, 0, 3000000.00, 6, 'Maret', NULL, 'disetujui_ketua', '2026-06-01', '2026-03-20', '2026-03-21 09:00:00', '2026-03-22 10:00:00'),
+(2, 7, 1, 4500000.00, 12, 'April', NULL, 'disetujui_ketua', '2026-06-10', '2026-03-21', '2026-03-22 09:00:00', '2026-03-23 10:00:00'),
+(3, 8, 0, 2500000.00, 5, 'April', NULL, 'pending_pengajuan', '2026-04-01', '2026-03-22', '2026-03-23 11:00:00', '2026-03-24 12:00:00'),
+(4, 9, 1, 4000000.00, 8, 'Mei', NULL, 'paid', '2026-05-01', '2026-03-23', '2026-03-24 08:30:00', '2026-03-24 09:30:00'),
+(5, 5, 0, 1500000.00, 4, 'April', NULL, 'disetujui_ketua', '2026-04-15', '2026-03-24', '2026-03-25 09:00:00', '2026-03-26 10:00:00');
+
+INSERT INTO loan_cicilan (loans_id, tanggal_pembayaran, nominal, status_pembayaran, cicilan) VALUES
+(1, '2026-04-01', 500000.00, 'pending', 1),
+(1, '2026-05-01', 500000.00, 'pending', 2),
+(1, '2026-06-01', 500000.00, 'pending', 3),
+(1, '2026-07-01', 500000.00, 'pending', 4),
+(1, '2026-08-01', 500000.00, 'pending', 5),
+(1, '2026-09-01', 500000.00, 'pending', 6),
+(2, '2026-04-10', 375000.00, 'pending', 1),
+(2, '2026-05-10', 375000.00, 'pending', 2),
+(2, '2026-06-10', 375000.00, 'pending', 3),
+(2, '2026-07-10', 375000.00, 'pending', 4),
+(2, '2026-08-10', 375000.00, 'pending', 5),
+(2, '2026-09-10', 375000.00, 'pending', 6),
+(2, '2026-10-10', 375000.00, 'pending', 7),
+(2, '2026-11-10', 375000.00, 'pending', 8),
+(2, '2026-12-10', 375000.00, 'pending', 9),
+(2, '2027-01-10', 375000.00, 'pending', 10),
+(2, '2027-02-10', 375000.00, 'pending', 11),
+(2, '2027-03-10', 375000.00, 'pending', 12),
+(3, '2026-04-01', 500000.00, 'pending', 1),
+(3, '2026-05-01', 500000.00, 'pending', 2),
+(3, '2026-06-01', 500000.00, 'pending', 3),
+(3, '2026-07-01', 500000.00, 'pending', 4),
+(3, '2026-08-01', 500000.00, 'pending', 5),
+(4, '2026-05-01', 500000.00, 'paid', 1),
+(4, '2026-06-01', 500000.00, 'paid', 2),
+(4, '2026-07-01', 500000.00, 'paid', 3),
+(4, '2026-08-01', 500000.00, 'paid', 4),
+(4, '2026-09-01', 500000.00, 'paid', 5),
+(4, '2026-10-01', 500000.00, 'paid', 6),
+(4, '2026-11-01', 500000.00, 'paid', 7),
+(4, '2026-12-01', 500000.00, 'paid', 8),
+(5, '2026-04-15', 375000.00, 'pending', 1),
+(5, '2026-05-15', 375000.00, 'pending', 2),
+(5, '2026-06-15', 375000.00, 'pending', 3),
+(5, '2026-07-15', 375000.00, 'pending', 4);
 
 -- 13. ACTIVITY LOGS
 INSERT INTO activity_logs (title, message, user_id, icon, status_color, created_at) VALUES

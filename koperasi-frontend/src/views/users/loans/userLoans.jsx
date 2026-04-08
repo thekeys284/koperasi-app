@@ -1,5 +1,6 @@
 import React from "react";
 import { useNavigate } from "react-router-dom";
+import api from "../../../api/axios";
 
 import {
     Box,
@@ -14,14 +15,15 @@ import {
     TableCell,
     TableBody,
     Chip,
+    CircularProgress,
     IconButton,
     Breadcrumbs,
     Link,
-    LinearProgress
+    LinearProgress,
+    Alert,
 } from "@mui/material";
 
 import NavigateNextIcon from "@mui/icons-material/NavigateNext";
-import FilterListIcon from "@mui/icons-material/FilterList";
 import AddIcon from "@mui/icons-material/Add";
 import MoreVertIcon from "@mui/icons-material/MoreVert";
 import DownloadIcon from "@mui/icons-material/Download";
@@ -43,9 +45,14 @@ const StatusBadge = ({ status }) => {
             bg: "#FEE2E2",
             color: "#DC2626",
         },
+        pending: {
+            label: "Pending",
+            bg: "#FEF3C7",
+            color: "#F59E0B",
+        },
     };
 
-    const item = config[status];
+    const item = config[status] || config.pending;
 
     return (
         <Chip
@@ -66,13 +73,16 @@ const LoanTypeBadge = ({ type }) => {
         produktif: { bg: "#DBEAFE", color: "#2563EB" },
     };
 
+    const safeType = String(type || "konsumtif").toLowerCase();
+    const badge = config[safeType] || config.konsumtif;
+
     return (
         <Chip
-            label={type}
+            label={safeType}
             size="small"
             sx={{
-                background: config[type].bg,
-                color: config[type].color,
+                background: badge.bg,
+                color: badge.color,
                 fontWeight: 600,
                 textTransform: "uppercase",
             }}
@@ -80,8 +90,50 @@ const LoanTypeBadge = ({ type }) => {
     );
 };
 
+const formatCurrency = (value) => `Rp ${new Intl.NumberFormat("id-ID").format(Number(value || 0))}`;
+
+const formatDate = (value) => {
+    if (!value) return "-";
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return "-";
+    return date.toLocaleDateString("id-ID", { day: "2-digit", month: "short", year: "numeric" });
+};
+
 const UserLoans = () => {
     const navigate = useNavigate();
+    const [loading, setLoading] = React.useState(true);
+    const [error, setError] = React.useState("");
+    const [loans, setLoans] = React.useState([]);
+
+    React.useEffect(() => {
+        const fetchLoans = async () => {
+            try {
+                setLoading(true);
+                const response = await api.get("/loans", {
+                    params: {
+                        user_id: 1,
+                    },
+                });
+                setLoans(response.data?.data || []);
+            } catch (err) {
+                setError(err.response?.data?.message || "Gagal mengambil data pinjaman user.");
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        fetchLoans();
+    }, []);
+
+    const selectedLoan = loans[0] || null;
+    const selectedLoanCicilan = selectedLoan?.cicilan || [];
+    const totalPokok = selectedLoan ? Number(selectedLoan.jumlah_pinjaman || 0) : 0;
+    const totalTerbayar = selectedLoanCicilan
+        .filter((item) => item.status_pembayaran === "paid")
+        .reduce((sum, item) => sum + Number(item.nominal || 0), 0);
+    const sisaPinjaman = Math.max(0, totalPokok - totalTerbayar);
+    const progress = totalPokok > 0 ? Math.round((totalTerbayar / totalPokok) * 100) : 0;
+    const sisaCicilan = selectedLoanCicilan.filter((item) => item.status_pembayaran !== "paid").length;
 
     return (
         <Box sx={{ p: 4, background: "#F5F7FB", minHeight: "100vh" }}>
@@ -117,7 +169,7 @@ const UserLoans = () => {
                 mb={4}
             >
                 <Typography variant="h4" fontWeight={800}>
-                    ID Pinjam: #PJM-2023001
+                    ID Pinjam: {selectedLoan?.loan_number ? `#${selectedLoan.loan_number}` : "-"}
                 </Typography>
 
                 <Button
@@ -149,7 +201,7 @@ const UserLoans = () => {
                             Total Pinjaman Pokok
                         </Typography>
                         <Typography fontSize={28} fontWeight={800} color="#2563EB">
-                            Rp 5.000.000
+                            {formatCurrency(totalPokok)}
                         </Typography>
                     </CardContent>
                 </Card>
@@ -160,11 +212,11 @@ const UserLoans = () => {
                             Total Terbayar
                         </Typography>
                         <Typography fontSize={28} fontWeight={800} color="#16A34A">
-                            Rp 2.000.000
+                            {formatCurrency(totalTerbayar)}
                         </Typography>
                         <LinearProgress
                             variant="determinate"
-                            value={40}
+                            value={progress}
                             sx={{
                                 mt: 1.5,
                                 borderRadius: 2,
@@ -185,14 +237,27 @@ const UserLoans = () => {
                             Sisa Pinjaman
                         </Typography>
                         <Typography fontSize={28} fontWeight={800} color="#EF4444">
-                            Rp 3.000.000
+                            {formatCurrency(sisaPinjaman)}
                         </Typography>
                         <Typography fontSize={13} fontWeight={500} color="#94A3B8" sx={{ display: "block", mt: 1 }}>
-                            3 dari 5 cicilan tersisa
+                            {sisaCicilan} cicilan tersisa
                         </Typography>
                     </CardContent>
                 </Card>
             </Stack>
+
+            {loading && (
+                <Stack direction="row" spacing={2} alignItems="center" mb={2}>
+                    <CircularProgress size={20} />
+                    <Typography color="text.secondary">Memuat data pinjaman user...</Typography>
+                </Stack>
+            )}
+
+            {!loading && error && (
+                <Alert severity="error" sx={{ mb: 2 }}>
+                    {error}
+                </Alert>
+            )}
 
             {/* TABLE */}
             <Card sx={{ borderRadius: 3 }}>
@@ -281,79 +346,51 @@ const UserLoans = () => {
                             </TableHead>
 
                             <TableBody>
+                                {loans.map((loan) => (
+                                    <TableRow key={loan.id}>
+                                        <TableCell>
+                                            <Typography fontWeight={700} color="primary">
+                                                #{loan.loan_number}
+                                            </Typography>
+                                            <Typography fontSize={12} color="text.secondary">
+                                                {formatDate(loan.created_at)}
+                                            </Typography>
+                                        </TableCell>
 
-                                <TableRow>
-                                    <TableCell>
-                                        <Typography fontWeight={700} color="primary">
-                                            #PJ-2023-002
-                                        </Typography>
-                                        <Typography fontSize={12} color="text.secondary">
-                                            10 Okt 2023
-                                        </Typography>
-                                    </TableCell>
+                                        <TableCell>
+                                            <LoanTypeBadge type={loan.type_slug} />
+                                            <Typography fontWeight={700}>
+                                                {formatCurrency(loan.jumlah_pinjaman)}
+                                            </Typography>
+                                        </TableCell>
 
-                                    <TableCell>
-                                        <LoanTypeBadge type="konsumtif" />
+                                        <TableCell>{loan.lama_pembayaran} Bulan</TableCell>
 
-                                        <Typography fontWeight={700}>
-                                            Rp 5.000.000
-                                        </Typography>
-                                    </TableCell>
+                                        <TableCell>
+                                            <StatusBadge status={loan.status} />
+                                        </TableCell>
 
-                                    <TableCell>5 Bulan</TableCell>
+                                        <TableCell>
+                                            <Typography fontSize={12}>
+                                                {formatDate(loan.tgl_acc_ketua1)} / {formatDate(loan.tgl_acc_ketua2)}
+                                            </Typography>
+                                        </TableCell>
 
-                                    <TableCell>
-                                        <StatusBadge status="approved" />
-                                    </TableCell>
+                                        <TableCell>
+                                            <IconButton onClick={() => navigate(`/user/loans/cicilan?loan_id=${loan.id}&user_id=1`)}>
+                                                <MoreVertIcon />
+                                            </IconButton>
+                                        </TableCell>
+                                    </TableRow>
+                                ))}
 
-                                    <TableCell>
-                                        <Typography fontSize={12}>
-                                            11 Okt / 12 Okt
-                                        </Typography>
-                                    </TableCell>
-
-                                    <TableCell>
-                                        <IconButton onClick={() => navigate("/user/loans/cicilan")}>
-                                            <MoreVertIcon />
-                                        </IconButton>
-                                    </TableCell>
-                                </TableRow>
-
-                                <TableRow>
-                                    <TableCell>
-                                        <Typography fontWeight={700} color="primary">
-                                            #PJ-2023-001
-                                        </Typography>
-                                        <Typography fontSize={12} color="text.secondary">
-                                            01 Sep 2023
-                                        </Typography>
-                                    </TableCell>
-
-                                    <TableCell>
-                                        <LoanTypeBadge type="konsumtif" />
-                                        <Typography fontWeight={700}>
-                                            Rp 3.000.000
-                                        </Typography>
-                                    </TableCell>
-
-                                    <TableCell>6 Bulan</TableCell>
-
-                                    <TableCell>
-                                        <StatusBadge status="lunas" />
-                                    </TableCell>
-
-                                    <TableCell>
-                                        <Typography fontSize={12}>
-                                            11 Okt / 12 Okt
-                                        </Typography>
-                                    </TableCell>
-
-                                    <TableCell>
-                                        <IconButton onClick={() => navigate("/user/loans/cicilan")}>
-                                            <MoreVertIcon />
-                                        </IconButton>
-                                    </TableCell>
-                                </TableRow>
+                                {!loading && loans.length === 0 && (
+                                    <TableRow>
+                                        <TableCell colSpan={6} align="center">
+                                            Belum ada data pengajuan pinjaman.
+                                        </TableCell>
+                                    </TableRow>
+                                )}
 
                             </TableBody>
                         </Table>

@@ -93,7 +93,7 @@ CREATE TABLE IF NOT EXISTS `stock_adjustments` (
 -- payment methods
 CREATE TABLE IF NOT EXISTS `payment_methods` (
   id BIGINT UNSIGNED PRIMARY KEY AUTO_INCREMENT,
-  name VARCHAR(50) NOT NULL, 
+  name VARCHAR(50) NOT NULL,
   description VARCHAR(255) NULL,
   is_active BOOLEAN DEFAULT TRUE,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -108,7 +108,7 @@ CREATE TABLE IF NOT EXISTS `sales` (
   total_bill DECIMAL(12,2) DEFAULT 0.00,
   total_discount DECIMAL(12,2) DEFAULT 0.00,
   payment_method_id BIGINT UNSIGNED NOT NULL,
-  payment_status ENUM('PAID', 'UNPAID', 'PARTIAL') DEFAULT 'PAID', 
+  payment_status ENUM('PAID', 'UNPAID', 'PARTIAL') DEFAULT 'PAID',
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL,
@@ -140,7 +140,7 @@ CREATE TABLE IF NOT EXISTS `sale_items` (
 CREATE TABLE IF NOT EXISTS `debts` (
   id BIGINT UNSIGNED PRIMARY KEY AUTO_INCREMENT,
   sale_id BIGINT UNSIGNED NOT NULL,
-  user_id BIGINT UNSIGNED NOT NULL, 
+  user_id BIGINT UNSIGNED NOT NULL,
   total_debt DECIMAL(12,2) NOT NULL,
   remaining_debt DECIMAL(12,2) NOT NULL,
   due_date DATE NOT NULL,
@@ -169,7 +169,7 @@ CREATE TABLE IF NOT EXISTS `debt_payments` (
 ) ENGINE=InnoDB;
 -- Index untuk mempermudah pencarian pembayaran piutang
 CREATE INDEX idx_debt_payments_debt_id ON debt_payments(debt_id);
-CREATE INDEX idx_debt_payments_payment_date ON debt_payments(payment_date); 
+CREATE INDEX idx_debt_payments_payment_date ON debt_payments(payment_date);
 
 -- submissions (Pengajuan Pinjaman)
 CREATE TABLE IF NOT EXISTS `submissions` (
@@ -199,74 +199,61 @@ CREATE TABLE IF NOT EXISTS `submissions` (
   FOREIGN KEY (chairman_id) REFERENCES users(id)
 ) ENGINE=InnoDB;
 
--- loans (Pinjaman Uang yang Sedang Berjalan)
-CREATE TABLE IF NOT EXISTS `loans` (
+-- loans (Pengajuan Pinjaman)
+CREATE TABLE IF NOT EXISTS loans (
   id BIGINT UNSIGNED PRIMARY KEY AUTO_INCREMENT,
-  submission_id BIGINT UNSIGNED NOT NULL, -- Referensi dari pengajuan yang di-acc
-  user_id BIGINT UNSIGNED NOT NULL,
-  
-  total_loan DECIMAL(12,2) NOT NULL, -- Total pinjaman awal + bunga (jika ada)
-  remaining_loan DECIMAL(12,2) NOT NULL, -- Sisa hutang yang belum lunas
-  
-  monthly_installment DECIMAL(12,2) NOT NULL, -- Nominal yang harus dibayar tiap bulan
-  start_date DATE NOT NULL, -- Bulan mulai cicilan
-  end_date DATE NOT NULL, -- Bulan perkiraan lunas
-  
-  -- Status: 'ACTIVE', 'PAID', 'BAD_DEBT'
-  status ENUM('ACTIVE', 'PAID', 'BAD_DEBT') DEFAULT 'ACTIVE',
-  
+  user_id BIGINT UNSIGNED NOT NULL, -- Foreign Key ke tabel User
+  jenis_pinjaman TINYINT(1) NOT NULL, -- 0 -> Konsumtif, 1 -> Produktif
+  jumlah_pinjaman DECIMAL(15,2) NOT NULL, -- Total uang yang dipinjam
+  lama_pembayaran INT NOT NULL, -- Tenor (misal: 6, 12, 24 bulan)
+  bulan_potong_gaji VARCHAR(255) NULL,
+  file_path VARCHAR(255) NULL,
+  status_pengajuan ENUM('pending', 'disetujui_ketua', 'pending_pengajuan', 'rejected', 'paid') DEFAULT 'pending',
+  tanggal_mulai_cicilan DATE NOT NULL, -- Waktu yang ditentukan user untuk mulai periode pembayaran
+  tanggal_pengajuan TIMESTAMP DEFAULT CURRENT_TIMESTAMP, -- Kapan user klik tombol "ajukan"
+  tgl_acc_ketua1 TIMESTAMP NULL, -- Waktu saat ketua 1 melakukan approval
+  tgl_acc_ketua2 TIMESTAMP NULL, -- Waktu saat ketua 2 melakukan approval
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  FOREIGN KEY (submission_id) REFERENCES submissions(id),
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   FOREIGN KEY (user_id) REFERENCES users(id)
 ) ENGINE=InnoDB;
 
--- loan_recap_items (Catatan Rekap Bulanan)
-CREATE TABLE IF NOT EXISTS `loan_recap_items` (
+-- loan_cicilan (Cicilan)
+CREATE TABLE IF NOT EXISTS loan_cicilan (
   id BIGINT UNSIGNED PRIMARY KEY AUTO_INCREMENT,
-  loan_id BIGINT UNSIGNED NOT NULL,
-  
-  recap_month INT NOT NULL, -- Bulan (1-12)
-  recap_year INT NOT NULL, -- Tahun (2026)
-  
-  amount_to_pay DECIMAL(12,2) NOT NULL, -- Nominal tagihan bulan ini
-  
-  -- Status dari Keuangan: 'PENDING', 'SUCCESS', 'FAILED'
-  payment_status ENUM('PENDING', 'SUCCESS', 'FAILED') DEFAULT 'PENDING',
-  
-  processed_by BIGINT UNSIGNED NULL, -- Siapa orang keuangan yang konfirmasi
-  processed_at TIMESTAMP NULL,
-  
-  note TEXT NULL, -- Catatan jika gagal bayar
-  
+  loans_id BIGINT UNSIGNED NOT NULL, -- Foreign Key ke tabel loans
+  tanggal_pembayaran DATE NOT NULL, -- Tanggal untuk pemotongan tukin
+  nominal DECIMAL(15,2) NOT NULL, -- Jumlah Potongan
+  status_pembayaran ENUM('pending', 'paid') DEFAULT 'pending',
+  cicilan INT NOT NULL, -- Cicilan keberapa (1, 2, 3...)
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  FOREIGN KEY (loan_id) REFERENCES loans(id),
-  FOREIGN KEY (processed_by) REFERENCES users(id)
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  FOREIGN KEY (loans_id) REFERENCES loans(id) ON DELETE CASCADE
 ) ENGINE=InnoDB;
-
 
 -- activity_logs
 CREATE TABLE IF NOT EXISTS `activity_logs` (
   -- Gunakan BIGINT UNSIGNED agar sinkron dengan users(id)
   id BIGINT UNSIGNED PRIMARY KEY AUTO_INCREMENT,
-  
+
   -- Judul singkat aktivitas, misal: "Penjualan Baru", "Update Harga"
   title VARCHAR(100) NOT NULL,
-  
+
   -- Detail lengkapnya, misal: "Admin Budi mengubah harga Indomie dari 3000 ke 3500"
   message TEXT NOT NULL,
-  
+
   -- User yang melakukan aktivitas
   user_id BIGINT UNSIGNED NOT NULL,
-  
+
   -- Icon untuk tampilan di Next.js, misal: 'shopping-cart', 'user-plus', 'alert-circle'
   icon VARCHAR(50) DEFAULT 'info',
-  
+
   -- Warna icon di UI (opsional, tapi bagus untuk Next.js), misal: 'success', 'danger', 'warning'
   status_color VARCHAR(20) DEFAULT 'primary',
-  
+
   -- Gunakan TIMESTAMP agar konsisten dengan tabel lainnya
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  
+
   FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 ) ENGINE=InnoDB;
 

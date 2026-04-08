@@ -4,7 +4,6 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class Submission extends Model
 {
@@ -47,10 +46,5 @@ class Submission extends Model
     public function chairman(): BelongsTo
     {
         return $this->belongsTo(User::class, 'chairman_id');
-    }
-
-    public function loan(): HasOne
-    {
-        return $this->hasOne(Loan::class);
     }
 }

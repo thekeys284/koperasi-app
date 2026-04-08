@@ -1,8 +1,8 @@
 import React from "react";
 import { useNavigate } from "react-router-dom";
+import api from "../../../api/axios";
 
 import StatCard from "../../../ui-component/cards/Loans/Admin/StatCard";
-import fileBlueIcon from "../../../assets/images/admin/file-blue.svg";
 import checkGreenIcon from "../../../assets/images/admin/check-green.svg";
 import alertOrangeIcon from "../../../assets/images/admin/alert-orange.svg";
 
@@ -17,20 +17,17 @@ import {
   TableRow,
   Chip,
   Stack,
-  Button,
-  Pagination,
+  CircularProgress,
   Box,
-  Select,
-  MenuItem,
   IconButton,
   Breadcrumbs,
   Link,
+  Alert,
 } from "@mui/material";
 
 import NavigateNextIcon from "@mui/icons-material/NavigateNext";
 import MoreVertIcon from "@mui/icons-material/MoreVert";
-
-import FilterListIcon from "@mui/icons-material/FilterList";
+import AccountBalanceWalletOutlinedIcon from "@mui/icons-material/AccountBalanceWalletOutlined";
 
 const StatusBadge = ({ status }) => {
   const statusConfig = {
@@ -49,9 +46,14 @@ const StatusBadge = ({ status }) => {
       color: "#2563eb",
       bg: "#dbeafe",
     },
+    rejected: {
+      label: "Ditolak",
+      color: "#dc2626",
+      bg: "#fee2e2",
+    },
   };
 
-  const config = statusConfig[status];
+  const config = statusConfig[status] || statusConfig.pending;
 
   return (
     <Chip
@@ -72,13 +74,16 @@ const LoanTypeBadge = ({ type }) => {
     produktif: { bg: "#DBEAFE", color: "#2563EB" },
   };
 
+  const safeType = String(type || "konsumtif").toLowerCase();
+  const badge = config[safeType] || config.konsumtif;
+
   return (
     <Chip
-      label={type}
+      label={safeType}
       size="small"
       sx={{
-        background: config[type].bg,
-        color: config[type].color,
+        background: badge.bg,
+        color: badge.color,
         fontWeight: 600,
         textTransform: "uppercase",
       }}
@@ -86,8 +91,111 @@ const LoanTypeBadge = ({ type }) => {
   );
 };
 
+const formatCurrency = (value) => `Rp ${new Intl.NumberFormat("id-ID").format(Number(value || 0))}`;
+
+const formatDate = (value) => {
+  if (!value) return "-";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "-";
+  return date.toLocaleDateString("id-ID", { day: "2-digit", month: "short", year: "numeric" });
+};
+
+const isCurrentMonth = (value) => {
+  if (!value) return false;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return false;
+  const now = new Date();
+  return date.getFullYear() === now.getFullYear() && date.getMonth() === now.getMonth();
+};
+
+const hasCurrentMonthUnpaidInstallment = (loan) => {
+  return Array.isArray(loan.cicilan) && loan.cicilan.some(
+    (item) => item.tukin_status !== "sudah" && isCurrentMonth(item.tanggal_pembayaran)
+  );
+};
+
+const getCurrentMonthUnpaidInstallmentNo = (loan) => {
+  if (!Array.isArray(loan.cicilan)) return Number.MAX_SAFE_INTEGER;
+
+  const currentMonthInstallment = loan.cicilan.find(
+    (item) => item.tukin_status !== "sudah" && isCurrentMonth(item.tanggal_pembayaran)
+  );
+
+  return currentMonthInstallment?.cicilan ?? Number.MAX_SAFE_INTEGER;
+};
+
+const getRunningLoanPriority = (loan) => {
+  return loan.status_pengajuan === "pending_pengajuan" ? 0 : 1;
+};
+
+const getLoanListStatusLabel = (loan) => {
+  if (loan.status === "pending") return "Pending";
+  if (loan.status === "aktif" && hasCurrentMonthUnpaidInstallment(loan)) return "Menunggu Konfirmasi";
+  return "Aktif";
+};
+
 const LoanPage = () => {
   const navigate = useNavigate();
+  const [loading, setLoading] = React.useState(true);
+  const [error, setError] = React.useState("");
+  const [summary, setSummary] = React.useState(null);
+  const [loans, setLoans] = React.useState([]);
+
+  React.useEffect(() => {
+    const fetchLoans = async () => {
+      try {
+        setLoading(true);
+        const response = await api.get("/loans", {
+          params: {
+            all: 1,
+            user_id: 1,
+          },
+        });
+        setSummary(response.data?.summary || null);
+        setLoans(response.data?.data || []);
+      } catch (err) {
+        setError(err.response?.data?.message || "Gagal mengambil data pinjaman.");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchLoans();
+  }, []);
+
+  const runningLoans = loans.filter((item) => (
+    item.status_pengajuan === "disetujui_ketua" || item.status_pengajuan === "pending_pengajuan"
+  ));
+  const pendingConfirmationLoans = runningLoans
+    .filter((item) => hasCurrentMonthUnpaidInstallment(item))
+    .sort((a, b) => {
+      const priorityDiff = getRunningLoanPriority(a) - getRunningLoanPriority(b);
+      if (priorityDiff !== 0) return priorityDiff;
+
+      return getCurrentMonthUnpaidInstallmentNo(a) - getCurrentMonthUnpaidInstallmentNo(b);
+    });
+  const paidLoans = loans
+    .filter((item) => (
+      item.status_pengajuan === "paid" || 
+      ((item.status_pengajuan === "disetujui_ketua" || item.status_pengajuan === "pending_pengajuan") && !hasCurrentMonthUnpaidInstallment(item))
+    ))
+    .sort((a, b) => {
+      // Priority: Active loans first, then Paid (Lunas) loans
+      if (a.status_pengajuan !== "paid" && b.status_pengajuan === "paid") return -1;
+      if (a.status_pengajuan === "paid" && b.status_pengajuan !== "paid") return 1;
+      return 0;
+    });
+  const userLoans = loans.filter((item) => item.user_role === "user");
+  const totalApprovedLoans = userLoans.filter((item) => (
+    item.status_pengajuan === "disetujui_ketua"
+  )).length;
+  const totalPendingLoans = userLoans.filter((item) => item.status_pengajuan === "pending_pengajuan").length;
+  const totalPaidLoans = userLoans.filter((item) => item.status_pengajuan === "paid").length;
+
+  const openLoanDetail = (loanId) => {
+    navigate(`/admin/loans/details?loan_id=${loanId}&user_id=1`);
+  };
+
   return (
     <Box sx={{ p: 4, background: "#f5f7fb", minHeight: "100vh" }}>
       {/* BREADCRUMB */}
@@ -114,32 +222,46 @@ const LoanPage = () => {
         Kelola dan tinjau status pengajuan pinjaman anggota secara real-time.
       </Typography>
 
+      {loading && (
+        <Stack direction="row" alignItems="center" spacing={2} mb={3}>
+          <CircularProgress size={22} />
+          <Typography color="text.secondary">Memuat data pinjaman...</Typography>
+        </Stack>
+      )}
+
+      {!loading && error && (
+        <Alert severity="error" sx={{ mb: 3 }}>
+          {error}
+        </Alert>
+      )}
+
       {/* STAT CARD */}
       <Stack direction="row" fontWeight={500} spacing={3} mb={4}>
         <StatCard
-          title="Total Pengajuan"
-          value={45}
-          color="blue"
-          icon={<img src={fileBlueIcon} width={24} />}
-        />
-
-        <StatCard
-          title="Total Pinjaman Aktif"
-          value={10}
+          title="Total Pinjaman Disetujui"
+          value={totalApprovedLoans}
           color="green"
           icon={<img src={checkGreenIcon} width={24} />}
-          badge="Disetujui"
         />
 
         <StatCard
-          title="Total Pinjaman Macet"
-          value={1}
+          title="Total Pinjaman Pending"
+          value={totalPendingLoans}
           color="orange"
           icon={<img src={alertOrangeIcon} width={24} />}
+          badge="Pending"
+          badgeColor="orange"
+        />
+
+        <StatCard
+          title="Total Pinjaman Paid"
+          value={totalPaidLoans}
+          color="blue"
+          icon={<AccountBalanceWalletOutlinedIcon sx={{ fontSize: 24, color: "#2563eb" }} />}
         />
       </Stack>
 
-      {/* TABLE PENUNDAAN */}
+      {/* TABLE BULAN BERJALAN */}
       <Card sx={{ borderRadius: 3, mb: 4 }}>
         <CardContent>
           <Typography
@@ -148,7 +270,7 @@ const LoanPage = () => {
             fontWeight={800}
             mb={2}
           >
-            Daftar Penundaan Pinjaman
+            Daftar pinjaman berjalan dan menunggu konfirmasi cicilan
           </Typography>
 
           <Box sx={{ overflowX: "auto" }}>
@@ -191,65 +313,60 @@ const LoanPage = () => {
                 </TableRow>
               </TableHead>
 
-            <TableBody>
-              <TableRow>
-                <TableCell>
-                  <Typography color="primary" fontWeight={600}>
-                    #PJ-2023-001
-                  </Typography>
-                  <Typography variant="caption" color="text.secondary">
-                    10 Okt 2023
-                  </Typography>
-                </TableCell>
+              <TableBody>
+                {pendingConfirmationLoans.map((loan) => (
+                  <TableRow key={`pending-${loan.id}`}>
+                    <TableCell>
+                      <Typography color="primary" fontWeight={600}>
+                        #{loan.loan_number}
+                      </Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        {formatDate(loan.created_at)}
+                      </Typography>
+                    </TableCell>
 
-                <TableCell>
-                  <Typography fontWeight={600}>Siti Rahmah</Typography>
-                  <Typography variant="caption" color="text.secondary">
-                    NIP
-                  </Typography>
-                </TableCell>
+                    <TableCell>
+                      <Typography fontWeight={600}>{loan.user_name || "-"}</Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        {loan.user_username || "-"}
+                      </Typography>
+                    </TableCell>
 
-                <TableCell>
-                  <LoanTypeBadge type="produktif" />
-                  <Typography fontWeight={700}>Rp 5.000.000</Typography>
-                </TableCell>
+                    <TableCell>
+                      <LoanTypeBadge type={loan.type_slug} />
+                      <Typography fontWeight={700}>{formatCurrency(loan.jumlah_pinjaman)}</Typography>
+                    </TableCell>
 
-                <TableCell>5 Bulan</TableCell>
+                    <TableCell>{loan.lama_pembayaran} Bulan</TableCell>
 
-                <TableCell>
-                  <StatusBadge status="pending" />
-                </TableCell>
+                    <TableCell>
+                      <StatusBadge
+                        status={loan.status_pengajuan === "pending_pengajuan" ? "pending" : loan.status}
+                      />
+                    </TableCell>
 
-                <TableCell>
-                  <IconButton onClick={() => navigate("/admin/loans/details")}>
-                    <MoreVertIcon />
-                  </IconButton>
-                </TableCell>
-              </TableRow>
-            </TableBody>
+                    <TableCell>
+                      <IconButton onClick={() => openLoanDetail(loan.id)}>
+                        <MoreVertIcon />
+                      </IconButton>
+                    </TableCell>
+                  </TableRow>
+                ))}
+
+                {!loading && pendingConfirmationLoans.length === 0 && (
+                  <TableRow>
+                    <TableCell colSpan={6} align="center">
+                      Tidak ada pinjaman bulan berjalan yang menunggu konfirmasi.
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
             </Table>
           </Box>
 
-          <Stack
-            direction="row"
-            justifyContent="space-between"
-            alignItems="center"
-            mt={2}
-          >
-            <Typography variant="body2" color="text.secondary">
-              Menampilkan 1-4 dari 45 permohonan
-            </Typography>
-
-            <Stack direction="row" spacing={1} alignItems="center">
-              <Button size="small" disabled>
-                Sebelumnya
-              </Button>
-
-              <Pagination count={3} page={1} size="small" />
-
-              <Button size="small">Selanjutnya</Button>
-            </Stack>
-          </Stack>
+          <Typography variant="body2" color="text.secondary" mt={2}>
+            Menampilkan {pendingConfirmationLoans.length} pinjaman berjalan yang menunggu konfirmasi cicilan.
+          </Typography>
         </CardContent>
       </Card>
 
@@ -262,26 +379,9 @@ const LoanPage = () => {
             alignItems="center"
             mb={2}
           >
-            <Typography
-              color="text.primary"
-              fontSize="18px"
-              fontWeight={800}
-              mb={2}
-            >
-              Daftar Pinjaman Aktif
+            <Typography color="text.primary" fontSize="18px" fontWeight={800} mb={2}>
+              Daftar Pinjaman Aktif Terbayar Cicilan Bulan Ini
             </Typography>
-
-            {/* <Stack direction="row" spacing={1}>
-              <Select size="small" defaultValue="semua">
-                <MenuItem value="semua">Semua Status</MenuItem>
-                <MenuItem value="aktif">Aktif</MenuItem>
-                <MenuItem value="lunas">Lunas</MenuItem>
-              </Select>
-
-              <IconButton>
-                <FilterListIcon />
-              </IconButton>
-            </Stack> */}
           </Stack>
 
           <Box sx={{ overflowX: "auto" }}>
@@ -324,65 +424,58 @@ const LoanPage = () => {
                 </TableRow>
               </TableHead>
 
-            <TableBody>
-              <TableRow>
-                <TableCell>
-                  <Typography color="primary" fontWeight={600}>
-                    #PJ-2023-007
-                  </Typography>
-                  <Typography variant="caption" color="text.secondary">
-                    10 Okt 2023
-                  </Typography>
-                </TableCell>
+              <TableBody>
+                {paidLoans.map((loan) => (
+                  <TableRow key={`active-${loan.id}`}>
+                    <TableCell>
+                      <Typography color="primary" fontWeight={600}>
+                        #{loan.loan_number}
+                      </Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        {formatDate(loan.created_at)}
+                      </Typography>
+                    </TableCell>
 
-                <TableCell>
-                  <Typography fontWeight={600}>Budi Santoso</Typography>
-                  <Typography variant="caption" color="text.secondary">
-                    NIP
-                  </Typography>
-                </TableCell>
+                    <TableCell>
+                      <Typography fontWeight={600}>{loan.user_name || "-"}</Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        {loan.user_username || "-"}
+                      </Typography>
+                    </TableCell>
 
-                <TableCell>
-                  <LoanTypeBadge type="konsumtif" />
-                  <Typography fontWeight={700}>Rp 5.000.000</Typography>
-                </TableCell>
+                    <TableCell>
+                      <LoanTypeBadge type={loan.type_slug} />
+                      <Typography fontWeight={700}>{formatCurrency(loan.jumlah_pinjaman)}</Typography>
+                    </TableCell>
 
-                <TableCell>12 Bulan</TableCell>
+                    <TableCell>{loan.lama_pembayaran} Bulan</TableCell>
 
-                <TableCell>
-                  <StatusBadge status="aktif" />
-                </TableCell>
+                    <TableCell>
+                      <StatusBadge status={loan.status} />
+                    </TableCell>
 
-                <TableCell>
-                  <IconButton onClick={() => navigate("/admin/loans/details")}>
-                    <MoreVertIcon />
-                  </IconButton>
-                </TableCell>
-              </TableRow>
-            </TableBody>
+                    <TableCell>
+                      <IconButton onClick={() => openLoanDetail(loan.id)}>
+                        <MoreVertIcon />
+                      </IconButton>
+                    </TableCell>
+                  </TableRow>
+                ))}
+
+                {!loading && paidLoans.length === 0 && (
+                  <TableRow>
+                    <TableCell colSpan={6} align="center">
+                      Tidak ada pinjaman paid saat ini.
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
             </Table>
           </Box>
 
-          <Stack
-            direction="row"
-            justifyContent="space-between"
-            alignItems="center"
-            mt={2}
-          >
-            <Typography variant="body2" color="text.secondary">
-              Menampilkan 1-4 dari 45 permohonan
-            </Typography>
-
-            <Stack direction="row" spacing={1} alignItems="center">
-              <Button size="small" disabled>
-                Sebelumnya
-              </Button>
-
-              <Pagination count={3} page={1} size="small" />
-
-              <Button size="small">Selanjutnya</Button>
-            </Stack>
-          </Stack>
+          <Typography variant="body2" color="text.secondary" mt={2}>
+            Menampilkan {paidLoans.length} data pinjaman aktif dengan cicilan bulan ini terbayar.
+          </Typography>
         </CardContent>
       </Card>
     </Box>

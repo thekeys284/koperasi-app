@@ -1,4 +1,5 @@
 import React from "react";
+import { useNavigate } from "react-router-dom";
 import {
     Box,
     Grid,
@@ -13,8 +14,10 @@ import {
     Button,
     InputAdornment,
     Paper,
-    Alert
+    Alert,
+    Snackbar
 } from "@mui/material";
+import api from "../../../api/axios";
 
 import {
     IconFileDescription,
@@ -39,12 +42,18 @@ const cardSx = {
 };
 
 const LeadLoanCreatePage = () => {
+    const navigate = useNavigate();
     const [tipePinjaman, setTipePinjaman] = React.useState("konsumtif");
     const [jumlah, setJumlah] = React.useState(0);
     const [tenor, setTenor] = React.useState(3);
     const [cicilan, setCicilan] = React.useState(0);
     const [fileName, setFileName] = React.useState("");
+    const [selectedFile, setSelectedFile] = React.useState(null);
     const [bulanPotongGaji, setBulanPotongGaji] = React.useState("");
+    const [keterangan, setKeterangan] = React.useState("");
+    const [submitting, setSubmitting] = React.useState(false);
+    const [errorMessage, setErrorMessage] = React.useState("");
+    const [successOpen, setSuccessOpen] = React.useState(false);
     const fileRef = React.useRef();
 
     React.useEffect(() => {
@@ -62,7 +71,57 @@ const LeadLoanCreatePage = () => {
 
     const handleFile = (e) => {
         const file = e.target.files[0];
-        if (file) setFileName(file.name);
+        if (file) {
+            setFileName(file.name);
+            setSelectedFile(file);
+        }
+    };
+
+    const handleSubmit = async () => {
+        try {
+            setSubmitting(true);
+            setErrorMessage("");
+
+            const payload = new FormData();
+            payload.append("user_id", "1");
+            payload.append("type", tipePinjaman === "produktif" ? "Produktif" : "Konsumtif");
+            payload.append("amount_requested", String(jumlah));
+            payload.append("tenor_months", String(tenor));
+            payload.append("bulan_potong_gaji", bulanPotongGaji || "");
+            payload.append("reason", keterangan || "");
+
+            if (selectedFile) {
+                payload.append("document", selectedFile);
+            }
+
+            await api.post("/loans", payload, {
+                headers: {
+                    "Content-Type": "multipart/form-data",
+                },
+            });
+
+            setSuccessOpen(true);
+            setKeterangan("");
+            setJumlah(0);
+            setTenor(3);
+            setBulanPotongGaji("");
+            setSelectedFile(null);
+            setFileName("");
+
+            setTimeout(() => {
+                navigate("/user/loans");
+            }, 700);
+        } catch (err) {
+            const errors = err.response?.data?.errors;
+            if (errors && typeof errors === "object") {
+                const firstError = Object.values(errors)[0];
+                setErrorMessage(Array.isArray(firstError) ? firstError[0] : "Validasi gagal.");
+            } else {
+                setErrorMessage(err.response?.data?.message || "Gagal mengirim pengajuan pinjaman.");
+            }
+        } finally {
+            setSubmitting(false);
+        }
     };
 
     const tenorLabel = jumlah > 0 ? tenor : 0;
@@ -214,14 +273,22 @@ const LeadLoanCreatePage = () => {
                                         multiline
                                         minRows={3}
                                         placeholder="Keterangan tambahan (opsional)"
+                                        value={keterangan}
+                                        onChange={(e) => setKeterangan(e.target.value)}
                                         InputProps={{ sx: { borderRadius: "12px", alignItems: "flex-start" } }}
                                     />
                                 </Box>
+
+                                {errorMessage && (
+                                    <Alert severity="error">{errorMessage}</Alert>
+                                )}
 
                                 <Button
                                     fullWidth
                                     variant="contained"
                                     size="large"
+                                    disabled={submitting || !jumlah || !bulanPotongGaji}
+                                    onClick={handleSubmit}
                                     sx={{
                                         py: 1.75,
                                         borderRadius: "12px",
@@ -231,7 +298,7 @@ const LeadLoanCreatePage = () => {
                                         boxShadow: "0 4px 14px rgba(25, 118, 210, 0.35)"
                                     }}
                                 >
-                                    Ajukan Pinjaman
+                                    {submitting ? "Mengirim..." : "Ajukan Pinjaman"}
                                 </Button>
                             </Stack>
                         </Paper>
@@ -304,6 +371,17 @@ const LeadLoanCreatePage = () => {
                     </Paper>
                 </Grid>
             </Grid>
+
+            <Snackbar
+                open={successOpen}
+                autoHideDuration={2000}
+                onClose={() => setSuccessOpen(false)}
+                anchorOrigin={{ vertical: "top", horizontal: "right" }}
+            >
+                <Alert severity="success" variant="filled" onClose={() => setSuccessOpen(false)}>
+                    Pengajuan pinjaman berhasil dikirim.
+                </Alert>
+            </Snackbar>
         </Box>
     );
 };

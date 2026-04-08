@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import {
     Box,
     Typography,
@@ -17,6 +17,8 @@ import {
     Breadcrumbs,
     Link,
     IconButton,
+    CircularProgress,
+    Alert,
 } from "@mui/material";
 
 import NavigateNextIcon from "@mui/icons-material/NavigateNext";
@@ -24,6 +26,7 @@ import MoreVertIcon from "@mui/icons-material/MoreVert";
 import DownloadIcon from "@mui/icons-material/Download";
 
 import PostponeInstallmentModal from "../../../ui-component/cards/Loans/User/userTundaCicilan";
+import api from "../../../api/axios";
 
 const StatusChip = ({ status }) => {
     const config = {
@@ -44,7 +47,7 @@ const StatusChip = ({ status }) => {
         },
     };
 
-    const item = config[status];
+    const item = config[status] || config.unpaid;
 
     return (
         <Chip
@@ -61,7 +64,68 @@ const StatusChip = ({ status }) => {
 
 const UserCicilan = () => {
     const navigate = useNavigate();
+    const [searchParams] = useSearchParams();
     const [openPostpone, setOpenPostpone] = useState(false);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState("");
+    const [loan, setLoan] = useState(null);
+
+    const loanId = searchParams.get("loan_id");
+    const userId = searchParams.get("user_id") || "1";
+
+    React.useEffect(() => {
+        const fetchLoanDetail = async () => {
+            try {
+                setLoading(true);
+
+                let targetLoanId = loanId;
+                if (!targetLoanId) {
+                    const listResponse = await api.get("/loans", {
+                        params: { user_id: userId },
+                    });
+                    const firstLoan = listResponse.data?.data?.[0];
+                    targetLoanId = firstLoan?.id;
+                }
+
+                if (!targetLoanId) {
+                    setLoan(null);
+                    return;
+                }
+
+                const detailResponse = await api.get(`/loans/${targetLoanId}`, {
+                    params: { user_id: userId },
+                });
+                setLoan(detailResponse.data?.data || null);
+            } catch (err) {
+                setError(err.response?.data?.message || "Gagal mengambil detail cicilan.");
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        fetchLoanDetail();
+    }, [loanId, userId]);
+
+    const cicilanList = loan?.cicilan || [];
+    const totalPokok = Number(loan?.jumlah_pinjaman || 0);
+    const totalTerbayar = cicilanList
+        .filter((item) => item.status_pembayaran === "paid")
+        .reduce((sum, item) => sum + Number(item.nominal || 0), 0);
+    const sisaPinjaman = Math.max(0, totalPokok - totalTerbayar);
+    const progress = totalPokok > 0 ? Math.round((totalTerbayar / totalPokok) * 100) : 0;
+    const sisaCicilan = cicilanList.filter((item) => item.status_pembayaran !== "paid").length;
+
+    const formatCurrency = (value) => `Rp ${new Intl.NumberFormat("id-ID").format(Number(value || 0))}`;
+    const formatDate = (value) => {
+        if (!value) return "-";
+        const date = new Date(value);
+        if (Number.isNaN(date.getTime())) return "-";
+        return date.toLocaleDateString("id-ID", { day: "2-digit", month: "short", year: "numeric" });
+    };
+    const mapCicilanStatus = (status) => {
+        if (status === "paid") return "paid";
+        return "unpaid";
+    };
 
     return (
         <Box sx={{ p: 4, background: "#F5F7FB", minHeight: "100vh" }}>
@@ -102,7 +166,7 @@ const UserCicilan = () => {
                 mb={3}
             >
                 <Typography variant="h4" fontWeight={800}>
-                    ID Pinjam: #PJM-2023001
+                    ID Pinjam: {loan?.loan_number ? `#${loan.loan_number}` : "-"}
                 </Typography>
 
                 <Button 
@@ -134,7 +198,7 @@ const UserCicilan = () => {
                             Total Pinjaman Pokok
                         </Typography>
                         <Typography fontSize={28} fontWeight={800} color="#2563EB">
-                            Rp 5.000.000
+                            {formatCurrency(totalPokok)}
                         </Typography>
                     </CardContent>
                 </Card>
@@ -145,11 +209,11 @@ const UserCicilan = () => {
                             Total Terbayar
                         </Typography>
                         <Typography fontSize={28} fontWeight={800} color="#16A34A">
-                            Rp 2.000.000
+                            {formatCurrency(totalTerbayar)}
                         </Typography>
                         <LinearProgress
                             variant="determinate"
-                            value={40}
+                            value={progress}
                             sx={{
                                 mt: 1.5,
                                 borderRadius: 2,
@@ -170,14 +234,27 @@ const UserCicilan = () => {
                             Sisa Pinjaman
                         </Typography>
                         <Typography fontSize={28} fontWeight={800} color="#EF4444">
-                            Rp 3.000.000
+                            {formatCurrency(sisaPinjaman)}
                         </Typography>
                         <Typography fontSize={13} fontWeight={500} color="#94A3B8" sx={{ display: "block", mt: 1 }}>
-                            3 dari 5 cicilan tersisa
+                            {sisaCicilan} cicilan tersisa
                         </Typography>
                     </CardContent>
                 </Card>
             </Stack>
+
+            {loading && (
+                <Stack direction="row" spacing={2} alignItems="center" mb={2}>
+                    <CircularProgress size={20} />
+                    <Typography color="text.secondary">Memuat detail cicilan...</Typography>
+                </Stack>
+            )}
+
+            {!loading && error && (
+                <Alert severity="error" sx={{ mb: 2 }}>
+                    {error}
+                </Alert>
+            )}
 
             {/* INFORMASI PINJAMAN */}
             <Card sx={{ borderRadius: 3, border: "1px solid #E5E7EB", boxShadow: "none", mb: 4 }}>
@@ -190,7 +267,7 @@ const UserCicilan = () => {
                     <Typography fontWeight={700} color="#1E293B">Informasi Pinjaman</Typography>
 
                     <Chip
-                        label="KONSUMTIF"
+                        label={String(loan?.type || "Konsumtif").toUpperCase()}
                         size="small"
                         sx={{
                             background: "#F3E8FF",
@@ -207,7 +284,7 @@ const UserCicilan = () => {
                                 Jenis Pinjaman
                             </TableCell>
                             <TableCell sx={{ color: "#64748B", borderBottom: "none", borderTop: "1px solid #E5E7EB", px: 3, py: 1.5 }}>
-                                Konsumtif
+                                {loan?.type || "-"}
                             </TableCell>
                         </TableRow>
                         <TableRow>
@@ -215,7 +292,7 @@ const UserCicilan = () => {
                                 Jumlah Pinjaman
                             </TableCell>
                             <TableCell sx={{ color: "#64748B", borderBottom: "none", px: 3, py: 1.5 }}>
-                                Rp 5.000.000
+                                {formatCurrency(loan?.jumlah_pinjaman)}
                             </TableCell>
                         </TableRow>
                         <TableRow>
@@ -223,7 +300,7 @@ const UserCicilan = () => {
                                 Tenor
                             </TableCell>
                             <TableCell sx={{ color: "#64748B", borderBottom: "none", px: 3, py: 1.5 }}>
-                                5 Bulan
+                                {loan?.lama_pembayaran || "-"} Bulan
                             </TableCell>
                         </TableRow>
                         <TableRow>
@@ -231,7 +308,7 @@ const UserCicilan = () => {
                                 Tgl Potong
                             </TableCell>
                             <TableCell sx={{ color: "#64748B", borderBottom: "none", px: 3, py: 1.5 }}>
-                                12 Okt 2023
+                                {loan?.bulan_potong_gaji || formatDate(loan?.tanggal_mulai_cicilan)}
                             </TableCell>
                         </TableRow>
                         <TableRow>
@@ -239,7 +316,7 @@ const UserCicilan = () => {
                                 Tgl Pengajuan
                             </TableCell>
                             <TableCell sx={{ color: "#64748B", borderBottom: "none", px: 3, py: 1.5 }}>
-                                10 Okt 2023
+                                {formatDate(loan?.created_at)}
                             </TableCell>
                         </TableRow>
                     </TableBody>
@@ -332,83 +409,49 @@ const UserCicilan = () => {
                                 </TableRow>
                             </TableHead>
 
-                        <TableBody>
+                            <TableBody>
+                                {cicilanList.map((item) => (
+                                    <TableRow key={item.id} sx={item.status_pembayaran !== "paid" ? { background: "#F9FAFB" } : undefined}>
+                                        <TableCell>#{`CIC-${String(item.id).padStart(4, "0")}`}</TableCell>
+                                        <TableCell>{item.cicilan}</TableCell>
+                                        <TableCell>{formatDate(item.tanggal_pembayaran)}</TableCell>
+                                        <TableCell>{formatCurrency(item.nominal)}</TableCell>
+                                        <TableCell>
+                                            <StatusChip status={mapCicilanStatus(item.status_pembayaran)} />
+                                        </TableCell>
+                                        <TableCell align="center">
+                                            {item.status_pembayaran !== "paid" && (
+                                                <Button
+                                                    size="small"
+                                                    variant="contained"
+                                                    onClick={() => setOpenPostpone(true)}
+                                                    sx={{
+                                                        borderRadius: "6px",
+                                                        textTransform: "none",
+                                                        fontWeight: 600,
+                                                        backgroundColor: "#3B82F6",
+                                                        color: "#FFFFFF",
+                                                        boxShadow: "0 2px 8px rgba(59, 130, 246, 0.25)",
+                                                        "&:hover": {
+                                                            backgroundColor: "#2563EB",
+                                                        }
+                                                    }}
+                                                >
+                                                    Tunda Cicilan
+                                                </Button>
+                                            )}
+                                        </TableCell>
+                                    </TableRow>
+                                ))}
 
-                            <TableRow>
-                                <TableCell>#CIC-2001</TableCell>
-                                <TableCell>1</TableCell>
-                                <TableCell>12 Okt 2023</TableCell>
-                                <TableCell>Rp 1.000.000</TableCell>
-                                <TableCell>
-                                    <StatusChip status="paid" />
-                                </TableCell>
-                                <TableCell align="center"></TableCell>
-                            </TableRow>
-
-                            <TableRow>
-                                <TableCell>#CIC-2002</TableCell>
-                                <TableCell>2</TableCell>
-                                <TableCell>12 Nov 2023</TableCell>
-                                <TableCell>Rp 1.000.000</TableCell>
-                                <TableCell>
-                                    <StatusChip status="paid" />
-                                </TableCell>
-                                <TableCell align="center"></TableCell>
-                            </TableRow>
-
-                            <TableRow sx={{ background: "#F9FAFB" }}>
-                                <TableCell>#CIC-2003</TableCell>
-                                <TableCell>3</TableCell>
-                                <TableCell>12 Des 2023</TableCell>
-                                <TableCell>Rp 1.000.000</TableCell>
-                                <TableCell>
-                                    <StatusChip status="unpaid" />
-                                </TableCell>
-                                <TableCell align="center">
-                                    <Button
-                                        size="small"
-                                        variant="contained"
-                                        onClick={() => setOpenPostpone(true)}
-                                        sx={{
-                                            borderRadius: "6px",
-                                            textTransform: "none",
-                                            fontWeight: 600,
-                                            backgroundColor: "#3B82F6",
-                                            color: "#FFFFFF",
-                                            boxShadow: "0 2px 8px rgba(59, 130, 246, 0.25)",
-                                            "&:hover": {
-                                                backgroundColor: "#2563EB",
-                                            }
-                                        }}
-                                    >
-                                        Tunda Cicilan
-                                    </Button>
-                                </TableCell>
-                            </TableRow>
-
-                            <TableRow>
-                                <TableCell>#CIC-2004</TableCell>
-                                <TableCell>4</TableCell>
-                                <TableCell>12 Jan 2024</TableCell>
-                                <TableCell>Rp 1.000.000</TableCell>
-                                <TableCell>
-                                    <StatusChip status="locked" />
-                                </TableCell>
-                                <TableCell align="center"></TableCell>
-                            </TableRow>
-
-                            <TableRow>
-                                <TableCell>#CIC-2005</TableCell>
-                                <TableCell>5</TableCell>
-                                <TableCell>12 Feb 2024</TableCell>
-                                <TableCell>Rp 1.000.000</TableCell>
-                                <TableCell>
-                                    <StatusChip status="locked" />
-                                </TableCell>
-                                <TableCell align="center"></TableCell>
-                            </TableRow>
-
-                        </TableBody>
+                                {!loading && cicilanList.length === 0 && (
+                                    <TableRow>
+                                        <TableCell colSpan={6} align="center">
+                                            Belum ada jadwal cicilan untuk pinjaman ini.
+                                        </TableCell>
+                                    </TableRow>
+                                )}
+                            </TableBody>
                         </Table>
                     </Box>
 

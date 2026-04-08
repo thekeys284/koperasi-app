@@ -11,6 +11,11 @@ const colors = {
     iconColor: "#16a34a",
     number: "#16a34a"
   },
+  red: {
+    iconBg: "#fee2e2",
+    iconColor: "#dc2626",
+    number: "#dc2626"
+  },
   orange: {
     iconBg: "#ffedd5",
     iconColor: "#ea580c",
@@ -18,9 +23,10 @@ const colors = {
   }
 };
 
-const StatCard = ({ title, value, color, icon, badge }) => {
+const StatCard = ({ title, value, color, icon, badge, badgeColor }) => {
 
-  const theme = colors[color];
+  const theme = colors[color] || colors.blue;
+  const badgeTheme = colors[badgeColor || color] || colors.green;
 
   return (
     <div
@@ -40,8 +46,8 @@ const StatCard = ({ title, value, color, icon, badge }) => {
             position: "absolute",
             top: "18px",
             right: "18px",
-            background: "#dcfce7",
-            color: "#16a34a",
+            background: badgeTheme.iconBg,
+            color: badgeTheme.iconColor,
             fontSize: "12px",
             padding: "4px 10px",
             borderRadius: "999px"

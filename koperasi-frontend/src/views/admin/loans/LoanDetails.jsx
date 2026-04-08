@@ -1,11 +1,10 @@
 import React, { useState } from "react";
-import { useNavigate, useLocation } from "react-router-dom";
+import { useNavigate, useLocation, useSearchParams } from "react-router-dom";
 import {
   Box,
   Typography,
   Card,
   CardContent,
-  Grid,
   Button,
   Chip,
   Table,
@@ -17,25 +16,147 @@ import {
   Breadcrumbs,
   Link,
   LinearProgress,
+  CircularProgress,
+  Alert,
 } from "@mui/material";
 
 import DownloadIcon from "@mui/icons-material/Download";
 import NavigateNextIcon from "@mui/icons-material/NavigateNext";
 
-import StatCard from "../../../ui-component/cards/Loans/Admin/StatCard";
 import ConfirmPaymentModal from "../../../ui-component/cards/Loans/Admin/ConfirmPaymentModal";
-
-import fileBlueIcon from "../../../assets/images/admin/file-blue.svg";
-import checkGreenIcon from "../../../assets/images/admin/check-green.svg";
-import alertOrangeIcon from "../../../assets/images/admin/alert-orange.svg";
+import api from "../../../api/axios";
 
 export default function LoanDetails() {
   const [openConfirmModal, setOpenConfirmModal] = useState(false);
+  const [selectedInstallment, setSelectedInstallment] = useState(null);
+  const [saving, setSaving] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
+  const [searchParams] = useSearchParams();
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [loan, setLoan] = useState(null);
+
+  const currentDate = new Date();
+
+  const parseDate = (value) => {
+    const date = new Date(value);
+    return Number.isNaN(date.getTime()) ? null : date;
+  };
+
+  const isSameMonth = (value) => {
+    const date = parseDate(value);
+    return (
+      date &&
+      date.getFullYear() === currentDate.getFullYear() &&
+      date.getMonth() === currentDate.getMonth()
+    );
+  };
+
+  const addMonth = (value) => {
+    const date = parseDate(value);
+    if (!date) return null;
+    const next = new Date(date);
+    const currentDay = next.getDate();
+    next.setMonth(next.getMonth() + 1);
+    if (next.getDate() !== currentDay) {
+      next.setDate(0);
+    }
+    return next;
+  };
+
+  const handleConfirmPayment = async ({ tukinStatus, note }) => {
+    if (!selectedInstallment || !loan?.id) {
+      setOpenConfirmModal(false);
+      setSelectedInstallment(null);
+      return;
+    }
+
+    setSaving(true);
+    setError("");
+
+    try {
+      await api.patch(`/loans/${loan.id}/cicilan/${selectedInstallment.id}`, {
+        tukin_status: tukinStatus,
+        note,
+      });
+
+      // Refresh loan details after successful confirmation
+      await fetchLoanDetail();
+    } catch (err) {
+      setError(err.response?.data?.message || "Gagal menyimpan status cicilan.");
+    } finally {
+      setSaving(false);
+      setSelectedInstallment(null);
+      setOpenConfirmModal(false);
+    }
+  };
+
+  const fetchLoanDetail = async () => {
+    try {
+      setLoading(true);
+
+      let targetLoanId = loanId;
+      if (!targetLoanId) {
+        const listResponse = await api.get("/loans", {
+          params: {
+            all: isAdmin ? 1 : undefined,
+            user_id: userId,
+          },
+        });
+        targetLoanId = listResponse.data?.data?.[0]?.id;
+      }
+
+      if (!targetLoanId) {
+        setLoan(null);
+        return;
+      }
+
+      const detailResponse = await api.get(`/loans/${targetLoanId}`, {
+        params: {
+          all: isAdmin ? 1 : undefined,
+          user_id: userId,
+        },
+      });
+      setLoan(detailResponse.data?.data || null);
+    } catch (err) {
+      setError(err.response?.data?.message || "Gagal mengambil detail pinjaman.");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const isAdmin = location.pathname.includes("/admin");
   const basePath = isAdmin ? "/admin/loans" : "/user/loans";
+  const loanId = searchParams.get("loan_id");
+  const userId = searchParams.get("user_id") || "1";
+
+  React.useEffect(() => {
+    fetchLoanDetail();
+  }, [loanId, userId, isAdmin]);
+
+  const cicilanList = loan?.cicilan || [];
+  const totalPokok = Number(loan?.jumlah_pinjaman || 0);
+  const totalTerbayar = cicilanList
+    .filter((item) => item.tukin_status === "sudah")
+    .reduce((sum, item) => sum + Number(item.nominal || 0), 0);
+  const sisaPinjaman = Math.max(0, totalPokok - totalTerbayar);
+  const progress = totalPokok > 0 ? Math.round((totalTerbayar / totalPokok) * 100) : 0;
+  const sisaCicilan = cicilanList.filter((item) => item.tukin_status !== "sudah").length;
+
+  const formatCurrency = (value) => `Rp ${new Intl.NumberFormat("id-ID").format(Number(value || 0))}`;
+  const formatDate = (value) => {
+    if (!value) return "-";
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return "-";
+    return date.toLocaleDateString("id-ID", { day: "2-digit", month: "short", year: "numeric" });
+  };
+
+  const mapCicilanStatus = (status) => {
+    if (status === "sudah") return { label: "Sudah Bayar", color: "success" };
+    return { label: "Belum Bayar", color: "warning" };
+  };
+
   return (
     <Box sx={{ p: 4, background: "#f5f7fb", minHeight: "100vh" }}>
       {/* BREADCRUMB */}
@@ -76,7 +197,7 @@ export default function LoanDetails() {
       >
         <Box> 
           <Typography variant="h5" fontWeight={700}>
-            ID Pinjam: #PJM-2023001
+            ID Pinjam: {loan?.loan_number ? `#${loan.loan_number}` : "-"}
           </Typography>
         </Box>
 
@@ -101,6 +222,19 @@ export default function LoanDetails() {
         </Button>
       </Stack>
 
+      {loading && (
+        <Stack direction="row" spacing={2} alignItems="center" mt={2}>
+          <CircularProgress size={20} />
+          <Typography color="text.secondary">Memuat detail pinjaman...</Typography>
+        </Stack>
+      )}
+
+      {!loading && error && (
+        <Alert severity="error" sx={{ mt: 2 }}>
+          {error}
+        </Alert>
+      )}
+
       {/* STAT CARDS */}
       <Stack direction={{ xs: 'column', sm: 'row' }} spacing={3} mt={4} width="100%">
         <Card sx={{ flex: 1, borderRadius: 3, border: "1px solid #E5E7EB", boxShadow: "none" }}>
@@ -109,11 +243,11 @@ export default function LoanDetails() {
               Total Pinjaman Pokok
             </Typography>
             <Typography fontSize={28} fontWeight={800} color="#16A34A">
-              Rp 2.000.000
+              {formatCurrency(totalPokok)}
             </Typography>
             <LinearProgress
               variant="determinate"
-              value={40}
+              value={progress}
               sx={{
                 mt: 1.5,
                 borderRadius: 2,
@@ -134,10 +268,10 @@ export default function LoanDetails() {
               Sisa Pinjaman
             </Typography>
             <Typography fontSize={28} fontWeight={800} color="#EF4444">
-              Rp 3.000.000
+              {formatCurrency(sisaPinjaman)}
             </Typography>
             <Typography fontSize={13} fontWeight={500} color="#94A3B8" sx={{ display: "block", mt: 1 }}>
-              3 dari 5 cicilan tersisa
+              {sisaCicilan} cicilan tersisa
             </Typography>
           </CardContent>
         </Card>
@@ -154,7 +288,7 @@ export default function LoanDetails() {
           <Typography fontWeight={700} color="#1E293B">Informasi Pinjaman</Typography>
 
           <Chip
-            label="KONSUMTIF"
+            label={String(loan?.type || "Konsumtif").toUpperCase()}
             size="small"
             sx={{
               background: "#F3E8FF",
@@ -171,7 +305,7 @@ export default function LoanDetails() {
                 Jenis Pinjaman
               </TableCell>
               <TableCell sx={{ color: "#64748B", borderBottom: "none", borderTop: "1px solid #E5E7EB", px: 3, py: 1.5 }}>
-                Konsumtif
+                {loan?.type || "-"}
               </TableCell>
             </TableRow>
             <TableRow>
@@ -179,7 +313,7 @@ export default function LoanDetails() {
                 Jumlah Pinjaman
               </TableCell>
               <TableCell sx={{ color: "#64748B", borderBottom: "none", px: 3, py: 1.5 }}>
-                Rp 5.000.000
+                {formatCurrency(loan?.jumlah_pinjaman)}
               </TableCell>
             </TableRow>
             <TableRow>
@@ -187,7 +321,7 @@ export default function LoanDetails() {
                 Tenor
               </TableCell>
               <TableCell sx={{ color: "#64748B", borderBottom: "none", px: 3, py: 1.5 }}>
-                5 Bulan
+                {loan?.lama_pembayaran || "-"} Bulan
               </TableCell>
             </TableRow>
             <TableRow>
@@ -195,7 +329,7 @@ export default function LoanDetails() {
                 Tgl Potong
               </TableCell>
               <TableCell sx={{ color: "#64748B", borderBottom: "none", px: 3, py: 1.5 }}>
-                12 Okt 2023
+                {loan?.bulan_potong_gaji || formatDate(loan?.tanggal_mulai_cicilan)}
               </TableCell>
             </TableRow>
             <TableRow>
@@ -203,7 +337,7 @@ export default function LoanDetails() {
                 Tgl Pengajuan
               </TableCell>
               <TableCell sx={{ color: "#64748B", borderBottom: "none", px: 3, py: 1.5 }}>
-                10 Okt 2023
+                {formatDate(loan?.created_at)}
               </TableCell>
             </TableRow>
           </TableBody>
@@ -256,64 +390,58 @@ export default function LoanDetails() {
                 </TableRow>
               </TableHead>
 
-            <TableBody>
-              <TableRow>
-                <TableCell>#CIC-2001</TableCell>
-                <TableCell>1</TableCell>
-                <TableCell>12 Okt 2023</TableCell>
-                <TableCell>Rp 1.000.000</TableCell>
-                <TableCell>
-                  <Chip label="Sudah Bayar" color="success" size="small" />
-                </TableCell>
-              </TableRow>
+              <TableBody>
+                {cicilanList.map((item) => {
+                  const status = mapCicilanStatus(item.tukin_status);
+                  return (
+                    <TableRow key={item.id} sx={item.tukin_status !== "sudah" ? { background: "#eef2ff" } : undefined}>
+                      <TableCell>#{`CIC-${String(item.id).padStart(4, "0")}`}</TableCell>
+                      <TableCell>{item.cicilan}</TableCell>
+                      <TableCell>{formatDate(item.tanggal_pembayaran)}</TableCell>
+                              <TableCell>{formatCurrency(item.nominal)}</TableCell>
+                      <TableCell>
+                        {item.tukin_status === "sudah" ? (
+                          <Chip label={status.label} color={status.color} size="small" />
+                        ) : (() => {
+                          const canConfirm = isSameMonth(item.tanggal_pembayaran);
+                          const dueDate = parseDate(item.tanggal_pembayaran);
+                          const isLocked = !canConfirm;
+                          if (isLocked) {
+                            return (
+                              <Chip
+                                label="Terkunci"
+                                size="small"
+                                sx={{ backgroundColor: "#F3F4F6", color: "#64748B", fontWeight: 600 }}
+                              />
+                            );
+                          }
+                          return (
+                            <Button
+                              variant="contained"
+                              size="small"
+                              sx={{ borderRadius: 3 }}
+                              onClick={() => {
+                                setSelectedInstallment(item);
+                                setOpenConfirmModal(true);
+                              }}
+                            >
+                              Konfirmasi Pembayaran &gt;
+                            </Button>
+                          );
+                        })()}
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
 
-              <TableRow>
-                <TableCell>#CIC-2002</TableCell>
-                <TableCell>2</TableCell>
-                <TableCell>12 Nov 2023</TableCell>
-                <TableCell>Rp 1.000.000</TableCell>
-                <TableCell>
-                  <Chip label="Sudah Bayar" color="success" size="small" />
-                </TableCell>
-              </TableRow>
-
-              <TableRow sx={{ background: "#eef2ff" }}>
-                <TableCell>#CIC-2003</TableCell>
-                <TableCell>3</TableCell>
-                <TableCell>12 Des 2023</TableCell>
-                <TableCell>Rp 1.000.000</TableCell>
-                <TableCell>
-                  <Button
-                    variant="contained"
-                    size="small"
-                    sx={{ borderRadius: 3 }}
-                    onClick={() => setOpenConfirmModal(true)}
-                  >
-                    Konfirmasi Pembayaran &gt;
-                  </Button>
-                </TableCell>
-              </TableRow>
-
-              <TableRow>
-                <TableCell>#CIC-2004</TableCell>
-                <TableCell>4</TableCell>
-                <TableCell>12 Jan 2024</TableCell>
-                <TableCell>Rp 1.000.000</TableCell>
-                <TableCell>
-                  <Chip label="Terkunci" size="small" />
-                </TableCell>
-              </TableRow>
-
-              <TableRow>
-                <TableCell>#CIC-2005</TableCell>
-                <TableCell>5</TableCell>
-                <TableCell>12 Feb 2024</TableCell>
-                <TableCell>Rp 1.000.000</TableCell>
-                <TableCell>
-                  <Chip label="Terkunci" size="small" />
-                </TableCell>
-              </TableRow>
-            </TableBody>
+                {!loading && cicilanList.length === 0 && (
+                  <TableRow>
+                    <TableCell colSpan={5} align="center">
+                      Belum ada data cicilan.
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
             </Table>
           </Box>
         </CardContent>
@@ -321,7 +449,18 @@ export default function LoanDetails() {
 
       <ConfirmPaymentModal
         open={openConfirmModal}
-        handleClose={() => setOpenConfirmModal(false)}
+        handleClose={() => {
+          setOpenConfirmModal(false);
+          setSelectedInstallment(null);
+        }}
+        loanData={{
+          id: loan?.loan_number ? `#${loan.loan_number}` : "-",
+          installment: selectedInstallment?.cicilan || cicilanList.find((item) => item.tukin_status !== "sudah")?.cicilan,
+          amount: formatCurrency(selectedInstallment?.nominal || cicilanList.find((item) => item.tukin_status !== "sudah")?.nominal || 0),
+          dueDate: formatDate(selectedInstallment?.tanggal_pembayaran || cicilanList.find((item) => item.tukin_status !== "sudah")?.tanggal_pembayaran),
+        }}
+        onSubmit={handleConfirmPayment}
+        loading={saving}
       />
     </Box>
   );

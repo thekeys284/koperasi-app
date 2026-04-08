@@ -17,7 +17,7 @@ import {
 
 import CloseIcon from "@mui/icons-material/Close";
 
-const ConfirmPaymentModal = ({ open, handleClose, loanData }) => {
+const ConfirmPaymentModal = ({ open, handleClose, loanData, onSubmit, loading }) => {
   const [tukinStatus, setTukinStatus] = useState("sudah");
   const [note, setNote] = useState("");
 
@@ -27,9 +27,7 @@ const ConfirmPaymentModal = ({ open, handleClose, loanData }) => {
       note,
     };
 
-    console.log("Data konfirmasi:", payload);
-
-    handleClose();
+    onSubmit(payload);
   };
 
   return (
@@ -169,8 +167,9 @@ const ConfirmPaymentModal = ({ open, handleClose, loanData }) => {
               variant="contained"
               color="primary"
               onClick={handleSubmit}
+              disabled={loading}
             >
-              Kirim
+              {loading ? "Mengirim..." : "Kirim"}
             </Button>
           </Stack>
         </Box>
