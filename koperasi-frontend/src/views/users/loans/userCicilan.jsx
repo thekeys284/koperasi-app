@@ -71,7 +71,7 @@ const UserCicilan = () => {
     const [loan, setLoan] = useState(null);
 
     const loanId = searchParams.get("loan_id");
-    const userId = searchParams.get("user_id") || "1";
+    const userId = searchParams.get("user_id") || "10";
 
     React.useEffect(() => {
         const fetchLoanDetail = async () => {
@@ -143,7 +143,7 @@ const UserCicilan = () => {
                 >
                     Pinjaman
                 </Link>
-                <Typography color="text.primary">Cicilan</Typography>
+                <Typography color="text.primary">Pinjaman Detail</Typography>
             </Breadcrumbs>
 
             {/* LABEL */}

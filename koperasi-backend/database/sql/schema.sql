@@ -209,6 +209,8 @@ CREATE TABLE IF NOT EXISTS loans (
   bulan_potong_gaji VARCHAR(255) NULL,
   file_path VARCHAR(255) NULL,
   status_pengajuan ENUM('pending', 'disetujui_ketua', 'pending_pengajuan', 'rejected', 'paid') DEFAULT 'pending',
+  reason TEXT NULL,
+  admin_note TEXT NULL,
   tanggal_mulai_cicilan DATE NOT NULL, -- Waktu yang ditentukan user untuk mulai periode pembayaran
   tanggal_pengajuan TIMESTAMP DEFAULT CURRENT_TIMESTAMP, -- Kapan user klik tombol "ajukan"
   tgl_acc_ketua1 TIMESTAMP NULL, -- Waktu saat ketua 1 melakukan approval

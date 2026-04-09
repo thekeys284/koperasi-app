@@ -70,6 +70,18 @@ class LoanController extends Controller
                 ], 401);
             }
 
+            // Validasi: Cek apakah user memiliki pinjaman yang belum lunas
+            $activeLoan = Loan::where('user_id', $user->id)
+                ->whereNotIn('status_pengajuan', ['paid', 'rejected'])
+                ->exists();
+
+            if ($activeLoan) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Anda masih memiliki pinjaman aktif yang belum lunas. Selesaikan pinjaman sebelumnya sebelum mengajukan yang baru.'
+                ], 403);
+            }
+
             $validated = $request->validate([
                 'type' => 'nullable|in:Konsumtif,Produktif,konsumtif,produktif',
                 'jenis_pinjaman' => 'nullable',
@@ -215,6 +227,78 @@ class LoanController extends Controller
         }
     }
 
+    /**
+     * Remove the specified loan from storage.
+     * DELETE /api/loans/{id}
+     */
+    public function destroy(Request $request, $id)
+    {
+        try {
+            $user = $this->resolveUser($request);
+
+            if (!$user) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'User tidak ditemukan.'
+                ], 404);
+            }
+
+            $loan = Loan::where('id', $id)->first();
+
+            if (!$loan) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Pengajuan pinjaman tidak ditemukan.'
+                ], 404);
+            }
+
+            // Check if user owns the loan (unless admin/etc)
+            if (!$this->shouldShowAllLoans($request, $user) && $loan->user_id !== $user->id) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Anda tidak memiliki akses untuk menghapus pengajuan ini.'
+                ], 403);
+            }
+
+            // Validation: Cannot delete if already approved by Ketua 1
+            if ($loan->tgl_acc_ketua1 !== null) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Pengajuan tidak dapat dihapus karena sudah disetujui oleh Ketua.'
+                ], 400);
+            }
+
+            DB::transaction(function () use ($loan, $user) {
+                // Delete installments first
+                LoanCicilan::where('loans_id', $loan->id)->delete();
+                // Delete the loan
+                $loan->delete();
+
+                try {
+                    ActivityLogHelper::create(
+                        $user->id,
+                        'Hapus Pengajuan Pinjaman',
+                        "User menghapus pengajuan pinjaman ID: {$loan->id}"
+                    );
+                } catch (\Exception $e) {
+                    Log::warning('Activity log failed: ' . $e->getMessage());
+                }
+            });
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Pengajuan pinjaman berhasil dihapus.'
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Loan destroy error: ' . $e->getMessage() . ' ' . $e->getFile() . ':' . $e->getLine());
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Terjadi kesalahan: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
     public function updateCicilan(Request $request, $loanId, $cicilanId)
     {
         try {
@@ -228,8 +312,9 @@ class LoanController extends Controller
             }
 
             $validated = $request->validate([
-                'tukin_status' => 'required|in:sudah,belum',
+                'tukin_status' => 'required|in:sudah,belum,pending',
                 'note' => 'nullable|string|max:500',
+                'admin_note' => 'nullable|string|max:500',
             ]);
 
             $query = Loan::with(['user', 'cicilan'])->where('id', $loanId);
@@ -301,6 +386,11 @@ class LoanController extends Controller
                         'cicilan' => $lastInstallmentNo + 1,
                     ]);
                 }
+
+                $loan->update([
+                    'admin_note' => $validated['admin_note'] ?? $validated['note'] ?? $loan->admin_note,
+                    'status_pengajuan' => $validated['tukin_status'] === 'belum' ? 'aktif' : $loan->status_pengajuan
+                ]);
 
                 try {
                     ActivityLogHelper::create(
@@ -427,7 +517,8 @@ class LoanController extends Controller
             'bulan_potong_gaji' => $loan->bulan_potong_gaji,
             'start_date' => optional($loan->tanggal_mulai_cicilan)->format('Y-m'),
             'tanggal_mulai_cicilan' => optional($loan->tanggal_mulai_cicilan)->toDateString(),
-            'reason' => null,
+            'reason' => $loan->reason,
+            'admin_note' => $loan->admin_note,
             'document_path' => $loan->file_path,
             'document_url' => $loan->file_path ? asset('storage/' . $loan->file_path) : null,
             'status_pengajuan' => $loan->status_pengajuan,

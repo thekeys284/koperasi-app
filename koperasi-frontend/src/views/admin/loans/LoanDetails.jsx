@@ -24,10 +24,12 @@ import DownloadIcon from "@mui/icons-material/Download";
 import NavigateNextIcon from "@mui/icons-material/NavigateNext";
 
 import ConfirmPaymentModal from "../../../ui-component/cards/Loans/Admin/ConfirmPaymentModal";
+import PostponeInstallmentModal from "../../../ui-component/cards/Loans/Admin/PostponeInstallmentModal";
 import api from "../../../api/axios";
 
 export default function LoanDetails() {
   const [openConfirmModal, setOpenConfirmModal] = useState(false);
+  const [postponeModalOpen, setPostponeModalOpen] = useState(false);
   const [selectedInstallment, setSelectedInstallment] = useState(null);
   const [saving, setSaving] = useState(false);
   const navigate = useNavigate();
@@ -152,9 +154,64 @@ export default function LoanDetails() {
     return date.toLocaleDateString("id-ID", { day: "2-digit", month: "short", year: "numeric" });
   };
 
-  const mapCicilanStatus = (status) => {
-    if (status === "sudah") return { label: "Sudah Bayar", color: "success" };
+  const mapCicilanStatus = (item) => {
+    if (item.tukin_status === "sudah") return { label: "Sudah Bayar", color: "success" };
+    if (loan?.status_pengajuan === "pending_pengajuan") return { label: "Menunggu Review", color: "info" };
     return { label: "Belum Bayar", color: "warning" };
+  };
+
+  const openPostponeModal = (installment) => {
+    setSelectedInstallment({
+      ...installment,
+      loan_number: loan?.loan_number,
+      reason: loan?.reason,
+      admin_note: loan?.admin_note
+    });
+    setPostponeModalOpen(true);
+  };
+
+  const closePostponeModal = () => {
+    setSelectedInstallment(null);
+    setPostponeModalOpen(false);
+  };
+
+  const handleApprovePostpone = async ({ note }) => {
+    if (!selectedInstallment || !loan?.id) return;
+    
+    setSaving(true);
+    setError("");
+    try {
+      await api.patch(`/loans/${loan.id}/cicilan/${selectedInstallment.id}`, {
+        tukin_status: "belum",
+        admin_note: note,
+      });
+      await fetchLoanDetail();
+      closePostponeModal();
+    } catch (err) {
+      setError(err.response?.data?.message || "Gagal menyetujui penundaan.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleRejectPostpone = async ({ note }) => {
+    if (!selectedInstallment || !loan?.id) return;
+
+    setSaving(true);
+    setError("");
+    try {
+      // Just update mortality/note if rejected, or maybe we need a status for rejected
+      await api.patch(`/loans/${loan.id}/cicilan/${selectedInstallment.id}`, {
+        tukin_status: "pending", // Keep it pending but update note
+        admin_note: note,
+      });
+      await fetchLoanDetail();
+      closePostponeModal();
+    } catch (err) {
+      setError(err.response?.data?.message || "Gagal menolak penundaan.");
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -392,7 +449,7 @@ export default function LoanDetails() {
 
               <TableBody>
                 {cicilanList.map((item) => {
-                  const status = mapCicilanStatus(item.tukin_status);
+                  const status = mapCicilanStatus(item);
                   return (
                     <TableRow key={item.id} sx={item.tukin_status !== "sudah" ? { background: "#eef2ff" } : undefined}>
                       <TableCell>#{`CIC-${String(item.id).padStart(4, "0")}`}</TableCell>
@@ -415,11 +472,26 @@ export default function LoanDetails() {
                               />
                             );
                           }
+
+                          if (loan?.status_pengajuan === "pending_pengajuan") {
+                            return (
+                              <Button
+                                variant="contained"
+                                size="small"
+                                color="info"
+                                sx={{ borderRadius: 3, textTransform: "none" }}
+                                onClick={() => openPostponeModal(item)}
+                              >
+                                Review &gt;
+                              </Button>
+                            );
+                          }
+
                           return (
                             <Button
                               variant="contained"
                               size="small"
-                              sx={{ borderRadius: 3 }}
+                              sx={{ borderRadius: 3, textTransform: "none" }}
                               onClick={() => {
                                 setSelectedInstallment(item);
                                 setOpenConfirmModal(true);
@@ -461,6 +533,13 @@ export default function LoanDetails() {
         }}
         onSubmit={handleConfirmPayment}
         loading={saving}
+      />
+      <PostponeInstallmentModal
+        open={postponeModalOpen}
+        handleClose={closePostponeModal}
+        loanData={selectedInstallment}
+        onApprove={handleApprovePostpone}
+        onReject={handleRejectPostpone}
       />
     </Box>
   );

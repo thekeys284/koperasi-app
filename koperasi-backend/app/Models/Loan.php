@@ -18,6 +18,8 @@ class Loan extends Model
         'bulan_potong_gaji',
         'file_path',
         'status_pengajuan',
+        'reason',
+        'admin_note',
         'tanggal_mulai_cicilan',
         'tanggal_pengajuan',
         'tgl_acc_ketua1',

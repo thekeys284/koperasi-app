@@ -14,6 +14,8 @@ import {
     Button,
     InputAdornment,
     Paper,
+    Breadcrumbs,
+    Link,
     Alert,
     Snackbar
 } from "@mui/material";
@@ -26,6 +28,9 @@ import {
     IconLock,
     IconInfoCircle
 } from "@tabler/icons-react";
+
+import NavigateNextIcon from "@mui/icons-material/NavigateNext";
+import MoreVertIcon from "@mui/icons-material/MoreVert";
 
 const formatRupiah = (value) => {
     if (!value) return "0";
@@ -83,7 +88,7 @@ const LeadLoanCreatePage = () => {
             setErrorMessage("");
 
             const payload = new FormData();
-            payload.append("user_id", "1");
+            payload.append("user_id", "10");
             payload.append("type", tipePinjaman === "produktif" ? "Produktif" : "Konsumtif");
             payload.append("amount_requested", String(jumlah));
             payload.append("tenor_months", String(tenor));
@@ -135,6 +140,22 @@ const LeadLoanCreatePage = () => {
                 pl: { xs: 2, sm: 3, md: 4, lg: 5 }
             }}
         >
+            {/* BREADCRUMB */}
+            <Breadcrumbs
+                aria-label="breadcrumb"
+                separator={<NavigateNextIcon fontSize="small" />}
+                sx={{ mb: 2 }}
+            >
+                <Link
+                    underline="hover"
+                    color="text.primary"
+                    onClick={() => navigate("/user/loans")}
+                    sx={{ cursor: "pointer", display: "flex", alignItems: "center" }}
+                >
+                    Pinjaman
+                </Link>
+                <Typography color="text.primary">Pengajuan Pinjaman</Typography>
+            </Breadcrumbs>
 
             <Typography
                 component="h1"

@@ -15,7 +15,7 @@ import {
 
 import CloseIcon from "@mui/icons-material/Close";
 
-const ConfirmPaymentModal = ({
+const PostponeInstallmentModal = ({
   open,
   handleClose,
   loanData,
@@ -24,6 +24,12 @@ const ConfirmPaymentModal = ({
   loading = false,
 }) => {
   const [adminNote, setAdminNote] = useState("");
+
+  React.useEffect(() => {
+    if (open) {
+      setAdminNote(loanData?.admin_note || "");
+    }
+  }, [open, loanData]);
 
   const handleApprove = async () => {
     if (onApprove) {
@@ -63,7 +69,7 @@ const ConfirmPaymentModal = ({
           alignItems: "center",
         }}
       >
-        Pengajuan Penundaan Cicilan
+        Review Penundaan Cicilan
 
         <IconButton onClick={handleClose}>
           <CloseIcon />
@@ -76,22 +82,22 @@ const ConfirmPaymentModal = ({
         <Box>
 
           {/* DATA */}
-          <Row label="ID Pinjaman" value={loanData?.id || "#PJM-2023001"} />
-          <Row label="Cicilan ke-" value={loanData?.installment || "3"} />
-          <Row label="Nominal" value={`Rp ${loanData?.amount || "1.000.000"}`} />
-          <Row label="Tgl Jatuh Tempo" value={loanData?.dueDate || "12 Des 2023"} />
+          <Row label="ID Pinjaman" value={loanData?.loan_number || "#PJM-2023001"} />
+          <Row label="Cicilan ke-" value={loanData?.installment || loanData?.cicilan || "3"} />
+          <Row label="Nominal" value={loanData?.amount || `Rp ${new Intl.NumberFormat("id-ID").format(loanData?.nominal || 0)}`} />
+          <Row label="Tgl Jatuh Tempo" value={loanData?.dueDate || loanData?.tanggal_pembayaran || "12 Des 2023"} />
 
           {/* ALASAN USER */}
           <Box sx={{ p: 2 }}>
             <Typography fontWeight={500} mb={1}>
-              Alasan
+              Alasan Penundaan
             </Typography>
 
             <TextField
               fullWidth
               multiline
               rows={3}
-              value={loanData?.reason || "ada keperluan keluarga mendadak"}
+              value={loanData?.reason || "Tidak ada alasan yang disertakan."}
               InputProps={{
                 readOnly: true,
               }}
@@ -164,7 +170,7 @@ const ConfirmPaymentModal = ({
                 px: 3,
               }}
             >
-              {loading ? "Memproses..." : "Setujui"}
+              {loading ? "Memproses..." : "Setujui Penundaan"}
             </Button>
           </Stack>
         </Box>
@@ -173,4 +179,4 @@ const ConfirmPaymentModal = ({
   );
 };
 
-export default ConfirmPaymentModal;
+export default PostponeInstallmentModal;

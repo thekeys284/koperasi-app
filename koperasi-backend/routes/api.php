@@ -44,6 +44,7 @@ Route::prefix('loans')->group(function () {
     Route::get('/', [LoanController::class, 'index']);
     Route::post('/', [LoanController::class, 'store']);
     Route::get('/{id}', [LoanController::class, 'show']);
+    Route::delete('/{id}', [LoanController::class, 'destroy']);
     Route::patch('/{loan}/cicilan/{cicilan}', [LoanController::class, 'updateCicilan']);
 });
 

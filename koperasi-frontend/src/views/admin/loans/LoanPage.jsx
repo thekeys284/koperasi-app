@@ -51,6 +51,11 @@ const StatusBadge = ({ status }) => {
       color: "#dc2626",
       bg: "#fee2e2",
     },
+    review: {
+      label: "Menunggu Review",
+      color: "#0284c7",
+      bg: "#e0f2fe",
+    },
   };
 
   const config = statusConfig[status] || statusConfig.pending;
@@ -112,6 +117,10 @@ const hasCurrentMonthUnpaidInstallment = (loan) => {
   return Array.isArray(loan.cicilan) && loan.cicilan.some(
     (item) => item.tukin_status !== "sudah" && isCurrentMonth(item.tanggal_pembayaran)
   );
+};
+
+const hasPendingPostponement = (loan) => {
+  return loan.status_pengajuan === "pending_pengajuan";
 };
 
 const getCurrentMonthUnpaidInstallmentNo = (loan) => {
@@ -341,7 +350,13 @@ const LoanPage = () => {
 
                     <TableCell>
                       <StatusBadge
-                        status={loan.status_pengajuan === "pending_pengajuan" ? "pending" : loan.status}
+                        status={
+                          hasPendingPostponement(loan)
+                            ? "review"
+                            : loan.status_pengajuan === "pending_pengajuan"
+                            ? "pending"
+                            : loan.status
+                        }
                       />
                     </TableCell>
 
