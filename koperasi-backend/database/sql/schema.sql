@@ -210,6 +210,7 @@ CREATE TABLE IF NOT EXISTS loans (
   file_path VARCHAR(255) NULL,
   status_pengajuan ENUM('pending', 'disetujui_ketua', 'pending_pengajuan', 'rejected', 'paid') DEFAULT 'pending',
   reason TEXT NULL,
+  postpone_cicilan_id BIGINT UNSIGNED NULL,
   admin_note TEXT NULL,
   tanggal_mulai_cicilan DATE NOT NULL, -- Waktu yang ditentukan user untuk mulai periode pembayaran
   tanggal_pengajuan TIMESTAMP DEFAULT CURRENT_TIMESTAMP, -- Kapan user klik tombol "ajukan"
@@ -226,7 +227,7 @@ CREATE TABLE IF NOT EXISTS loan_cicilan (
   loans_id BIGINT UNSIGNED NOT NULL, -- Foreign Key ke tabel loans
   tanggal_pembayaran DATE NOT NULL, -- Tanggal untuk pemotongan tukin
   nominal DECIMAL(15,2) NOT NULL, -- Jumlah Potongan
-  status_pembayaran ENUM('pending', 'paid') DEFAULT 'pending',
+  status_pembayaran ENUM('pending', 'paid', 'postponed') DEFAULT 'pending',
   cicilan INT NOT NULL, -- Cicilan keberapa (1, 2, 3...)
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,

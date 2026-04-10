@@ -23,7 +23,6 @@ import {
 
 import NavigateNextIcon from "@mui/icons-material/NavigateNext";
 import MoreVertIcon from "@mui/icons-material/MoreVert";
-import DownloadIcon from "@mui/icons-material/Download";
 
 import PostponeInstallmentModal from "../../../ui-component/cards/Loans/User/userTundaCicilan";
 import api from "../../../api/axios";
@@ -32,18 +31,19 @@ const StatusChip = ({ status }) => {
     const config = {
         paid: {
             label: "Sudah Bayar",
-            bg: "#DCFCE7",
-            color: "#16A34A",
+            sx: { bgcolor: "success.main", color: "#fff", fontWeight: 600 }
         },
         unpaid: {
             label: "Belum Bayar",
-            bg: "#FEF3C7",
-            color: "#F59E0B",
+            sx: { bgcolor: "warning.main", color: "#fff", fontWeight: 600 }
         },
         locked: {
             label: "Terkunci",
-            bg: "#E5E7EB",
-            color: "#6B7280",
+            sx: { bgcolor: "#E2E8F0", color: "#64748B", fontWeight: 600 }
+        },
+        postponed: {
+            label: "Ditunda",
+            sx: { bgcolor: "info.main", color: "#fff", fontWeight: 600 }
         },
     };
 
@@ -53,11 +53,7 @@ const StatusChip = ({ status }) => {
         <Chip
             label={item.label}
             size="small"
-            sx={{
-                background: item.bg,
-                color: item.color,
-                fontWeight: 600,
-            }}
+            sx={item.sx}
         />
     );
 };
@@ -65,44 +61,44 @@ const StatusChip = ({ status }) => {
 const UserCicilan = () => {
     const navigate = useNavigate();
     const [searchParams] = useSearchParams();
-    const [openPostpone, setOpenPostpone] = useState(false);
+    const [postponeModalOpen, setPostponeModalOpen] = useState(false);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
     const [loan, setLoan] = useState(null);
 
     const loanId = searchParams.get("loan_id");
-    const userId = searchParams.get("user_id") || "10";
+    const userId = searchParams.get("user_id") || "5";
 
-    React.useEffect(() => {
-        const fetchLoanDetail = async () => {
-            try {
-                setLoading(true);
+    const fetchLoanDetail = async () => {
+        try {
+            setLoading(true);
 
-                let targetLoanId = loanId;
-                if (!targetLoanId) {
-                    const listResponse = await api.get("/loans", {
-                        params: { user_id: userId },
-                    });
-                    const firstLoan = listResponse.data?.data?.[0];
-                    targetLoanId = firstLoan?.id;
-                }
-
-                if (!targetLoanId) {
-                    setLoan(null);
-                    return;
-                }
-
-                const detailResponse = await api.get(`/loans/${targetLoanId}`, {
+            let targetLoanId = loanId;
+            if (!targetLoanId) {
+                const listResponse = await api.get("/loans", {
                     params: { user_id: userId },
                 });
-                setLoan(detailResponse.data?.data || null);
-            } catch (err) {
-                setError(err.response?.data?.message || "Gagal mengambil detail cicilan.");
-            } finally {
-                setLoading(false);
+                const firstLoan = listResponse.data?.data?.[0];
+                targetLoanId = firstLoan?.id;
             }
-        };
 
+            if (!targetLoanId) {
+                setLoan(null);
+                return;
+            }
+
+            const detailResponse = await api.get(`/loans/${targetLoanId}`, {
+                params: { user_id: userId },
+            });
+            setLoan(detailResponse.data?.data || null);
+        } catch (err) {
+            setError(err.response?.data?.message || "Gagal mengambil detail cicilan.");
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    React.useEffect(() => {
         fetchLoanDetail();
     }, [loanId, userId]);
 
@@ -124,6 +120,7 @@ const UserCicilan = () => {
     };
     const mapCicilanStatus = (status) => {
         if (status === "paid") return "paid";
+        if (status === "postponed") return "postponed";
         return "unpaid";
     };
 
@@ -168,26 +165,6 @@ const UserCicilan = () => {
                 <Typography variant="h4" fontWeight={800}>
                     ID Pinjam: {loan?.loan_number ? `#${loan.loan_number}` : "-"}
                 </Typography>
-
-                <Button 
-                    variant="contained"
-                    startIcon={<DownloadIcon />}
-                    sx={{
-                        borderRadius: "8px",
-                        textTransform: "none",
-                        fontWeight: 600,
-                        px: 3,
-                        py: 0.8,
-                        backgroundColor: "#2563EB",
-                        boxShadow: "0 4px 14px 0 rgba(37, 99, 235, 0.39)",
-                        "&:hover": {
-                            backgroundColor: "#1D4ED8",
-                            boxShadow: "0 6px 20px rgba(37, 99, 235, 0.23)",
-                        }
-                    }}
-                >
-                    Cetak Rekap
-                </Button>
             </Stack>
 
             {/* STAT CARDS */}
@@ -336,36 +313,19 @@ const UserCicilan = () => {
                         <Typography fontWeight={700}>
                             Jadwal Pembayaran Cicilan
                         </Typography>
-
-                        <Stack direction="row" spacing={2}>
-                            <Stack direction="row" spacing={1} alignItems="center">
-                                <Box
-                                    sx={{
-                                        width: 8,
-                                        height: 8,
-                                        background: "#16A34A",
-                                        borderRadius: "50%",
-                                    }}
-                                />
-                                <Typography fontSize={12}>
-                                    Sudah Bayar
-                                </Typography>
-                            </Stack>
-
-                            <Stack direction="row" spacing={1} alignItems="center">
-                                <Box
-                                    sx={{
-                                        width: 8,
-                                        height: 8,
-                                        background: "#F59E0B",
-                                        borderRadius: "50%",
-                                    }}
-                                />
-                                <Typography fontSize={12}>
-                                    Belum Bayar
-                                </Typography>
-                            </Stack>
-                        </Stack>
+                        <Button
+                            variant="outlined"
+                            size="small"
+                            onClick={() => setPostponeModalOpen(true)}
+                            disabled={loan?.status_pengajuan === "pending_pengajuan" || sisaCicilan === 0}
+                            sx={{
+                                borderRadius: "8px",
+                                textTransform: "none",
+                                fontWeight: 600,
+                            }}
+                        >
+                            Ajukan Tunda Cicilan
+                        </Button>
                     </Stack>
 
                     <Box sx={{ overflowX: "auto" }}>
@@ -405,7 +365,6 @@ const UserCicilan = () => {
                                     <TableCell>TANGGAL JATUH TEMPO</TableCell>
                                     <TableCell>NOMINAL</TableCell>
                                     <TableCell>STATUS</TableCell>
-                                    <TableCell align="center">AKSI</TableCell>
                                 </TableRow>
                             </TableHead>
 
@@ -419,34 +378,12 @@ const UserCicilan = () => {
                                         <TableCell>
                                             <StatusChip status={mapCicilanStatus(item.status_pembayaran)} />
                                         </TableCell>
-                                        <TableCell align="center">
-                                            {item.status_pembayaran !== "paid" && (
-                                                <Button
-                                                    size="small"
-                                                    variant="contained"
-                                                    onClick={() => setOpenPostpone(true)}
-                                                    sx={{
-                                                        borderRadius: "6px",
-                                                        textTransform: "none",
-                                                        fontWeight: 600,
-                                                        backgroundColor: "#3B82F6",
-                                                        color: "#FFFFFF",
-                                                        boxShadow: "0 2px 8px rgba(59, 130, 246, 0.25)",
-                                                        "&:hover": {
-                                                            backgroundColor: "#2563EB",
-                                                        }
-                                                    }}
-                                                >
-                                                    Tunda Cicilan
-                                                </Button>
-                                            )}
-                                        </TableCell>
                                     </TableRow>
                                 ))}
 
                                 {!loading && cicilanList.length === 0 && (
                                     <TableRow>
-                                        <TableCell colSpan={6} align="center">
+                                        <TableCell colSpan={5} align="center">
                                             Belum ada jadwal cicilan untuk pinjaman ini.
                                         </TableCell>
                                     </TableRow>
@@ -459,8 +396,14 @@ const UserCicilan = () => {
             </Card>
 
             <PostponeInstallmentModal
-                open={openPostpone}
-                handleClose={() => setOpenPostpone(false)}
+                open={postponeModalOpen}
+                handleClose={() => setPostponeModalOpen(false)}
+                data={{
+                    loanId: loan?.id,
+                    loanNumber: loan?.loan_number,
+                    installments: cicilanList
+                }}
+                onSuccess={fetchLoanDetail}
             />
         </Box>
     );

@@ -45,6 +45,9 @@ Route::prefix('loans')->group(function () {
     Route::post('/', [LoanController::class, 'store']);
     Route::get('/{id}', [LoanController::class, 'show']);
     Route::delete('/{id}', [LoanController::class, 'destroy']);
+    Route::patch('/{id}/approve', [LoanController::class, 'approve']);
+    Route::patch('/{id}/reject', [LoanController::class, 'reject']);
+    Route::patch('/{id}/postpone-request', [LoanController::class, 'postponeRequest']);
     Route::patch('/{loan}/cicilan/{cicilan}', [LoanController::class, 'updateCicilan']);
 });
 

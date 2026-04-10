@@ -30,7 +30,6 @@ import {
 import NavigateNextIcon from "@mui/icons-material/NavigateNext";
 import AddIcon from "@mui/icons-material/Add";
 import MoreVertIcon from "@mui/icons-material/MoreVert";
-import DownloadIcon from "@mui/icons-material/Download";
 import DeleteIcon from "@mui/icons-material/DeleteOutline";
 import { IconLock } from "@tabler/icons-react";
 
@@ -270,25 +269,6 @@ const UserLoans = () => {
                             ID Pinjam: {selectedLoan?.loan_number ? `#${selectedLoan.loan_number}` : "-"}
                         </Typography>
 
-                        <Button
-                            variant="contained"
-                            startIcon={<DownloadIcon />}
-                            sx={{
-                                borderRadius: "8px",
-                                textTransform: "none",
-                                fontWeight: 600,
-                                px: 3,
-                                py: 0.8,
-                                backgroundColor: "#2563EB",
-                                boxShadow: "0 4px 14px 0 rgba(37, 99, 235, 0.39)",
-                                "&:hover": {
-                                    backgroundColor: "#1D4ED8",
-                                    boxShadow: "0 6px 20px rgba(37, 99, 235, 0.23)",
-                                }
-                            }}
-                        >
-                            Cetak Rekap
-                        </Button>
                     </Stack>
 
                     {/* STAT CARDS */}

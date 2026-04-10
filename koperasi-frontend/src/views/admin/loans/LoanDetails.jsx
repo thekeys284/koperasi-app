@@ -154,10 +154,36 @@ export default function LoanDetails() {
     return date.toLocaleDateString("id-ID", { day: "2-digit", month: "short", year: "numeric" });
   };
 
-  const mapCicilanStatus = (item) => {
-    if (item.tukin_status === "sudah") return { label: "Sudah Bayar", color: "success" };
-    if (loan?.status_pengajuan === "pending_pengajuan") return { label: "Menunggu Review", color: "info" };
-    return { label: "Belum Bayar", color: "warning" };
+  const getStatusStyle = (item) => {
+    // 1. Sudah Bayar
+    if (item.tukin_status === "sudah" || item.status_pembayaran === "paid") {
+      return {
+        label: "Sudah Bayar",
+        sx: { bgcolor: "success.main", color: "#fff", fontWeight: 600 }
+      };
+    }
+
+    // 2. Ditunda (Postponed)
+    if (item.tukin_status === "postponed" || item.status_pembayaran === "postponed") {
+      return {
+        label: "Ditunda",
+        sx: { bgcolor: "info.main", color: "#fff", fontWeight: 600 }
+      };
+    }
+
+    // 3. Menunggu Review (Jika status pengajuan pinjaman sedang pending_pengajuan)
+    if (loan?.status_pengajuan === "pending_pengajuan") {
+      return {
+        label: "Menunggu Review",
+        sx: { bgcolor: "primary.main", color: "#fff", fontWeight: 600 }
+      };
+    }
+
+    // 4. Belum Bayar (Default)
+    return {
+      label: "Belum Bayar",
+      sx: { bgcolor: "warning.main", color: "#fff", fontWeight: 600 }
+    };
   };
 
   const openPostponeModal = (installment) => {
@@ -177,12 +203,12 @@ export default function LoanDetails() {
 
   const handleApprovePostpone = async ({ note }) => {
     if (!selectedInstallment || !loan?.id) return;
-    
+
     setSaving(true);
     setError("");
     try {
       await api.patch(`/loans/${loan.id}/cicilan/${selectedInstallment.id}`, {
-        tukin_status: "belum",
+        tukin_status: "postponed",
         admin_note: note,
       });
       await fetchLoanDetail();
@@ -200,9 +226,9 @@ export default function LoanDetails() {
     setSaving(true);
     setError("");
     try {
-      // Just update mortality/note if rejected, or maybe we need a status for rejected
+      // Rejecting postponement: set status back to 'belum' so it can be paid normally
       await api.patch(`/loans/${loan.id}/cicilan/${selectedInstallment.id}`, {
-        tukin_status: "pending", // Keep it pending but update note
+        tukin_status: "belum",
         admin_note: note,
       });
       await fetchLoanDetail();
@@ -252,7 +278,7 @@ export default function LoanDetails() {
         alignItems="center"
         mt={1}
       >
-        <Box> 
+        <Box>
           <Typography variant="h5" fontWeight={700}>
             ID Pinjam: {loan?.loan_number ? `#${loan.loan_number}` : "-"}
           </Typography>
@@ -449,16 +475,16 @@ export default function LoanDetails() {
 
               <TableBody>
                 {cicilanList.map((item) => {
-                  const status = mapCicilanStatus(item);
+                  const style = getStatusStyle(item);
                   return (
                     <TableRow key={item.id} sx={item.tukin_status !== "sudah" ? { background: "#eef2ff" } : undefined}>
                       <TableCell>#{`CIC-${String(item.id).padStart(4, "0")}`}</TableCell>
                       <TableCell>{item.cicilan}</TableCell>
                       <TableCell>{formatDate(item.tanggal_pembayaran)}</TableCell>
-                              <TableCell>{formatCurrency(item.nominal)}</TableCell>
+                      <TableCell>{formatCurrency(item.nominal)}</TableCell>
                       <TableCell>
-                        {item.tukin_status === "sudah" ? (
-                          <Chip label={status.label} color={status.color} size="small" />
+                        {item.tukin_status === "sudah" || item.status_pembayaran === "postponed" || item.tukin_status === "postponed" ? (
+                          <Chip label={style.label} sx={style.sx} size="small" />
                         ) : (() => {
                           const canConfirm = isSameMonth(item.tanggal_pembayaran);
                           const dueDate = parseDate(item.tanggal_pembayaran);
@@ -473,7 +499,7 @@ export default function LoanDetails() {
                             );
                           }
 
-                          if (loan?.status_pengajuan === "pending_pengajuan") {
+                          if (loan?.status_pengajuan === "pending_pengajuan" && item.id === loan?.postpone_cicilan_id) {
                             return (
                               <Button
                                 variant="contained"

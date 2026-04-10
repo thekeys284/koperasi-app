@@ -115,7 +115,7 @@ const isCurrentMonth = (value) => {
 
 const hasCurrentMonthUnpaidInstallment = (loan) => {
   return Array.isArray(loan.cicilan) && loan.cicilan.some(
-    (item) => item.tukin_status !== "sudah" && isCurrentMonth(item.tanggal_pembayaran)
+    (item) => item.tukin_status !== "sudah" && item.tukin_status !== "postponed" && isCurrentMonth(item.tanggal_pembayaran)
   );
 };
 
@@ -176,7 +176,7 @@ const LoanPage = () => {
     item.status_pengajuan === "disetujui_ketua" || item.status_pengajuan === "pending_pengajuan"
   ));
   const pendingConfirmationLoans = runningLoans
-    .filter((item) => hasCurrentMonthUnpaidInstallment(item))
+    .filter((item) => hasCurrentMonthUnpaidInstallment(item) || item.status_pengajuan === "pending_pengajuan")
     .sort((a, b) => {
       const priorityDiff = getRunningLoanPriority(a) - getRunningLoanPriority(b);
       if (priorityDiff !== 0) return priorityDiff;

@@ -10,23 +10,59 @@ import {
   Button,
   IconButton,
   Box,
+  MenuItem,
+  Select,
+  FormControl,
 } from "@mui/material";
 
 import CloseIcon from "@mui/icons-material/Close";
 
-const PostponeInstallmentModal = ({ open, handleClose, data }) => {
+import api from "../../../../api/axios";
+
+const PostponeInstallmentModal = ({ open, handleClose, data, onSuccess }) => {
+  const [selectedCicilanId, setSelectedCicilanId] = useState("");
   const [reason, setReason] = useState("");
+  const [loading, setLoading] = useState(false);
 
-  const handleSubmit = () => {
-    const payload = {
-      loanId: data?.loanId,
-      installment: data?.installment,
-      reason,
-    };
+  // Filter cicilan yang bisa ditunda (hanya yang statusnya pending dan bukan ditunda)
+  const availableInstallments = (data?.installments || []).filter(
+    (item) => item.status_pembayaran === "pending" || item.status_pembayaran === "belum"
+  );
 
-    console.log("Pengajuan Penundaan:", payload);
+  const selectedCicilan = availableInstallments.find(item => item.id === selectedCicilanId);
 
-    handleClose();
+  const handleSubmit = async () => {
+    if (!selectedCicilanId) {
+      alert("Silakan pilih cicilan yang ingin ditunda.");
+      return;
+    }
+
+    if (!reason.trim()) {
+      alert("Alasan penundaan wajib diisi.");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const response = await api.patch(`/loans/${data?.loanId}/postpone-request`, {
+        reason,
+        cicilan_id: selectedCicilanId, // Kirim ID cicilan yang dipilih
+        user_id: 10,
+      });
+
+      if (response.data.success) {
+        alert("Pengajuan penundaan cicilan berhasil dikirim!");
+        if (onSuccess) onSuccess();
+        handleClose();
+        // Reset state
+        setSelectedCicilanId("");
+        setReason("");
+      }
+    } catch (err) {
+      alert(err.response?.data?.message || "Gagal mengirim pengajuan.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   const Row = ({ label, value }) => (
@@ -82,15 +118,42 @@ const PostponeInstallmentModal = ({ open, handleClose, data }) => {
       <DialogContent sx={{ p: 0 }}>
         {/* INFO CICILAN */}
 
-        <Row label="ID Pinjaman" value={data?.loanId || "#PJM-2023001"} />
+        <Row label="ID Pinjaman" value={data?.loanNumber ? `#${data.loanNumber}` : "-"} />
 
-        <Row label="Cicilan ke-" value={data?.installment || "3"} />
+        <Stack
+          direction="row"
+          justifyContent="flex-start"
+          alignItems="center"
+          gap={2}
+          sx={{ p: 2 }}
+        >
+          <Typography sx={{ width: 160 }}>Pilih Cicilan</Typography>
+          <FormControl size="small" sx={{ flex: 1 }}>
+            <Select
+              value={selectedCicilanId}
+              onChange={(e) => setSelectedCicilanId(e.target.value)}
+              displayEmpty
+            >
+              <MenuItem value="" disabled>Pilih Bulan Cicilan</MenuItem>
+              {availableInstallments.map((item) => (
+                <MenuItem key={item.id} value={item.id}>
+                  Cicilan {item.cicilan} ({new Date(item.tanggal_pembayaran).toLocaleDateString('id-ID', { month: 'long', year: 'numeric' })})
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+        </Stack>
 
-        <Row label="Nominal" value={data?.amount || "Rp 1.000.000"} />
+        <Divider />
+
+        <Row 
+          label="Nominal" 
+          value={selectedCicilan ? `Rp ${Number(selectedCicilan.nominal).toLocaleString('id-ID')}` : "-"} 
+        />
 
         <Row
           label="Tgl Jatuh Tempo"
-          value={data?.dueDate || "12 Des 2023"}
+          value={selectedCicilan ? new Date(selectedCicilan.tanggal_pembayaran).toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' }) : "-"}
         />
 
         {/* ALASAN */}
@@ -135,8 +198,9 @@ const PostponeInstallmentModal = ({ open, handleClose, data }) => {
             variant="contained"
             color="primary"
             onClick={handleSubmit}
+            disabled={loading}
           >
-            Ajukan Penundaan
+            {loading ? "Memproses..." : "Ajukan Penundaan"}
           </Button>
         </Stack>
       </DialogContent>

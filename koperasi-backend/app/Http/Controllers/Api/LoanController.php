@@ -312,7 +312,7 @@ class LoanController extends Controller
             }
 
             $validated = $request->validate([
-                'tukin_status' => 'required|in:sudah,belum,pending',
+                'tukin_status' => 'required|in:sudah,postponed,belum,pending',
                 'note' => 'nullable|string|max:500',
                 'admin_note' => 'nullable|string|max:500',
             ]);
@@ -357,46 +357,67 @@ class LoanController extends Controller
                     if ($remaining === 0) {
                         $loan->update(['status_pengajuan' => 'paid']);
                     }
-                } else {
-                    $unpaidInstallments = LoanCicilan::where('loans_id', $loan->id)
-                        ->where('status_pembayaran', '!=', 'paid')
-                        ->orderBy('cicilan')
-                        ->get();
+                } else if ($validated['tukin_status'] === 'postponed') {
+                    // Update current installment to postponed
+                    $cicilan->update([
+                        'status_pembayaran' => 'postponed',
+                    ]);
 
-                    /** @var LoanCicilan $installment */
-                    foreach ($unpaidInstallments as $installment) {
-                        $nextDate = Carbon::parse($installment->tanggal_pembayaran)->addMonth();
-                        $installment->update([
-                            'tanggal_pembayaran' => $nextDate->toDateString(),
+                    // Only add a new installment at the very end of the tenor
+                    // We don't shift the middle installments as requested
+                    $lastInstallment = LoanCicilan::where('loans_id', $loan->id)
+                        ->orderByDesc('cicilan')
+                        ->first();
+                    
+                    if ($lastInstallment) {
+                        $lastDueDate = Carbon::parse($lastInstallment->tanggal_pembayaran);
+                        $newDueDate = $lastDueDate->copy()->addMonth();
+
+                        LoanCicilan::create([
+                            'loans_id' => $loan->id,
+                            'tanggal_pembayaran' => $newDueDate->toDateString(),
+                            'nominal' => $cicilan->nominal,
+                            'status_pembayaran' => 'pending',
+                            'cicilan' => ($lastInstallment->cicilan ?? 0) + 1,
                         ]);
                     }
+                } else {
+                    // Jika admin memilih 'Belum' secara manual di ConfirmPaymentModal
+                    // (Bukan hasil dari penolakan pengajuan penundaan)
+                    if ($loan->status_pengajuan !== 'pending_pengajuan') {
+                        $lastInstallment = LoanCicilan::where('loans_id', $loan->id)
+                            ->orderByDesc('cicilan')
+                            ->first();
+                        
+                        if ($lastInstallment) {
+                            $lastDueDate = Carbon::parse($lastInstallment->tanggal_pembayaran);
+                            $newDueDate = $lastDueDate->copy()->addMonth();
 
-                    $lastInstallmentNo = LoanCicilan::where('loans_id', $loan->id)->max('cicilan') ?? 0;
-                    $lastDueDate = LoanCicilan::where('loans_id', $loan->id)
-                        ->orderByDesc('tanggal_pembayaran')
-                        ->value('tanggal_pembayaran');
+                            LoanCicilan::create([
+                                'loans_id' => $loan->id,
+                                'tanggal_pembayaran' => $newDueDate->toDateString(),
+                                'nominal' => $cicilan->nominal,
+                                'status_pembayaran' => 'pending',
+                                'cicilan' => ($lastInstallment->cicilan ?? 0) + 1,
+                            ]);
 
-                    $newDueDate = Carbon::parse($lastDueDate)->addMonth();
-
-                    LoanCicilan::create([
-                        'loans_id' => $loan->id,
-                        'tanggal_pembayaran' => $newDueDate->toDateString(),
-                        'nominal' => $cicilan->nominal,
-                        'status_pembayaran' => 'pending',
-                        'cicilan' => $lastInstallmentNo + 1,
-                    ]);
+                            // Tandai sebagai 'postponed' agar pindah ke riwayat ditunda untuk bulan ini
+                            $cicilan->update(['status_pembayaran' => 'postponed']);
+                        }
+                    }
                 }
 
                 $loan->update([
                     'admin_note' => $validated['admin_note'] ?? $validated['note'] ?? $loan->admin_note,
-                    'status_pengajuan' => $validated['tukin_status'] === 'belum' ? 'aktif' : $loan->status_pengajuan
+                    'status_pengajuan' => ($validated['tukin_status'] === 'postponed' || $validated['tukin_status'] === 'belum') ? 'disetujui_ketua' : $loan->status_pengajuan,
+                    'postpone_cicilan_id' => ($validated['tukin_status'] === 'postponed' || $validated['tukin_status'] === 'belum') ? null : $loan->postpone_cicilan_id
                 ]);
 
                 try {
                     ActivityLogHelper::create(
                         $user->id,
                         'Konfirmasi Cicilan',
-                        'Cicilan #' . $cicilan->cicilan . ' pada pinjaman ' . $loan->id . ' diperbarui menjadi ' . ($validated['tukin_status'] === 'sudah' ? 'paid' : 'belum bayar') . '. Catatan: ' . ($validated['note'] ?? '-')
+                        'Cicilan #' . $cicilan->cicilan . ' pada pinjaman ' . $loan->id . ' diperbarui menjadi ' . ($validated['tukin_status'] === 'sudah' ? 'paid' : ($validated['tukin_status'] === 'postponed' ? 'ditunda' : 'belum bayar')) . '. Catatan: ' . ($validated['note'] ?? '-')
                     );
                 } catch (\Exception $e) {
                     Log::warning('Activity log failed: ' . $e->getMessage());
@@ -423,6 +444,193 @@ class LoanController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Terjadi kesalahan: ' . $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
+     * Approve a loan (Ketua 1).
+     * PATCH /api/loans/{id}/approve
+     */
+    public function approve(Request $request, $id)
+    {
+        try {
+            $user = $this->resolveUser($request);
+
+            if (!$user) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'User tidak ditemukan.'
+                ], 404);
+            }
+
+            $loan = Loan::where('id', $id)->first();
+
+            if (!$loan) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Pengajuan pinjaman tidak ditemukan.'
+                ], 404);
+            }
+
+            $loan->update([
+                'status_pengajuan' => 'disetujui_ketua',
+                'tgl_acc_ketua1' => now(),
+            ]);
+
+            try {
+                ActivityLogHelper::create(
+                    $user->id,
+                    'Persetujuan Pinjaman',
+                    "Ketua menyetujui pengajuan pinjaman ID: {$loan->id} (#{loan->loan_number})"
+                );
+            } catch (\Exception $e) {
+                Log::warning('Activity log failed: ' . $e->getMessage());
+            }
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Pengajuan pinjaman berhasil disetujui.',
+                'data' => $this->formatLoan($loan, true)
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Loan approve error: ' . $e->getMessage());
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Terjadi kesalahan: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Reject a loan (Ketua 1).
+     * PATCH /api/loans/{id}/reject
+     */
+    public function reject(Request $request, $id)
+    {
+        try {
+            $user = $this->resolveUser($request);
+
+            if (!$user) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'User tidak ditemukan.'
+                ], 404);
+            }
+
+            $validated = $request->validate([
+                'reason' => 'required|string|max:500',
+            ]);
+
+            $loan = Loan::where('id', $id)->first();
+
+            if (!$loan) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Pengajuan pinjaman tidak ditemukan.'
+                ], 404);
+            }
+
+            $loan->update([
+                'status_pengajuan' => 'rejected',
+                'admin_note' => $validated['reason'],
+            ]);
+
+            try {
+                ActivityLogHelper::create(
+                    $user->id,
+                    'Penolakan Pinjaman',
+                    "Ketua menolak pengajuan pinjaman ID: {$loan->id} (#{loan->loan_number}). Alasan: {$validated['reason']}"
+                );
+            } catch (\Exception $e) {
+                Log::warning('Activity log failed: ' . $e->getMessage());
+            }
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Pengajuan pinjaman berhasil ditolak.',
+                'data' => $this->formatLoan($loan, true)
+            ]);
+        } catch (ValidationException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Alasan penolakan wajib diisi.',
+                'errors' => $e->errors()
+            ], 422);
+        } catch (\Exception $e) {
+            Log::error('Loan reject error: ' . $e->getMessage());
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Terjadi kesalahan: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Request a loan postponement (User).
+     * PATCH /api/loans/{id}/postpone-request
+     */
+    public function postponeRequest(Request $request, $id)
+    {
+        try {
+            $user = $this->resolveUser($request);
+
+            if (!$user) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'User tidak ditemukan.'
+                ], 404);
+            }
+
+            $validated = $request->validate([
+                'reason' => 'required|string|max:500',
+                'cicilan_id' => 'required|exists:loan_cicilan,id',
+            ]);
+
+            $loan = Loan::where('id', $id)->first();
+
+            if (!$loan) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Pengajuan pinjaman tidak ditemukan.'
+                ], 404);
+            }
+
+            $loan->update([
+                'status_pengajuan' => 'pending_pengajuan',
+                'reason' => $validated['reason'],
+                'postpone_cicilan_id' => $validated['cicilan_id'],
+            ]);
+
+            try {
+                ActivityLogHelper::create(
+                    $user->id,
+                    'Pengajuan Penundaan Cicilan',
+                    "User mengajukan penundaan cicilan untuk pinjaman ID: {$loan->id} (#{loan->loan_number}). Alasan: {$validated['reason']}"
+                );
+            } catch (\Exception $e) {
+                Log::warning('Activity log failed: ' . $e->getMessage());
+            }
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Pengajuan penundaan cicilan berhasil dikirim.',
+                'data' => $this->formatLoan($loan, true)
+            ]);
+        } catch (ValidationException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Alasan penundaan wajib diisi.',
+                'errors' => $e->errors()
+            ], 422);
+        } catch (\Exception $e) {
+            Log::error('Loan postponeRequest error: ' . $e->getMessage());
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Terjadi kesalahan: ' . $e->getMessage()
             ], 500);
         }
     }
@@ -522,6 +730,7 @@ class LoanController extends Controller
             'document_path' => $loan->file_path,
             'document_url' => $loan->file_path ? asset('storage/' . $loan->file_path) : null,
             'status_pengajuan' => $loan->status_pengajuan,
+            'postpone_cicilan_id' => $loan->postpone_cicilan_id,
             'status' => $statusDisplay,
             'pj_status' => $this->mapApprovalStatus($loan->status_pengajuan),
             'chairman_status' => $this->mapApprovalStatus($loan->status_pengajuan),
@@ -542,7 +751,7 @@ class LoanController extends Controller
                     'tanggal_pembayaran' => $item->tanggal_pembayaran?->toDateString(),
                     'nominal' => (float) $item->nominal,
                     'status_pembayaran' => $item->status_pembayaran,
-                    'tukin_status' => $item->status_pembayaran === 'paid' ? 'sudah' : 'belum',
+                    'tukin_status' => $item->status_pembayaran === 'paid' ? 'sudah' : ($item->status_pembayaran === 'postponed' ? 'postponed' : 'belum'),
                     'created_at' => $item->created_at,
                     'updated_at' => $item->updated_at,
                 ];

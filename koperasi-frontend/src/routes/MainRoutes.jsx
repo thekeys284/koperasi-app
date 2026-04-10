@@ -15,8 +15,8 @@ const AdminLoanDetails = Loadable(lazy(() => import('views/admin/loans/LoanDetai
 const UserLoanPage = Loadable(lazy(() => import('views/users/loans/userLoans.jsx')));
 const UserLoanCreatePage = Loadable(lazy(() => import('views/users/loans/userPengajuan.jsx')));
 const UserLoanCicilanPage = Loadable(lazy(() => import('views/users/loans/userCicilan.jsx')));
-const LeadLoanPage = Loadable(lazy(() => import('views/lead/LeadLoan.jsx')));
-const LeadLoanDetails = Loadable(lazy(() => import('views/lead/LeadLoanDetail.jsx')));
+const LeadLoanPage = Loadable(lazy(() => import('views/lead/loans/LeadLoan.jsx')));
+const LeadLoanDetails = Loadable(lazy(() => import('views/lead/loans/LeadLoanDetail.jsx')));
 // const ProductPage = Loadable(lazy(() => import('../views/master/product/Index.jsx')));
 
 const MainRoutes = {
