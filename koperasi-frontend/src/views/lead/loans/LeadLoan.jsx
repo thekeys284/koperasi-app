@@ -36,6 +36,44 @@ import NavigateNextIcon from "@mui/icons-material/NavigateNext";
 import MoreVertIcon from "@mui/icons-material/MoreVert";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 
+const RejectionNote = ({ reason }) => {
+    const [expanded, setExpanded] = React.useState(false);
+    if (!reason) return null;
+
+    const isLong = reason.length > 50;
+    const displayText = expanded || !isLong ? reason : `${reason.substring(0, 50)}...`;
+
+    return (
+        <Box 
+            sx={{ 
+                mt: 0.5, 
+                maxWidth: 180, 
+                cursor: isLong ? "pointer" : "default" 
+            }}
+            onClick={() => isLong && setExpanded(!expanded)}
+        >
+            <Typography 
+                fontSize={11} 
+                color="#64748B" 
+                fontWeight={500}
+                sx={{ 
+                    lineHeight: 1.4,
+                    fontStyle: "italic",
+                    textDecoration: isLong && !expanded ? 'underline' : 'none',
+                    textDecorationStyle: 'dotted'
+                }}
+            >
+                Alasan: {displayText}
+                {isLong && !expanded && (
+                    <Typography component="span" fontSize={10} sx={{ ml: 0.5, fontWeight: 700 }}>
+                        (Lihat)
+                    </Typography>
+                )}
+            </Typography>
+        </Box>
+    );
+};
+
 const StatusBadge = ({ loan }) => {
     const statusPengajuan = loan?.status_pengajuan;
 
@@ -87,19 +125,7 @@ const StatusBadge = ({ loan }) => {
                     fontWeight: 600,
                 }}
             />
-            {config.reason && (
-                <Accordion disableGutters elevation={0} sx={{ borderRadius: 1, border: "1px solid #FECACA", "&:before": { display: "none" } }}>
-                    <AccordionSummary
-                        expandIcon={<ExpandMoreIcon sx={{ fontSize: 16 }} />}
-                        sx={{ minHeight: 28, "& .MuiAccordionSummary-content": { my: 0 } }}
-                    >
-                        <Typography fontSize={12} color="#B91C1C" fontWeight={600}>Lihat alasan</Typography>
-                    </AccordionSummary>
-                    <AccordionDetails sx={{ pt: 0, pb: 1 }}>
-                        <Typography fontSize={12} color="#7F1D1D">{config.reason}</Typography>
-                    </AccordionDetails>
-                </Accordion>
-            )}
+            <RejectionNote reason={config.reason} />
         </Stack>
     );
 };

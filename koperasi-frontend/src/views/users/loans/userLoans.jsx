@@ -109,38 +109,59 @@ const StatusBadge = ({ loan }) => {
 };
 
 const PostponeDecisionNote = ({ loan }) => {
+    const [expanded, setExpanded] = React.useState(false);
     if (!loan?.postpone_decision) return null;
 
     const isApproved = loan.postpone_decision === "approved";
     const label = isApproved ? "Penundaan Diterima" : "Penundaan Ditolak";
-    const titleColor = isApproved ? "#166534" : "#991B1B";
-    const borderColor = isApproved ? "#BBF7D0" : "#FECACA";
-    const bgColor = isApproved ? "#F0FDF4" : "#FEF2F2";
-    const note = loan.postpone_decision_note || "Tidak ada catatan admin untuk keputusan penundaan bulan ini.";
+    const color = isApproved ? "#16A34A" : "#DC2626";
+    const note = loan.postpone_decision_note || "Tidak ada catatan admin.";
+    
+    const isLong = note.length > 50;
+    const displayText = expanded || !isLong ? note : `${note.substring(0, 50)}...`;
 
     return (
-        <Accordion
-            disableGutters
-            elevation={0}
-            sx={{
-                mt: 0.8,
-                border: `1px solid ${borderColor}`,
-                borderRadius: 1,
-                backgroundColor: bgColor,
-                "&:before": { display: "none" }
+        <Box 
+            sx={{ 
+                mt: 0.5, 
+                maxWidth: 180, 
+                cursor: isLong ? "pointer" : "default" 
             }}
+            onClick={() => isLong && setExpanded(!expanded)}
         >
-            <AccordionSummary
-                expandIcon={<ExpandMoreIcon sx={{ fontSize: 16 }} />}
-                sx={{ minHeight: 30, "& .MuiAccordionSummary-content": { my: 0.5 } }}
+            <Typography 
+                fontSize={11} 
+                color={color} 
+                fontWeight={700}
+                sx={{ lineHeight: 1.2 }}
             >
-                <Typography fontSize={12} fontWeight={700} color={titleColor}>{label}</Typography>
-            </AccordionSummary>
-            <AccordionDetails sx={{ pt: 0, pb: 1 }}>
-                <Typography fontSize={12} color="#334155">{note}</Typography>
-            </AccordionDetails>
-        </Accordion>
+                {label}
+            </Typography>
+            <Typography 
+                fontSize={11} 
+                color="#64748B" 
+                fontWeight={500}
+                sx={{ 
+                    lineHeight: 1.4,
+                    fontStyle: "italic",
+                    textDecoration: isLong && !expanded ? 'underline' : 'none',
+                    textDecorationStyle: 'dotted'
+                }}
+            >
+                Catatan: {displayText}
+                {isLong && !expanded && (
+                    <Typography component="span" fontSize={10} sx={{ ml: 0.5, fontWeight: 700 }}>
+                        (Lihat)
+                    </Typography>
+                )}
+            </Typography>
+        </Box>
     );
+};
+
+const PostponeInstallmentRecord = ({ loan }) => {
+    // Component for postponement display in table (optional helper)
+    return <PostponeDecisionNote loan={loan} />;
 };
 
 const LoanTypeBadge = ({ type }) => {
@@ -198,7 +219,7 @@ const RejectionNote = ({ loan }) => {
                 fontWeight={500}
                 sx={{ 
                     lineHeight: 1.4,
-                    fontStyle: expanded ? 'normal' : 'italic',
+                    fontStyle: "italic",
                     textDecoration: isLong && !expanded ? 'underline' : 'none',
                     textDecorationStyle: 'dotted'
                 }}

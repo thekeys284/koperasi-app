@@ -57,7 +57,7 @@ const RejectionNote = ({ reason }) => {
         fontWeight={500}
         sx={{ 
           lineHeight: 1.4,
-          fontStyle: expanded ? 'normal' : 'italic',
+          fontStyle: "italic",
           textDecoration: isLong && !expanded ? 'underline' : 'none',
           textDecorationStyle: 'dotted'
         }}

@@ -399,6 +399,9 @@ class LoanController extends Controller
                 $loan->update([
                     'admin_note' => $validated['admin_note'] ?? $validated['note'] ?? $loan->admin_note,
                     'status_pengajuan' => ($validated['tukin_status'] === 'postponed' || $validated['tukin_status'] === 'belum') ? 'disetujui_ketua' : $loan->status_pengajuan,
+                    'lama_pembayaran' => (in_array($validated['tukin_status'], ['postponed', 'belum']) && $loan->status_pengajuan !== 'postpone') || $validated['tukin_status'] === 'postponed' 
+                        ? ($loan->lama_pembayaran + 1) 
+                        : $loan->lama_pembayaran,
                     'postpone_cicilan_id' => ($validated['tukin_status'] === 'postponed' || $validated['tukin_status'] === 'belum') ? null : $loan->postpone_cicilan_id,
                     'postpone_decision' => ($loan->status_pengajuan === 'postpone' && $validated['tukin_status'] === 'postponed')
                         ? 'approved'

@@ -73,47 +73,59 @@ const getLoanStatusMeta = (loan) => {
   };
 };
 
+const RejectionNote = ({ reason }) => {
+  const [expanded, setExpanded] = React.useState(false);
+  if (!reason) return null;
+
+  const isLong = reason.length > 50;
+  const displayText = expanded || !isLong ? reason : `${reason.substring(0, 50)}...`;
+
+  return (
+    <Box 
+      sx={{ 
+        mt: 0.5, 
+        maxWidth: 180, 
+        cursor: isLong ? "pointer" : "default" 
+      }}
+      onClick={() => isLong && setExpanded(!expanded)}
+    >
+      <Typography 
+        fontSize={11} 
+        color="#64748B" 
+        fontWeight={500}
+        sx={{ 
+          lineHeight: 1.4,
+          fontStyle: "italic",
+          textDecoration: isLong && !expanded ? 'underline' : 'none',
+          textDecorationStyle: 'dotted'
+        }}
+      >
+        Alasan: {displayText}
+        {isLong && !expanded && (
+          <Typography component="span" fontSize={10} sx={{ ml: 0.5, fontWeight: 700 }}>
+            (Lihat)
+          </Typography>
+        )}
+      </Typography>
+    </Box>
+  );
+};
+
 const StatusBadge = ({ loan }) => {
   const meta = getLoanStatusMeta(loan);
 
-  const badge = (
-    <Chip
-      label={meta.label}
-      size="small"
-      sx={{
-        background: meta.bg,
-        color: meta.color,
-        fontWeight: 600,
-      }}
-    />
-  );
-
-  if (!meta.reason) {
-    return badge;
-  }
-
   return (
     <Stack spacing={0.5}>
-      {badge}
-      <Accordion
-        disableGutters
-        elevation={0}
+      <Chip
+        label={meta.label}
+        size="small"
         sx={{
-          border: "1px solid #FECACA",
-          borderRadius: 1,
-          "&:before": { display: "none" },
+          background: meta.bg,
+          color: meta.color,
+          fontWeight: 600,
         }}
-      >
-        <AccordionSummary
-          expandIcon={<ExpandMoreIcon sx={{ fontSize: 16 }} />}
-          sx={{ minHeight: 28, "& .MuiAccordionSummary-content": { my: 0 } }}
-        >
-          <Typography fontSize={12} color="#B91C1C" fontWeight={600}>Lihat alasan</Typography>
-        </AccordionSummary>
-        <AccordionDetails sx={{ pt: 0, pb: 1 }}>
-          <Typography fontSize={12} color="#7F1D1D">{meta.reason}</Typography>
-        </AccordionDetails>
-      </Accordion>
+      />
+      <RejectionNote reason={meta.reason} />
     </Stack>
   );
 };
