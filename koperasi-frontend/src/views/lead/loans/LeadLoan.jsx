@@ -9,6 +9,9 @@ import processOrangeIcon from 'assets/images/lead/processOrangeIcon.png';
 import checkGreenIcon from 'assets/images/lead/checkGreenIcon.png';
 
 import {
+    Accordion,
+    AccordionDetails,
+    AccordionSummary,
   Card,
   CardContent,
   Typography,
@@ -31,51 +34,74 @@ import {
 
 import NavigateNextIcon from "@mui/icons-material/NavigateNext";
 import MoreVertIcon from "@mui/icons-material/MoreVert";
+import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 
-const StatusBadge = ({ status, status_pengajuan }) => {
-  const statusConfig = {
-    pending: {
-      label: "Menunggu",
-      color: "#f59e0b",
-      bg: "#fef3c7",
-    },
-    aktif: {
-      label: "Disetujui",
-      color: "#16a34a",
-      bg: "#dcfce7",
-    },
-    lunas: {
-      label: "Lunas",
-      color: "#2563eb",
-      bg: "#dbeafe",
-    },
-    rejected: {
-      label: "Ditolak",
-      color: "#dc2626",
-      bg: "#fee2e2",
-    },
-  };
+const StatusBadge = ({ loan }) => {
+    const statusPengajuan = loan?.status_pengajuan;
 
-  // If status_pengajuan is provided, we can be more specific
-  let config = statusConfig[status] || statusConfig.pending;
-  
-  if (status_pengajuan === 'pending') {
-      config = statusConfig.pending;
-  } else if (['disetujui_ketua', 'pending_pengajuan', 'aktif'].includes(status_pengajuan)) {
-      config = statusConfig.aktif;
-  }
+    let config = {
+        label: "Pending",
+        color: "#f59e0b",
+        bg: "#fef3c7",
+        reason: null,
+    };
 
-  return (
-    <Chip
-      label={config.label}
-      size="small"
-      sx={{
-        background: config.bg,
-        color: config.color,
-        fontWeight: 600,
-      }}
-    />
-  );
+    if (statusPengajuan === "rejected") {
+        config = {
+            label: "Ditolak",
+            color: "#dc2626",
+            bg: "#fee2e2",
+            reason: loan?.status_reason || loan?.admin_note || loan?.reason || "Alasan penolakan tidak tersedia.",
+        };
+    } else if (statusPengajuan === "pending_pengajuan") {
+        config = {
+            label: "Menunggu Konfirmasi",
+            color: "#f59e0b",
+            bg: "#fef3c7",
+            reason: null,
+        };
+    } else if (["disetujui_ketua", "aktif", "paid"].includes(statusPengajuan)) {
+        config = {
+            label: "Aktif",
+            color: "#16a34a",
+            bg: "#dcfce7",
+            reason: null,
+        };
+    } else if (["pending", "postpone"].includes(statusPengajuan)) {
+        config = {
+            label: "Menunggu Admin",
+            color: "#f59e0b",
+            bg: "#fef3c7",
+            reason: null,
+        };
+    }
+
+    return (
+        <Stack spacing={0.5}>
+            <Chip
+                label={config.label}
+                size="small"
+                sx={{
+                    background: config.bg,
+                    color: config.color,
+                    fontWeight: 600,
+                }}
+            />
+            {config.reason && (
+                <Accordion disableGutters elevation={0} sx={{ borderRadius: 1, border: "1px solid #FECACA", "&:before": { display: "none" } }}>
+                    <AccordionSummary
+                        expandIcon={<ExpandMoreIcon sx={{ fontSize: 16 }} />}
+                        sx={{ minHeight: 28, "& .MuiAccordionSummary-content": { my: 0 } }}
+                    >
+                        <Typography fontSize={12} color="#B91C1C" fontWeight={600}>Lihat alasan</Typography>
+                    </AccordionSummary>
+                    <AccordionDetails sx={{ pt: 0, pb: 1 }}>
+                        <Typography fontSize={12} color="#7F1D1D">{config.reason}</Typography>
+                    </AccordionDetails>
+                </Accordion>
+            )}
+        </Stack>
+    );
 };
 
 const LoanTypeBadge = ({ type }) => {
@@ -137,7 +163,7 @@ const LeadLoanPage = () => {
             const apiSummary = response.data?.summary;
             setSummary({
                 total: apiSummary?.total_pengajuan || fetchedLoans.length,
-                pending: apiSummary?.total_pending || fetchedLoans.filter(l => l.status_pengajuan === 'pending').length,
+                pending: fetchedLoans.filter(l => ['pending', 'pending_pengajuan'].includes(l.status_pengajuan)).length,
                 approved: (apiSummary?.total_disetujui || 0) + (apiSummary?.total_lunas || 0)
             });
 
@@ -161,8 +187,8 @@ const LeadLoanPage = () => {
     };
 
     const filteredLoans = tabValue === 0 
-        ? loans.filter(l => l.status_pengajuan === 'pending')
-        : loans.filter(l => l.status_pengajuan !== 'pending');
+        ? loans.filter(l => ['pending', 'pending_pengajuan'].includes(l.status_pengajuan))
+        : loans.filter(l => !['pending', 'pending_pengajuan'].includes(l.status_pengajuan));
 
     return (
         <Box sx={{ p: 4, background: "#f5f7fb", minHeight: "100vh" }}>
@@ -232,7 +258,7 @@ const LeadLoanPage = () => {
             <Card sx={{ borderRadius: 3 }}>
                 <Box sx={{ borderBottom: 1, borderColor: 'divider', px: 2, pt: 1 }}>
                     <Tabs value={tabValue} onChange={handleTabChange} textColor="primary" indicatorColor="primary">
-                        <Tab label={`Perlu Persetujuan (${loans.filter(l => l.status_pengajuan === 'pending').length})`} sx={{ fontWeight: 700, textTransform: 'none' }} />
+                        <Tab label={`Perlu Persetujuan (${loans.filter(l => ['pending', 'pending_pengajuan'].includes(l.status_pengajuan)).length})`} sx={{ fontWeight: 700, textTransform: 'none' }} />
                         <Tab label="Riwayat Pengajuan" sx={{ fontWeight: 700, textTransform: 'none' }} />
                     </Tabs>
                 </Box>
@@ -304,7 +330,7 @@ const LeadLoanPage = () => {
                                         <TableCell sx={{ fontWeight: 600 }}>{loan.lama_pembayaran} Bulan</TableCell>
 
                                         <TableCell>
-                                            <StatusBadge status={loan.status} status_pengajuan={loan.status_pengajuan} />
+                                            <StatusBadge loan={loan} />
                                         </TableCell>
 
                                         <TableCell align="center">

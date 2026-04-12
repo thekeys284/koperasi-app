@@ -6,6 +6,9 @@ import {
     Box,
     Typography,
     Stack,
+    Accordion,
+    AccordionSummary,
+    AccordionDetails,
     Card,
     CardContent,
     Button,
@@ -31,10 +34,17 @@ import NavigateNextIcon from "@mui/icons-material/NavigateNext";
 import AddIcon from "@mui/icons-material/Add";
 import MoreVertIcon from "@mui/icons-material/MoreVert";
 import DeleteIcon from "@mui/icons-material/DeleteOutline";
+import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import { IconLock } from "@tabler/icons-react";
 
-const StatusBadge = ({ status }) => {
+const StatusBadge = ({ loan }) => {
+    const statusPengajuan = loan?.status_pengajuan;
     const config = {
+        aktif: {
+            label: "Disetujui",
+            bg: "#DCFCE7",
+            color: "#16A34A",
+        },
         approved: {
             label: "Disetujui Ketua",
             bg: "#DCFCE7",
@@ -50,14 +60,40 @@ const StatusBadge = ({ status }) => {
             bg: "#FEE2E2",
             color: "#DC2626",
         },
+            review: {
+                label: "Menunggu Konfirmasi",
+                bg: "#E0F2FE",
+                color: "#0284C7",
+            },
         pending: {
             label: "Pending",
             bg: "#FEF3C7",
             color: "#F59E0B",
         },
+        waiting_admin: {
+            label: "Menunggu Admin",
+            bg: "#FEF3C7",
+            color: "#F59E0B",
+        },
+        waiting_lead: {
+            label: "Menunggu Lead",
+            bg: "#E0F2FE",
+            color: "#0284C7",
+        },
+        postponement_review: {
+            label: "Review Penundaan",
+            bg: "#E0F2FE",
+            color: "#0284C7",
+        },
     };
 
-    const item = config[status] || config.pending;
+    let item = config[loan?.status] || config.pending;
+    if (statusPengajuan === "pending") item = config.waiting_admin;
+    if (statusPengajuan === "pending_pengajuan") item = config.waiting_lead;
+    if (statusPengajuan === "postpone") item = config.postponement_review;
+    if (["disetujui_ketua", "aktif"].includes(statusPengajuan)) item = config.aktif;
+    if (statusPengajuan === "paid") item = config.lunas;
+    if (statusPengajuan === "rejected") item = config.rejected;
 
     return (
         <Chip
@@ -69,6 +105,41 @@ const StatusBadge = ({ status }) => {
             }}
             size="small"
         />
+    );
+};
+
+const PostponeDecisionNote = ({ loan }) => {
+    if (!loan?.postpone_decision) return null;
+
+    const isApproved = loan.postpone_decision === "approved";
+    const label = isApproved ? "Penundaan Diterima" : "Penundaan Ditolak";
+    const titleColor = isApproved ? "#166534" : "#991B1B";
+    const borderColor = isApproved ? "#BBF7D0" : "#FECACA";
+    const bgColor = isApproved ? "#F0FDF4" : "#FEF2F2";
+    const note = loan.postpone_decision_note || "Tidak ada catatan admin untuk keputusan penundaan bulan ini.";
+
+    return (
+        <Accordion
+            disableGutters
+            elevation={0}
+            sx={{
+                mt: 0.8,
+                border: `1px solid ${borderColor}`,
+                borderRadius: 1,
+                backgroundColor: bgColor,
+                "&:before": { display: "none" }
+            }}
+        >
+            <AccordionSummary
+                expandIcon={<ExpandMoreIcon sx={{ fontSize: 16 }} />}
+                sx={{ minHeight: 30, "& .MuiAccordionSummary-content": { my: 0.5 } }}
+            >
+                <Typography fontSize={12} fontWeight={700} color={titleColor}>{label}</Typography>
+            </AccordionSummary>
+            <AccordionDetails sx={{ pt: 0, pb: 1 }}>
+                <Typography fontSize={12} color="#334155">{note}</Typography>
+            </AccordionDetails>
+        </Accordion>
     );
 };
 
@@ -102,6 +173,45 @@ const formatDate = (value) => {
     const date = new Date(value);
     if (Number.isNaN(date.getTime())) return "-";
     return date.toLocaleDateString("id-ID", { day: "2-digit", month: "short", year: "numeric" });
+};
+
+const RejectionNote = ({ loan }) => {
+    const [expanded, setExpanded] = React.useState(false);
+    if (loan?.status_pengajuan !== "rejected") return null;
+
+    const note = loan.status_reason || "Tidak ada alasan penolakan yang dicantumkan.";
+    const isLong = note.length > 50;
+    const displayText = expanded || !isLong ? note : `${note.substring(0, 50)}...`;
+
+    return (
+        <Box 
+            sx={{ 
+                mt: 0.5, 
+                maxWidth: 200, 
+                cursor: isLong ? "pointer" : "default" 
+            }}
+            onClick={() => isLong && setExpanded(!expanded)}
+        >
+            <Typography 
+                fontSize={11} 
+                color="#64748B" 
+                fontWeight={500}
+                sx={{ 
+                    lineHeight: 1.4,
+                    fontStyle: expanded ? 'normal' : 'italic',
+                    textDecoration: isLong && !expanded ? 'underline' : 'none',
+                    textDecorationStyle: 'dotted'
+                }}
+            >
+                Alasan: {displayText}
+                {isLong && !expanded && (
+                    <Typography component="span" fontSize={10} sx={{ ml: 0.5, fontWeight: 700 }}>
+                        (Lihat)
+                    </Typography>
+                )}
+            </Typography>
+        </Box>
+    );
 };
 
 const UserLoans = () => {
@@ -154,15 +264,19 @@ const UserLoans = () => {
         }
     };
 
-    const selectedLoan = loans[0] || null;
+    const selectedLoan = loans.find(l => !["lunas", "rejected"].includes(l.status)) || loans[0] || null;
+    const isRejected = selectedLoan?.status === "rejected";
+    
     const selectedLoanCicilan = selectedLoan?.cicilan || [];
-    const totalPokok = selectedLoan ? Number(selectedLoan.jumlah_pinjaman || 0) : 0;
-    const totalTerbayar = selectedLoanCicilan
-        .filter((item) => item.status_pembayaran === "paid")
-        .reduce((sum, item) => sum + Number(item.nominal || 0), 0);
+    const totalPokok = selectedLoan && !isRejected ? Number(selectedLoan.jumlah_pinjaman || 0) : 0;
+    const totalTerbayar = selectedLoan && !isRejected 
+        ? selectedLoanCicilan
+            .filter((item) => item.status_pembayaran === "paid")
+            .reduce((sum, item) => sum + Number(item.nominal || 0), 0)
+        : 0;
     const sisaPinjaman = Math.max(0, totalPokok - totalTerbayar);
     const progress = totalPokok > 0 ? Math.round((totalTerbayar / totalPokok) * 100) : 0;
-    const sisaCicilan = selectedLoanCicilan.filter((item) => item.status_pembayaran !== "paid").length;
+    const sisaCicilan = isRejected ? 0 : selectedLoanCicilan.filter((item) => item.status_pembayaran !== "paid").length;
     const hasActiveLoan = loans.some(loan => !["lunas", "rejected"].includes(loan.status));
 
     return (
@@ -247,10 +361,10 @@ const UserLoans = () => {
                 <>
                     {/* LABEL */}
                     <Chip
-                        label="Pinjaman Aktif"
+                        label={hasActiveLoan ? "Pinjaman Aktif" : "Tidak Ada Pinjaman Aktif"}
                         sx={{
-                            background: "#DCFCE7",
-                            color: "#16A34A",
+                            background: hasActiveLoan ? "#DCFCE7" : "#F1F5F9",
+                            color: hasActiveLoan ? "#16A34A" : "#64748B",
                             fontWeight: 700,
                             mb: 1,
                             px: 1
@@ -398,7 +512,7 @@ const UserLoans = () => {
                                             <TableCell>JENIS & JUMLAH</TableCell>
                                             <TableCell>TENOR</TableCell>
                                             <TableCell>STATUS</TableCell>
-                                            <TableCell>ACC KETUA</TableCell>
+                                            <TableCell>PERSETUJUAN</TableCell>
                                             <TableCell align="center">DETAIL</TableCell>
                                         </TableRow>
                                     </TableHead>
@@ -427,16 +541,24 @@ const UserLoans = () => {
                                                 </TableCell>
 
                                                 <TableCell>
-                                                    <StatusBadge status={loan.status} />
+                                                    <StatusBadge loan={loan} />
+                                                    <PostponeDecisionNote loan={loan} />
+                                                    <RejectionNote loan={loan} />
                                                 </TableCell>
 
                                                 <TableCell>
-                                                    <Typography fontSize={13} fontWeight={500} color="#475569">
-                                                        {formatDate(loan.tgl_acc_ketua1)}
-                                                    </Typography>
-                                                    <Typography fontSize={11} color="#94A3B8">
-                                                        Terakhir diperbarui
-                                                    </Typography>
+                                                    <Stack spacing={0.4}>
+                                                        <Typography fontSize={12} color="#334155" fontWeight={700}>
+                                                            ACC Admin: {loan.status_pengajuan === "rejected" && !loan.tgl_acc_admin ? (
+                                                                <Typography component="span" fontSize={11} color="error.main" fontWeight={800}>DITOLAK ADMIN</Typography>
+                                                            ) : formatDate(loan.tgl_acc_admin || loan.tgl_acc_ketua1)}
+                                                        </Typography>
+                                                        <Typography fontSize={12} color="#334155" fontWeight={700}>
+                                                            ACC Ketua: {loan.status_pengajuan === "rejected" && loan.tgl_acc_admin && !loan.tgl_acc_ketua ? (
+                                                                <Typography component="span" fontSize={11} color="error.main" fontWeight={800}>DITOLAK KETUA</Typography>
+                                                            ) : formatDate(loan.tgl_acc_ketua || loan.tgl_acc_ketua2)}
+                                                        </Typography>
+                                                    </Stack>
                                                 </TableCell>
 
                                                 <TableCell align="center">
@@ -444,12 +566,17 @@ const UserLoans = () => {
                                                         <IconButton 
                                                             onClick={() => navigate(`/user/loans/cicilan?loan_id=${loan.id}&user_id=10`)}
                                                             size="small"
-                                                            sx={{ color: '#94A3B8', '&:hover': { color: '#2563EB', background: '#EFF6FF' } }}
+                                                            disabled={loan.status_pengajuan === "rejected"}
+                                                            sx={{ 
+                                                                color: '#94A3B8', 
+                                                                '&:hover': { color: '#2563EB', background: '#EFF6FF' },
+                                                                '&.Mui-disabled': { color: '#E2E8F0' }
+                                                            }}
                                                         >
                                                             <MoreVertIcon fontSize="small" />
                                                         </IconButton>
                                                         
-                                                        {!loan.tgl_acc_ketua1 && (
+                                                        {loan.status_pengajuan === "pending" && (
                                                             <IconButton 
                                                                 onClick={() => handleDeleteClick(loan.id)}
                                                                 size="small"

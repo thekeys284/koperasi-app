@@ -129,7 +129,7 @@ export default function LoanDetails() {
   };
 
   const isAdmin = location.pathname.includes("/admin");
-  const basePath = isAdmin ? "/admin/loans" : "/user/loans";
+  const basePath = isAdmin ? "/admin/loans/daftar" : "/user/loans";
   const loanId = searchParams.get("loan_id");
   const userId = searchParams.get("user_id") || "1";
 
@@ -171,8 +171,8 @@ export default function LoanDetails() {
       };
     }
 
-    // 3. Menunggu Review (Jika status pengajuan pinjaman sedang pending_pengajuan)
-    if (loan?.status_pengajuan === "pending_pengajuan") {
+    // 3. Menunggu Review (Jika status pengajuan pinjaman sedang postpone)
+    if (loan?.status_pengajuan === "postpone") {
       return {
         label: "Menunggu Review",
         sx: { bgcolor: "primary.main", color: "#fff", fontWeight: 600 }
@@ -184,6 +184,19 @@ export default function LoanDetails() {
       label: "Belum Bayar",
       sx: { bgcolor: "warning.main", color: "#fff", fontWeight: 600 }
     };
+  };
+
+  const isPendingReviewInstallment = (item) => {
+    if (loan?.status_pengajuan !== "postpone") return false;
+    if (!item?.id) return false;
+
+    const isMarkedPostponed =
+      item.tukin_status === "postponed" || item.status_pembayaran === "postponed";
+
+    if (isMarkedPostponed) return true;
+    if (!loan?.postpone_cicilan_id) return false;
+
+    return Number(item.id) === Number(loan.postpone_cicilan_id);
   };
 
   const openPostponeModal = (installment) => {
@@ -483,23 +496,10 @@ export default function LoanDetails() {
                       <TableCell>{formatDate(item.tanggal_pembayaran)}</TableCell>
                       <TableCell>{formatCurrency(item.nominal)}</TableCell>
                       <TableCell>
-                        {item.tukin_status === "sudah" || item.status_pembayaran === "postponed" || item.tukin_status === "postponed" ? (
-                          <Chip label={style.label} sx={style.sx} size="small" />
-                        ) : (() => {
-                          const canConfirm = isSameMonth(item.tanggal_pembayaran);
-                          const dueDate = parseDate(item.tanggal_pembayaran);
-                          const isLocked = !canConfirm;
-                          if (isLocked) {
-                            return (
-                              <Chip
-                                label="Terkunci"
-                                size="small"
-                                sx={{ backgroundColor: "#F3F4F6", color: "#64748B", fontWeight: 600 }}
-                              />
-                            );
-                          }
+                        {(() => {
+                          const isReviewTarget = isPendingReviewInstallment(item);
 
-                          if (loan?.status_pengajuan === "pending_pengajuan" && item.id === loan?.postpone_cicilan_id) {
+                          if (isReviewTarget) {
                             return (
                               <Button
                                 variant="contained"
@@ -508,8 +508,28 @@ export default function LoanDetails() {
                                 sx={{ borderRadius: 3, textTransform: "none" }}
                                 onClick={() => openPostponeModal(item)}
                               >
-                                Review &gt;
+                                Konfirmasi Pending &gt;
                               </Button>
+                            );
+                          }
+
+                          if (item.tukin_status === "sudah") {
+                            return <Chip label={style.label} sx={style.sx} size="small" />;
+                          }
+
+                          if (item.status_pembayaran === "postponed" || item.tukin_status === "postponed") {
+                            return <Chip label={style.label} sx={style.sx} size="small" />;
+                          }
+
+                          const canConfirm = isSameMonth(item.tanggal_pembayaran);
+                          const isLocked = !canConfirm;
+                          if (isLocked) {
+                            return (
+                              <Chip
+                                label="Terkunci"
+                                size="small"
+                                sx={{ backgroundColor: "#F3F4F6", color: "#64748B", fontWeight: 600 }}
+                              />
                             );
                           }
 

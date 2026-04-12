@@ -317,7 +317,11 @@ const UserCicilan = () => {
                             variant="outlined"
                             size="small"
                             onClick={() => setPostponeModalOpen(true)}
-                            disabled={loan?.status_pengajuan === "pending_pengajuan" || sisaCicilan === 0}
+                            disabled={[
+                                "pending",
+                                "pending_pengajuan",
+                                "postpone",
+                            ].includes(loan?.status_pengajuan) || sisaCicilan === 0}
                             sx={{
                                 borderRadius: "8px",
                                 textTransform: "none",

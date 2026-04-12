@@ -22,6 +22,7 @@ import useConfig from 'hooks/useConfig';
 import FiberManualRecordIcon from '@mui/icons-material/FiberManualRecord';
 
 export default function NavItem({ item, level, isParents = false, setSelectedID }) {
+  console.log('NavItem render:', item.id, item.chip);
   const theme = useTheme();
   const downMD = useMediaQuery(theme.breakpoints.down('md'));
   const ref = useRef(null);
@@ -129,7 +130,7 @@ export default function NavItem({ item, level, isParents = false, setSelectedID 
                   sx={{
                     overflow: 'hidden',
                     textOverflow: 'ellipsis',
-                    width: 102,
+                    width: 140,
                     color: 'inherit'
                   }}
                 >
@@ -158,19 +159,21 @@ export default function NavItem({ item, level, isParents = false, setSelectedID 
           </Tooltip>
         )}
 
-        <Activity mode={drawerOpen && item.chip ? 'visible' : 'hidden'}>
+        {item.chip && (
           <Chip
-            color={item.chip?.color}
-            variant={item.chip?.variant}
-            size={item.chip?.size}
-            label={item.chip?.label}
-            avatar={
-              <Activity mode={item.chip?.avatar ? 'visible' : 'hidden'}>
-                <Avatar>{item.chip?.avatar}</Avatar>
-              </Activity>
-            }
+            color={item.chip.color}
+            variant={item.chip.variant}
+            size={item.chip.size}
+            label={item.chip.label}
+            sx={{
+              ml: 'auto',
+              ...(isSelected && {
+                color: 'secondary.main',
+                bgcolor: 'secondary.light'
+              })
+            }}
           />
-        </Activity>
+        )}
       </ListItemButton>
     </>
   );

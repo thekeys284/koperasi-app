@@ -7,6 +7,9 @@ import checkGreenIcon from "../../../assets/images/admin/check-green.svg";
 import alertOrangeIcon from "../../../assets/images/admin/alert-orange.svg";
 
 import {
+  Accordion,
+  AccordionDetails,
+  AccordionSummary,
   Card,
   CardContent,
   Typography,
@@ -23,53 +26,95 @@ import {
   Breadcrumbs,
   Link,
   Alert,
+  Tabs,
+  Tab,
 } from "@mui/material";
 
 import NavigateNextIcon from "@mui/icons-material/NavigateNext";
 import MoreVertIcon from "@mui/icons-material/MoreVert";
 import AccountBalanceWalletOutlinedIcon from "@mui/icons-material/AccountBalanceWalletOutlined";
+import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 
-const StatusBadge = ({ status }) => {
-  const statusConfig = {
-    pending: {
-      label: "Pending",
-      color: "#f59e0b",
-      bg: "#fef3c7",
-    },
-    aktif: {
-      label: "Aktif",
-      color: "#16a34a",
-      bg: "#dcfce7",
-    },
-    lunas: {
-      label: "Lunas",
-      color: "#2563eb",
-      bg: "#dbeafe",
-    },
-    rejected: {
+const getLoanStatusMeta = (loan) => {
+  const statusPengajuan = loan?.status_pengajuan;
+
+  if (statusPengajuan === "rejected") {
+    return {
       label: "Ditolak",
       color: "#dc2626",
       bg: "#fee2e2",
-    },
-    review: {
-      label: "Menunggu Review",
-      color: "#0284c7",
-      bg: "#e0f2fe",
-    },
+      reason: loan?.status_reason || loan?.admin_note || loan?.reason || "Alasan penolakan tidak tersedia.",
+    };
+  }
+
+  if (["disetujui_ketua", "pending_pengajuan", "aktif", "paid"].includes(statusPengajuan)) {
+    return {
+      label: "Aktif",
+      color: "#16a34a",
+      bg: "#dcfce7",
+      reason: null,
+    };
+  }
+
+  if (["pending", "postpone"].includes(statusPengajuan)) {
+    return {
+      label: "Pending",
+      color: "#f59e0b",
+      bg: "#fef3c7",
+      reason: null,
+    };
+  }
+
+  return {
+    label: "Pending",
+    color: "#f59e0b",
+    bg: "#fef3c7",
+    reason: null,
   };
+};
 
-  const config = statusConfig[status] || statusConfig.pending;
+const StatusBadge = ({ loan }) => {
+  const meta = getLoanStatusMeta(loan);
 
-  return (
+  const badge = (
     <Chip
-      label={config.label}
+      label={meta.label}
       size="small"
       sx={{
-        background: config.bg,
-        color: config.color,
+        background: meta.bg,
+        color: meta.color,
         fontWeight: 600,
       }}
     />
+  );
+
+  if (!meta.reason) {
+    return badge;
+  }
+
+  return (
+    <Stack spacing={0.5}>
+      {badge}
+      <Accordion
+        disableGutters
+        elevation={0}
+        sx={{
+          border: "1px solid #FECACA",
+          borderRadius: 1,
+          "&:before": { display: "none" },
+        }}
+      >
+        <AccordionSummary
+          expandIcon={<ExpandMoreIcon sx={{ fontSize: 16 }} />}
+          sx={{ minHeight: 28, "& .MuiAccordionSummary-content": { my: 0 } }}
+        >
+          <Typography fontSize={12} color="#B91C1C" fontWeight={600}>Lihat alasan</Typography>
+        </AccordionSummary>
+        <AccordionDetails sx={{ pt: 0, pb: 1 }}>
+          <Typography fontSize={12} color="#7F1D1D">{meta.reason}</Typography>
+        </AccordionDetails>
+      </Accordion>
+    </Stack>
   );
 };
 
@@ -120,7 +165,7 @@ const hasCurrentMonthUnpaidInstallment = (loan) => {
 };
 
 const hasPendingPostponement = (loan) => {
-  return loan.status_pengajuan === "pending_pengajuan";
+  return loan.status_pengajuan === "postpone";
 };
 
 const getCurrentMonthUnpaidInstallmentNo = (loan) => {
@@ -134,7 +179,7 @@ const getCurrentMonthUnpaidInstallmentNo = (loan) => {
 };
 
 const getRunningLoanPriority = (loan) => {
-  return loan.status_pengajuan === "pending_pengajuan" ? 0 : 1;
+  return loan.status_pengajuan === "postpone" ? 0 : 1;
 };
 
 const getLoanListStatusLabel = (loan) => {
@@ -143,12 +188,38 @@ const getLoanListStatusLabel = (loan) => {
   return "Aktif";
 };
 
+// Categorize loans for new layout
+const categorizeLoansByStatus = (loans) => {
+  const postponementRequests = loans.filter((loan) => loan.status_pengajuan === "postpone");
+  
+  const paymentConfirmationLoans = loans.filter((loan) => 
+    (loan.status_pengajuan === "disetujui_ketua") && 
+    hasCurrentMonthUnpaidInstallment(loan) &&
+    loan.status_pengajuan !== "postpone"
+  );
+  
+  const activeLoansPaidThisMonth = loans.filter((loan) =>
+    loan.status_pengajuan === "disetujui_ketua" &&
+    !hasCurrentMonthUnpaidInstallment(loan)
+  );
+  
+  const paidOffLoans = loans.filter((loan) => loan.status_pengajuan === "paid");
+  
+  return {
+    postponementRequests,
+    paymentConfirmationLoans,
+    activeLoansPaidThisMonth,
+    paidOffLoans
+  };
+};
+
 const LoanPage = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState("");
   const [summary, setSummary] = React.useState(null);
   const [loans, setLoans] = React.useState([]);
+  const [tabValue, setTabValue] = React.useState(0);
 
   React.useEffect(() => {
     const fetchLoans = async () => {
@@ -173,10 +244,12 @@ const LoanPage = () => {
   }, []);
 
   const runningLoans = loans.filter((item) => (
-    item.status_pengajuan === "disetujui_ketua" || item.status_pengajuan === "pending_pengajuan"
+    item.status_pengajuan === "disetujui_ketua" || item.status_pengajuan === "postpone"
   ));
+  const { postponementRequests, paymentConfirmationLoans, activeLoansPaidThisMonth, paidOffLoans } = categorizeLoansByStatus(loans);
+  
   const pendingConfirmationLoans = runningLoans
-    .filter((item) => hasCurrentMonthUnpaidInstallment(item) || item.status_pengajuan === "pending_pengajuan")
+    .filter((item) => hasCurrentMonthUnpaidInstallment(item) || item.status_pengajuan === "postpone")
     .sort((a, b) => {
       const priorityDiff = getRunningLoanPriority(a) - getRunningLoanPriority(b);
       if (priorityDiff !== 0) return priorityDiff;
@@ -186,7 +259,7 @@ const LoanPage = () => {
   const paidLoans = loans
     .filter((item) => (
       item.status_pengajuan === "paid" || 
-      ((item.status_pengajuan === "disetujui_ketua" || item.status_pengajuan === "pending_pengajuan") && !hasCurrentMonthUnpaidInstallment(item))
+      ((item.status_pengajuan === "disetujui_ketua" || item.status_pengajuan === "postpone") && !hasCurrentMonthUnpaidInstallment(item))
     ))
     .sort((a, b) => {
       // Priority: Active loans first, then Paid (Lunas) loans
@@ -198,7 +271,7 @@ const LoanPage = () => {
   const totalApprovedLoans = userLoans.filter((item) => (
     item.status_pengajuan === "disetujui_ketua"
   )).length;
-  const totalPendingLoans = userLoans.filter((item) => item.status_pengajuan === "pending_pengajuan").length;
+  const totalPendingLoans = userLoans.filter((item) => ["pending", "postpone"].includes(item.status_pengajuan)).length;
   const totalPaidLoans = userLoans.filter((item) => item.status_pengajuan === "paid").length;
 
   const openLoanDetail = (loanId) => {
@@ -216,7 +289,7 @@ const LoanPage = () => {
         <Link
           underline="hover"
           color="text.primary"
-          onClick={() => navigate("/admin/loans")}
+          onClick={() => navigate("/admin/loans/daftar")}
           sx={{ cursor: "pointer", display: "flex", alignItems: "center" }}
         >
           Pinjaman
@@ -270,227 +343,239 @@ const LoanPage = () => {
         />
       </Stack>
 
-      {/* TABLE BULAN BERJALAN */}
-      <Card sx={{ borderRadius: 3, mb: 4 }}>
-        <CardContent>
-          <Typography
-            color="text.primary"
-            fontSize="18px"
-            fontWeight={800}
-            mb={2}
-          >
-            Daftar pinjaman berjalan dan menunggu konfirmasi cicilan
-          </Typography>
+      {/* TABLE DAFTAR KONFIRMASI PENUNDAAN */}
+      {postponementRequests.length > 0 && (
+        <Card sx={{ borderRadius: 3, mb: 4 }}>
+          <CardContent>
+            <Typography color="text.primary" fontSize="18px" fontWeight={800} mb={2}>
+              Daftar Konfirmasi Penundaan Cicilan
+            </Typography>
 
-          <Box sx={{ overflowX: "auto" }}>
-            <Table
-              sx={{
-                minWidth: 600,
-                "& .MuiTableBody-root .MuiTableRow-root": {
-                  transition: "background-color 0.2s",
-                },
-                "& .MuiTableBody-root .MuiTableRow-root:hover": {
-                  backgroundColor: "#F8FAFC",
-                },
-                "& .MuiTableCell-root": {
-                  borderBottom: "1px solid #F1F5F9",
-                  py: 2,
-                  px: 2,
-                },
-              }}
-            >
-              <TableHead>
-                <TableRow
-                  sx={{
-                    backgroundColor: "#F8FAFC",
-                    "& .MuiTableCell-head": {
-                      fontWeight: 700,
-                      fontSize: "12px",
-                      color: "#475569",
-                      letterSpacing: "0.5px",
-                      textTransform: "uppercase",
-                      borderBottom: "2px solid #E2E8F0",
-                    },
-                  }}
-                >
-                  <TableCell>ID & TGL PENGAJUAN</TableCell>
-                  <TableCell>ANGGOTA</TableCell>
-                  <TableCell>JENIS & JUMLAH</TableCell>
-                  <TableCell>TENOR</TableCell>
-                  <TableCell>STATUS</TableCell>
-                  <TableCell>DETAIL</TableCell>
-                </TableRow>
-              </TableHead>
-
-              <TableBody>
-                {pendingConfirmationLoans.map((loan) => (
-                  <TableRow key={`pending-${loan.id}`}>
-                    <TableCell>
-                      <Typography color="primary" fontWeight={600}>
-                        #{loan.loan_number}
-                      </Typography>
-                      <Typography variant="caption" color="text.secondary">
-                        {formatDate(loan.created_at)}
-                      </Typography>
-                    </TableCell>
-
-                    <TableCell>
-                      <Typography fontWeight={600}>{loan.user_name || "-"}</Typography>
-                      <Typography variant="caption" color="text.secondary">
-                        {loan.user_username || "-"}
-                      </Typography>
-                    </TableCell>
-
-                    <TableCell>
-                      <LoanTypeBadge type={loan.type_slug} />
-                      <Typography fontWeight={700}>{formatCurrency(loan.jumlah_pinjaman)}</Typography>
-                    </TableCell>
-
-                    <TableCell>{loan.lama_pembayaran} Bulan</TableCell>
-
-                    <TableCell>
-                      <StatusBadge
-                        status={
-                          hasPendingPostponement(loan)
-                            ? "review"
-                            : loan.status_pengajuan === "pending_pengajuan"
-                            ? "pending"
-                            : loan.status
-                        }
-                      />
-                    </TableCell>
-
-                    <TableCell>
-                      <IconButton onClick={() => openLoanDetail(loan.id)}>
-                        <MoreVertIcon />
-                      </IconButton>
-                    </TableCell>
+            <Box sx={{ overflowX: "auto" }}>
+              <Table sx={{ minWidth: 600, "& .MuiTableCell-root": { borderBottom: "1px solid #F1F5F9", py: 2, px: 2 } }}>
+                <TableHead>
+                  <TableRow sx={{ backgroundColor: "#F8FAFC", "& .MuiTableCell-head": { fontWeight: 700, fontSize: "12px", color: "#475569", textTransform: "uppercase", borderBottom: "2px solid #E2E8F0" } }}>
+                    <TableCell>ID & TGL PENGAJUAN</TableCell>
+                    <TableCell>ANGGOTA</TableCell>
+                    <TableCell>JENIS & JUMLAH</TableCell>
+                    <TableCell>ALASAN PENUNDAAN</TableCell>
+                    <TableCell>DETAIL</TableCell>
                   </TableRow>
-                ))}
+                </TableHead>
+                <TableBody>
+                  {postponementRequests.map((loan) => (
+                    <TableRow key={`postpone-${loan.id}`}>
+                      <TableCell>
+                        <Typography color="primary" fontWeight={600}>#{loan.loan_number}</Typography>
+                        <Typography variant="caption" color="text.secondary">{formatDate(loan.created_at)}</Typography>
+                      </TableCell>
+                      <TableCell>
+                        <Typography fontWeight={600}>{loan.user_name || "-"}</Typography>
+                        <Typography variant="caption" color="text.secondary">{loan.user_username || "-"}</Typography>
+                      </TableCell>
+                      <TableCell>
+                        <LoanTypeBadge type={loan.type_slug} />
+                        <Typography fontWeight={700}>{formatCurrency(loan.jumlah_pinjaman)}</Typography>
+                      </TableCell>
+                      <TableCell>
+                        <Typography fontSize={13}>{loan.reason || "-"}</Typography>
+                      </TableCell>
+                      <TableCell>
+                        <IconButton onClick={() => openLoanDetail(loan.id)}>
+                          <MoreVertIcon />
+                        </IconButton>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </Box>
+          </CardContent>
+        </Card>
+      )}
 
-                {!loading && pendingConfirmationLoans.length === 0 && (
-                  <TableRow>
-                    <TableCell colSpan={6} align="center">
-                      Tidak ada pinjaman bulan berjalan yang menunggu konfirmasi.
-                    </TableCell>
+      {/* TABLE DAFTAR KONFIRMASI CICILAN */}
+      {paymentConfirmationLoans.length > 0 && (
+        <Card sx={{ borderRadius: 3, mb: 4 }}>
+          <CardContent>
+            <Typography color="text.primary" fontSize="18px" fontWeight={800} mb={2}>
+              Daftar Konfirmasi Cicilan Bulan Ini
+            </Typography>
+
+            <Box sx={{ overflowX: "auto" }}>
+              <Table sx={{ minWidth: 600, "& .MuiTableCell-root": { borderBottom: "1px solid #F1F5F9", py: 2, px: 2 } }}>
+                <TableHead>
+                  <TableRow sx={{ backgroundColor: "#F8FAFC", "& .MuiTableCell-head": { fontWeight: 700, fontSize: "12px", color: "#475569", textTransform: "uppercase", borderBottom: "2px solid #E2E8F0" } }}>
+                    <TableCell>ID & TGL PENGAJUAN</TableCell>
+                    <TableCell>ANGGOTA</TableCell>
+                    <TableCell>JENIS & JUMLAH</TableCell>
+                    <TableCell>TENOR</TableCell>
+                    <TableCell>STATUS</TableCell>
+                    <TableCell>DETAIL</TableCell>
                   </TableRow>
-                )}
-              </TableBody>
-            </Table>
-          </Box>
+                </TableHead>
+                <TableBody>
+                  {paymentConfirmationLoans.map((loan) => (
+                    <TableRow key={`confirm-${loan.id}`}>
+                      <TableCell>
+                        <Typography color="primary" fontWeight={600}>#{loan.loan_number}</Typography>
+                        <Typography variant="caption" color="text.secondary">{formatDate(loan.created_at)}</Typography>
+                      </TableCell>
+                      <TableCell>
+                        <Typography fontWeight={600}>{loan.user_name || "-"}</Typography>
+                        <Typography variant="caption" color="text.secondary">{loan.user_username || "-"}</Typography>
+                      </TableCell>
+                      <TableCell>
+                        <LoanTypeBadge type={loan.type_slug} />
+                        <Typography fontWeight={700}>{formatCurrency(loan.jumlah_pinjaman)}</Typography>
+                      </TableCell>
+                      <TableCell>{loan.lama_pembayaran} Bulan</TableCell>
+                      <TableCell>
+                        <StatusBadge loan={loan} />
+                      </TableCell>
+                      <TableCell>
+                        <IconButton onClick={() => openLoanDetail(loan.id)}>
+                          <MoreVertIcon />
+                        </IconButton>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </Box>
+          </CardContent>
+        </Card>
+      )}
 
-          <Typography variant="body2" color="text.secondary" mt={2}>
-            Menampilkan {pendingConfirmationLoans.length} pinjaman berjalan yang menunggu konfirmasi cicilan.
-          </Typography>
-        </CardContent>
-      </Card>
-
-      {/* TABLE PINJAMAN AKTIF */}
+      {/* TABLE DAFTAR PINJAMAN AKTIF DAN TERBAYAR - DENGAN TABS */}
       <Card sx={{ borderRadius: 3 }}>
         <CardContent>
-          <Stack
-            direction="row"
-            justifyContent="space-between"
-            alignItems="center"
-            mb={2}
-          >
-            <Typography color="text.primary" fontSize="18px" fontWeight={800} mb={2}>
-              Daftar Pinjaman Aktif Terbayar Cicilan Bulan Ini
-            </Typography>
-          </Stack>
-
-          <Box sx={{ overflowX: "auto" }}>
-            <Table
-              sx={{
-                minWidth: 600,
-                "& .MuiTableBody-root .MuiTableRow-root": {
-                  transition: "background-color 0.2s",
-                },
-                "& .MuiTableBody-root .MuiTableRow-root:hover": {
-                  backgroundColor: "#F8FAFC",
-                },
-                "& .MuiTableCell-root": {
-                  borderBottom: "1px solid #F1F5F9",
-                  py: 2,
-                  px: 2,
-                },
-              }}
-            >
-              <TableHead>
-                <TableRow
-                  sx={{
-                    backgroundColor: "#F8FAFC",
-                    "& .MuiTableCell-head": {
-                      fontWeight: 700,
-                      fontSize: "12px",
-                      color: "#475569",
-                      letterSpacing: "0.5px",
-                      textTransform: "uppercase",
-                      borderBottom: "2px solid #E2E8F0",
-                    },
-                  }}
-                >
-                  <TableCell>ID & TGL PENGAJUAN</TableCell>
-                  <TableCell>ANGGOTA</TableCell>
-                  <TableCell>JENIS & JUMLAH</TableCell>
-                  <TableCell>TENOR</TableCell>
-                  <TableCell>STATUS</TableCell>
-                  <TableCell>DETAIL</TableCell>
-                </TableRow>
-              </TableHead>
-
-              <TableBody>
-                {paidLoans.map((loan) => (
-                  <TableRow key={`active-${loan.id}`}>
-                    <TableCell>
-                      <Typography color="primary" fontWeight={600}>
-                        #{loan.loan_number}
-                      </Typography>
-                      <Typography variant="caption" color="text.secondary">
-                        {formatDate(loan.created_at)}
-                      </Typography>
-                    </TableCell>
-
-                    <TableCell>
-                      <Typography fontWeight={600}>{loan.user_name || "-"}</Typography>
-                      <Typography variant="caption" color="text.secondary">
-                        {loan.user_username || "-"}
-                      </Typography>
-                    </TableCell>
-
-                    <TableCell>
-                      <LoanTypeBadge type={loan.type_slug} />
-                      <Typography fontWeight={700}>{formatCurrency(loan.jumlah_pinjaman)}</Typography>
-                    </TableCell>
-
-                    <TableCell>{loan.lama_pembayaran} Bulan</TableCell>
-
-                    <TableCell>
-                      <StatusBadge status={loan.status} />
-                    </TableCell>
-
-                    <TableCell>
-                      <IconButton onClick={() => openLoanDetail(loan.id)}>
-                        <MoreVertIcon />
-                      </IconButton>
-                    </TableCell>
-                  </TableRow>
-                ))}
-
-                {!loading && paidLoans.length === 0 && (
-                  <TableRow>
-                    <TableCell colSpan={6} align="center">
-                      Tidak ada pinjaman paid saat ini.
-                    </TableCell>
-                  </TableRow>
-                )}
-              </TableBody>
-            </Table>
+          <Box sx={{ borderBottom: 1, borderColor: "divider" }}>
+            <Tabs value={tabValue} onChange={(e, newValue) => setTabValue(newValue)}>
+              <Tab label="Pinjaman Aktif" />
+              <Tab label="Riwayat Pinjaman Lunas" />
+            </Tabs>
           </Box>
 
-          <Typography variant="body2" color="text.secondary" mt={2}>
-            Menampilkan {paidLoans.length} data pinjaman aktif dengan cicilan bulan ini terbayar.
-          </Typography>
+          {/* TAB 0: PINJAMAN AKTIF */}
+          {tabValue === 0 && (
+            <Box sx={{ pt: 2 }}>
+              <Typography color="text.primary" fontSize="16px" fontWeight={700} mb={2}>
+                Daftar Pinjaman Aktif dan Terbayar
+              </Typography>
+              <Box sx={{ overflowX: "auto" }}>
+                <Table sx={{ minWidth: 600, "& .MuiTableCell-root": { borderBottom: "1px solid #F1F5F9", py: 2, px: 2 } }}>
+                  <TableHead>
+                    <TableRow sx={{ backgroundColor: "#F8FAFC", "& .MuiTableCell-head": { fontWeight: 700, fontSize: "12px", color: "#475569", textTransform: "uppercase", borderBottom: "2px solid #E2E8F0" } }}>
+                      <TableCell>ID & TGL PENGAJUAN</TableCell>
+                      <TableCell>ANGGOTA</TableCell>
+                      <TableCell>JENIS & JUMLAH</TableCell>
+                      <TableCell>TENOR</TableCell>
+                      <TableCell>STATUS</TableCell>
+                      <TableCell>DETAIL</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {activeLoansPaidThisMonth.map((loan) => (
+                      <TableRow key={`active-${loan.id}`}>
+                        <TableCell>
+                          <Typography color="primary" fontWeight={600}>#{loan.loan_number}</Typography>
+                          <Typography variant="caption" color="text.secondary">{formatDate(loan.created_at)}</Typography>
+                        </TableCell>
+                        <TableCell>
+                          <Typography fontWeight={600}>{loan.user_name || "-"}</Typography>
+                          <Typography variant="caption" color="text.secondary">{loan.user_username || "-"}</Typography>
+                        </TableCell>
+                        <TableCell>
+                          <LoanTypeBadge type={loan.type_slug} />
+                          <Typography fontWeight={700}>{formatCurrency(loan.jumlah_pinjaman)}</Typography>
+                        </TableCell>
+                        <TableCell>{loan.lama_pembayaran} Bulan</TableCell>
+                        <TableCell>
+                          <StatusBadge loan={loan} />
+                        </TableCell>
+                        <TableCell>
+                          <IconButton onClick={() => openLoanDetail(loan.id)}>
+                            <MoreVertIcon />
+                          </IconButton>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                    {activeLoansPaidThisMonth.length === 0 && (
+                      <TableRow>
+                        <TableCell colSpan={6} align="center">
+                          Tidak ada pinjaman aktif saat ini.
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+              </Box>
+              <Typography variant="body2" color="text.secondary" mt={2}>
+                Menampilkan {activeLoansPaidThisMonth.length} pinjaman aktif.
+              </Typography>
+            </Box>
+          )}
+
+          {/* TAB 1: RIWAYAT PINJAMAN LUNAS */}
+          {tabValue === 1 && (
+            <Box sx={{ pt: 2 }}>
+              <Typography color="text.primary" fontSize="16px" fontWeight={700} mb={2}>
+                Riwayat Pinjaman Lunas
+              </Typography>
+              <Box sx={{ overflowX: "auto" }}>
+                <Table sx={{ minWidth: 600, "& .MuiTableCell-root": { borderBottom: "1px solid #F1F5F9", py: 2, px: 2 } }}>
+                  <TableHead>
+                    <TableRow sx={{ backgroundColor: "#F8FAFC", "& .MuiTableCell-head": { fontWeight: 700, fontSize: "12px", color: "#475569", textTransform: "uppercase", borderBottom: "2px solid #E2E8F0" } }}>
+                      <TableCell>ID & TGL PENGAJUAN</TableCell>
+                      <TableCell>ANGGOTA</TableCell>
+                      <TableCell>JENIS & JUMLAH</TableCell>
+                      <TableCell>TENOR</TableCell>
+                      <TableCell>STATUS</TableCell>
+                      <TableCell>DETAIL</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {paidOffLoans.map((loan) => (
+                      <TableRow key={`paid-${loan.id}`}>
+                        <TableCell>
+                          <Typography color="primary" fontWeight={600}>#{loan.loan_number}</Typography>
+                          <Typography variant="caption" color="text.secondary">{formatDate(loan.created_at)}</Typography>
+                        </TableCell>
+                        <TableCell>
+                          <Typography fontWeight={600}>{loan.user_name || "-"}</Typography>
+                          <Typography variant="caption" color="text.secondary">{loan.user_username || "-"}</Typography>
+                        </TableCell>
+                        <TableCell>
+                          <LoanTypeBadge type={loan.type_slug} />
+                          <Typography fontWeight={700}>{formatCurrency(loan.jumlah_pinjaman)}</Typography>
+                        </TableCell>
+                        <TableCell>{loan.lama_pembayaran} Bulan</TableCell>
+                        <TableCell>
+                          <StatusBadge loan={loan} />
+                        </TableCell>
+                        <TableCell>
+                          <IconButton onClick={() => openLoanDetail(loan.id)}>
+                            <MoreVertIcon />
+                          </IconButton>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                    {paidOffLoans.length === 0 && (
+                      <TableRow>
+                        <TableCell colSpan={6} align="center">
+                          Tidak ada pinjaman yang sudah lunas.
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+              </Box>
+              <Typography variant="body2" color="text.secondary" mt={2}>
+                Menampilkan {paidOffLoans.length} pinjaman yang sudah lunas.
+              </Typography>
+            </Box>
+          )}
         </CardContent>
       </Card>
     </Box>

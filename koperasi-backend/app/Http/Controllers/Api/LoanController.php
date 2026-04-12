@@ -138,6 +138,7 @@ class LoanController extends Controller
                 'bulan_potong_gaji' => $bulanPotongGaji,
                 'status_pengajuan' => 'pending',
                 'tanggal_mulai_cicilan' => $tanggalMulaiCicilan,
+                'reason' => $request->reason,
             ];
 
             if ($request->hasFile('document')) {
@@ -260,8 +261,8 @@ class LoanController extends Controller
                 ], 403);
             }
 
-            // Validation: Cannot delete if already approved by Ketua 1
-            if ($loan->tgl_acc_ketua1 !== null) {
+            // Validation: Cannot delete if already confirmed in approval flow
+            if ($loan->tgl_acc_pj !== null || $loan->tgl_acc_ketua !== null) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Pengajuan tidak dapat dihapus karena sudah disetujui oleh Ketua.'
@@ -358,37 +359,25 @@ class LoanController extends Controller
                         $loan->update(['status_pengajuan' => 'paid']);
                     }
                 } else if ($validated['tukin_status'] === 'postponed') {
-                    // Update current installment to postponed
-                    $cicilan->update([
-                        'status_pembayaran' => 'postponed',
-                    ]);
-
-                    // Only add a new installment at the very end of the tenor
-                    // We don't shift the middle installments as requested
-                    $lastInstallment = LoanCicilan::where('loans_id', $loan->id)
-                        ->orderByDesc('cicilan')
-                        ->first();
-                    
-                    if ($lastInstallment) {
-                        $lastDueDate = Carbon::parse($lastInstallment->tanggal_pembayaran);
-                        $newDueDate = $lastDueDate->copy()->addMonth();
-
-                        LoanCicilan::create([
-                            'loans_id' => $loan->id,
-                            'tanggal_pembayaran' => $newDueDate->toDateString(),
-                            'nominal' => $cicilan->nominal,
-                            'status_pembayaran' => 'pending',
-                            'cicilan' => ($lastInstallment->cicilan ?? 0) + 1,
-                        ]);
+                    if ($loan->status_pengajuan === 'postpone') {
+                        $this->shiftInstallmentsForwardFrom($loan->id, (int) $cicilan->cicilan);
                     }
+
+                    $cicilan->update([
+                        'status_pembayaran' => 'pending',
+                    ]);
                 } else {
                     // Jika admin memilih 'Belum' secara manual di ConfirmPaymentModal
                     // (Bukan hasil dari penolakan pengajuan penundaan)
-                    if ($loan->status_pengajuan !== 'pending_pengajuan') {
+                    if ($loan->status_pengajuan === 'postpone') {
+                        $cicilan->update([
+                            'status_pembayaran' => 'pending',
+                        ]);
+                    } else {
                         $lastInstallment = LoanCicilan::where('loans_id', $loan->id)
                             ->orderByDesc('cicilan')
                             ->first();
-                        
+
                         if ($lastInstallment) {
                             $lastDueDate = Carbon::parse($lastInstallment->tanggal_pembayaran);
                             $newDueDate = $lastDueDate->copy()->addMonth();
@@ -410,7 +399,16 @@ class LoanController extends Controller
                 $loan->update([
                     'admin_note' => $validated['admin_note'] ?? $validated['note'] ?? $loan->admin_note,
                     'status_pengajuan' => ($validated['tukin_status'] === 'postponed' || $validated['tukin_status'] === 'belum') ? 'disetujui_ketua' : $loan->status_pengajuan,
-                    'postpone_cicilan_id' => ($validated['tukin_status'] === 'postponed' || $validated['tukin_status'] === 'belum') ? null : $loan->postpone_cicilan_id
+                    'postpone_cicilan_id' => ($validated['tukin_status'] === 'postponed' || $validated['tukin_status'] === 'belum') ? null : $loan->postpone_cicilan_id,
+                    'postpone_decision' => ($loan->status_pengajuan === 'postpone' && $validated['tukin_status'] === 'postponed')
+                        ? 'approved'
+                        : (($loan->status_pengajuan === 'postpone' && $validated['tukin_status'] === 'belum') ? 'rejected' : $loan->postpone_decision),
+                    'postpone_decision_note' => ($loan->status_pengajuan === 'postpone' && in_array($validated['tukin_status'], ['postponed', 'belum'], true))
+                        ? ($validated['admin_note'] ?? $validated['note'] ?? $loan->postpone_decision_note)
+                        : $loan->postpone_decision_note,
+                    'postpone_decision_at' => ($loan->status_pengajuan === 'postpone' && in_array($validated['tukin_status'], ['postponed', 'belum'], true))
+                        ? now()
+                        : $loan->postpone_decision_at
                 ]);
 
                 try {
@@ -473,26 +471,56 @@ class LoanController extends Controller
                 ], 404);
             }
 
-            $loan->update([
-                'status_pengajuan' => 'disetujui_ketua',
-                'tgl_acc_ketua1' => now(),
-            ]);
+            if ($loan->status_pengajuan === 'pending') {
+                $loan->update([
+                    'status_pengajuan' => 'pending_pengajuan',
+                    'tgl_acc_pj' => now(),
+                ]);
 
-            try {
-                ActivityLogHelper::create(
-                    $user->id,
-                    'Persetujuan Pinjaman',
-                    "Ketua menyetujui pengajuan pinjaman ID: {$loan->id} (#{loan->loan_number})"
-                );
-            } catch (\Exception $e) {
-                Log::warning('Activity log failed: ' . $e->getMessage());
+                try {
+                    ActivityLogHelper::create(
+                        $user->id,
+                        'Konfirmasi Admin Pengajuan Pinjaman',
+                        "Admin mengonfirmasi pengajuan pinjaman ID: {$loan->id}"
+                    );
+                } catch (\Exception $e) {
+                    Log::warning('Activity log failed: ' . $e->getMessage());
+                }
+
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Pengajuan pinjaman berhasil dikonfirmasi admin. Menunggu konfirmasi lead.',
+                    'data' => $this->formatLoan($loan->fresh(), true)
+                ]);
+            }
+
+            if ($loan->status_pengajuan === 'pending_pengajuan') {
+                $loan->update([
+                    'status_pengajuan' => 'disetujui_ketua',
+                    'tgl_acc_ketua' => now(),
+                ]);
+
+                try {
+                    ActivityLogHelper::create(
+                        $user->id,
+                        'Persetujuan Lead Pengajuan Pinjaman',
+                        "Lead menyetujui pengajuan pinjaman ID: {$loan->id}"
+                    );
+                } catch (\Exception $e) {
+                    Log::warning('Activity log failed: ' . $e->getMessage());
+                }
+
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Pengajuan pinjaman berhasil disetujui lead.',
+                    'data' => $this->formatLoan($loan->fresh(), true)
+                ]);
             }
 
             return response()->json([
-                'success' => true,
-                'message' => 'Pengajuan pinjaman berhasil disetujui.',
-                'data' => $this->formatLoan($loan, true)
-            ]);
+                'success' => false,
+                'message' => 'Status pengajuan tidak dapat diproses untuk persetujuan.'
+            ], 400);
         } catch (\Exception $e) {
             Log::error('Loan approve error: ' . $e->getMessage());
 
@@ -599,10 +627,17 @@ class LoanController extends Controller
             }
 
             $loan->update([
-                'status_pengajuan' => 'pending_pengajuan',
+                'status_pengajuan' => 'postpone',
                 'reason' => $validated['reason'],
                 'postpone_cicilan_id' => $validated['cicilan_id'],
+                'postpone_decision' => null,
+                'postpone_decision_note' => null,
+                'postpone_decision_at' => null,
             ]);
+
+            LoanCicilan::where('loans_id', $loan->id)
+                ->where('id', $validated['cicilan_id'])
+                ->update(['status_pembayaran' => 'postponed']);
 
             try {
                 ActivityLogHelper::create(
@@ -638,6 +673,25 @@ class LoanController extends Controller
     private function resolveUser(Request $request): ?User
     {
         return auth()->user() ?: User::find($request->input('user_id', 1));
+    }
+
+    private function shiftInstallmentsForwardFrom(int $loanId, int $startingInstallmentNo): void
+    {
+        $installments = LoanCicilan::where('loans_id', $loanId)
+            ->where('cicilan', '>=', $startingInstallmentNo)
+            ->orderBy('cicilan')
+            ->get();
+
+        foreach ($installments as $installment) {
+            if (!$installment->tanggal_pembayaran) {
+                continue;
+            }
+
+            $installment->update([
+                'tanggal_pembayaran' => Carbon::parse($installment->tanggal_pembayaran)->addMonth()->toDateString(),
+                'status_pembayaran' => 'pending',
+            ]);
+        }
     }
 
     private function shouldShowAllLoans(Request $request, ?User $user = null): bool
@@ -693,8 +747,8 @@ class LoanController extends Controller
 
         return [
             'total_pengajuan' => $collection->count(),
-            'total_pending' => $collection->where('status_pengajuan', 'pending')->count(),
-            'total_disetujui' => $collection->whereIn('status_pengajuan', ['disetujui_ketua', 'pending_pengajuan'])->count(),
+            'total_pending' => $collection->whereIn('status_pengajuan', ['pending', 'pending_pengajuan'])->count(),
+            'total_disetujui' => $collection->whereIn('status_pengajuan', ['disetujui_ketua', 'aktif'])->count(),
             'total_lunas' => $collection->where('status_pengajuan', 'paid')->count(),
             'total_rejected' => $collection->where('status_pengajuan', 'rejected')->count(),
         ];
@@ -731,7 +785,11 @@ class LoanController extends Controller
             'document_url' => $loan->file_path ? asset('storage/' . $loan->file_path) : null,
             'status_pengajuan' => $loan->status_pengajuan,
             'postpone_cicilan_id' => $loan->postpone_cicilan_id,
+            'postpone_decision' => $loan->postpone_decision,
+            'postpone_decision_note' => $loan->postpone_decision_note,
+            'postpone_decision_at' => $loan->postpone_decision_at,
             'status' => $statusDisplay,
+            'status_reason' => $this->resolveStatusReason($loan),
             'pj_status' => $this->mapApprovalStatus($loan->status_pengajuan),
             'chairman_status' => $this->mapApprovalStatus($loan->status_pengajuan),
             'pj_note' => null,
@@ -739,8 +797,12 @@ class LoanController extends Controller
             'final_status' => $this->mapFinalStatus($loan->status_pengajuan),
             'created_at' => $loan->tanggal_pengajuan ?? $loan->created_at,
             'updated_at' => $loan->updated_at,
-            'tgl_acc_ketua1' => $loan->tgl_acc_ketua1,
-            'tgl_acc_ketua2' => $loan->tgl_acc_ketua2,
+            'tgl_acc_pj' => $loan->tgl_acc_pj,
+            'tgl_acc_admin' => $loan->tgl_acc_pj,
+            'tgl_acc_ketua' => $loan->tgl_acc_ketua,
+            // Backward compatibility aliases for existing frontend references
+            'tgl_acc_ketua1' => $loan->tgl_acc_pj,
+            'tgl_acc_ketua2' => $loan->tgl_acc_ketua,
         ];
 
         if ($includeCicilan) {
@@ -764,17 +826,30 @@ class LoanController extends Controller
     private function mapStatusDisplay(?string $status): string
     {
         return match ($status) {
-            'disetujui_ketua', 'pending_pengajuan', 'aktif' => 'aktif',
+            'disetujui_ketua', 'aktif' => 'aktif',
+            'pending_pengajuan' => 'pending',
+            'postpone' => 'pending',
             'paid' => 'lunas',
             'rejected' => 'rejected',
             default => 'pending',
         };
     }
 
+    private function resolveStatusReason(Loan $loan): ?string
+    {
+        if ($loan->status_pengajuan === 'rejected') {
+            return $loan->admin_note ?: $loan->reason;
+        }
+
+        return null;
+    }
+
     private function mapApprovalStatus(?string $status): string
     {
         return match ($status) {
-            'disetujui_ketua', 'pending_pengajuan', 'aktif', 'paid' => 'APPROVED',
+            'disetujui_ketua', 'aktif', 'paid' => 'APPROVED',
+            'pending_pengajuan' => 'PENDING',
+            'postpone' => 'REVIEW',
             'rejected' => 'REJECTED',
             default => 'PENDING',
         };
@@ -783,7 +858,9 @@ class LoanController extends Controller
     private function mapFinalStatus(?string $status): string
     {
         return match ($status) {
-            'disetujui_ketua', 'pending_pengajuan', 'aktif' => 'APPROVED',
+            'disetujui_ketua', 'aktif' => 'APPROVED',
+            'pending_pengajuan' => 'WAITING',
+            'postpone' => 'REVIEW',
             'paid' => 'APPROVED',
             'rejected' => 'REJECTED',
             default => 'WAITING',

@@ -208,17 +208,26 @@ CREATE TABLE IF NOT EXISTS loans (
   lama_pembayaran INT NOT NULL, -- Tenor (misal: 6, 12, 24 bulan)
   bulan_potong_gaji VARCHAR(255) NULL,
   file_path VARCHAR(255) NULL,
-  status_pengajuan ENUM('pending', 'disetujui_ketua', 'pending_pengajuan', 'rejected', 'paid') DEFAULT 'pending',
+  status_pengajuan ENUM('pending', 'pending_pengajuan', 'disetujui_ketua', 'postpone', 'rejected', 'paid') DEFAULT 'pending',
   reason TEXT NULL,
   postpone_cicilan_id BIGINT UNSIGNED NULL,
+  postpone_decision ENUM('approved', 'rejected') NULL,
+  postpone_decision_note TEXT NULL,
+  postpone_decision_at TIMESTAMP NULL,
   admin_note TEXT NULL,
+  rejection_reason TEXT NULL, -- Alasan penolakan pengajuan
+  pj_note TEXT NULL, -- Catatan dari PJ Toko
   tanggal_mulai_cicilan DATE NOT NULL, -- Waktu yang ditentukan user untuk mulai periode pembayaran
   tanggal_pengajuan TIMESTAMP DEFAULT CURRENT_TIMESTAMP, -- Kapan user klik tombol "ajukan"
-  tgl_acc_ketua1 TIMESTAMP NULL, -- Waktu saat ketua 1 melakukan approval
-  tgl_acc_ketua2 TIMESTAMP NULL, -- Waktu saat ketua 2 melakukan approval
+  tgl_acc_pj TIMESTAMP NULL, -- Waktu saat PJ Toko melakukan approval
+  pj_id BIGINT UNSIGNED NULL, -- User ID yang melakukan approval sebagai PJ Toko
+  tgl_acc_ketua TIMESTAMP NULL, -- Waktu saat Ketua melakukan approval
+  ketua_id BIGINT UNSIGNED NULL, -- User ID yang melakukan approval sebagai Ketua
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  FOREIGN KEY (user_id) REFERENCES users(id)
+  FOREIGN KEY (user_id) REFERENCES users(id),
+  FOREIGN KEY (pj_id) REFERENCES users(id) ON DELETE SET NULL,
+  FOREIGN KEY (ketua_id) REFERENCES users(id) ON DELETE SET NULL
 ) ENGINE=InnoDB;
 
 -- loan_cicilan (Cicilan)
@@ -228,7 +237,9 @@ CREATE TABLE IF NOT EXISTS loan_cicilan (
   tanggal_pembayaran DATE NOT NULL, -- Tanggal untuk pemotongan tukin
   nominal DECIMAL(15,2) NOT NULL, -- Jumlah Potongan
   status_pembayaran ENUM('pending', 'paid', 'postponed') DEFAULT 'pending',
+  status_updated_at TIMESTAMP NULL, -- Tanggal perubahan status terakhir
   cicilan INT NOT NULL, -- Cicilan keberapa (1, 2, 3...)
+  postponement_reason TEXT NULL, -- Alasan penundaan cicilan
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   FOREIGN KEY (loans_id) REFERENCES loans(id) ON DELETE CASCADE

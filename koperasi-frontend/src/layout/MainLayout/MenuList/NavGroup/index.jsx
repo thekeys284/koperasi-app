@@ -74,7 +74,7 @@ export default function NavGroup({ item, lastItem, remItems, lastItemId, setSele
   }, [pathname, currentItem]);
 
   // menu list collapse & items
-  const items = currentItem.children?.map((menu) => {
+  const items = item.children?.map((menu) => {
     switch (menu?.type) {
       case 'collapse':
         return <NavCollapse key={menu.id} menu={menu} level={1} parentId={currentItem.id} />;

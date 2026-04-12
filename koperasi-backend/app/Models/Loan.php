@@ -20,10 +20,16 @@ class Loan extends Model
         'status_pengajuan',
         'reason',
         'admin_note',
+        'postpone_cicilan_id',
+        'postpone_decision',
+        'postpone_decision_note',
+        'postpone_decision_at',
         'tanggal_mulai_cicilan',
         'tanggal_pengajuan',
-        'tgl_acc_ketua1',
-        'tgl_acc_ketua2',
+        'tgl_acc_pj',
+        'pj_id',
+        'tgl_acc_ketua',
+        'ketua_id',
     ];
 
     protected $casts = [
@@ -32,8 +38,9 @@ class Loan extends Model
         'lama_pembayaran' => 'integer',
         'tanggal_mulai_cicilan' => 'date',
         'tanggal_pengajuan' => 'datetime',
-        'tgl_acc_ketua1' => 'datetime',
-        'tgl_acc_ketua2' => 'datetime',
+        'postpone_decision_at' => 'datetime',
+        'tgl_acc_pj' => 'datetime',
+        'tgl_acc_ketua' => 'datetime',
     ];
 
     public function user(): BelongsTo

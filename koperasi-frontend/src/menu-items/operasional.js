@@ -19,10 +19,24 @@ const operasional = {
       id: "pinjaman",
       title: "Peminjaman",
       caption: "Kelola Peminjaman",
-      type: "item",
-      url: "/admin/loans",
+      type: "collapse",
       icon: icons.IconCash,
-      breadcrumbs: false,
+      children: [
+        {
+          id: "pengajuan-cicilan",
+          title: "Konfirmasi Pengajuan",
+          type: "item",
+          url: "/admin/loans/pengajuan",
+          breadcrumbs: false,
+        },
+        {
+          id: "daftar-cicilan",
+          title: "Daftar Cicilan",
+          type: "item",
+          url: "/admin/loans/daftar",
+          breadcrumbs: false,
+        },
+      ],
     },
     {
       id: "laporan",
