@@ -23,6 +23,8 @@ import {
     TextField,
 } from '@mui/material';
 
+import LoanFeedbackSnackbar from "../../../ui-component/feedback/LoanFeedbackSnackbar";
+
 import NavigateNextIcon from "@mui/icons-material/NavigateNext";
 import {
     IconUser,
@@ -42,6 +44,11 @@ const LeadLoanDetailPage = () => {
     const [loading, setLoading] = React.useState(true);
     const [error, setError] = React.useState("");
     const [loan, setLoan] = React.useState(null);
+    const [feedback, setFeedback] = React.useState({
+        open: false,
+        message: "",
+        severity: "success",
+    });
 
     const [openReject, setOpenReject] = React.useState(false);
     const [reason, setReason] = React.useState('');
@@ -76,23 +83,31 @@ const LeadLoanDetailPage = () => {
     const handleOpenReject = () => setOpenReject(true);
     const handleCloseReject = () => setOpenReject(false);
 
+    const showFeedback = (severity, message) => {
+        setFeedback({ open: true, severity, message });
+    };
+
+    const handleCloseFeedback = () => {
+        setFeedback((prev) => ({ ...prev, open: false }));
+    };
+
     const handleSendApprove = async () => {
         try {
             const response = await api.patch(`/loans/${loanId}/approve`, {
                 user_id: userId
             });
             if (response.data.success) {
-                alert("Pengajuan berhasil disetujui lead!");
+                showFeedback("success", response.data?.message || "Pengajuan berhasil disetujui lead!");
                 fetchLoanDetail();
             }
         } catch (err) {
-            alert(err.response?.data?.message || "Gagal menyetujui pengajuan.");
+            showFeedback("error", err.response?.data?.message || "Gagal menyetujui pengajuan.");
         }
     };
 
     const handleSendReject = async () => {
         if (!reason.trim()) {
-            alert("Alasan penolakan wajib diisi.");
+            showFeedback("warning", "Alasan penolakan wajib diisi.");
             return;
         }
         try {
@@ -101,12 +116,12 @@ const LeadLoanDetailPage = () => {
                 reason: reason
             });
             if (response.data.success) {
-                alert("Pengajuan berhasil ditolak.");
+                showFeedback("success", response.data?.message || "Pengajuan berhasil ditolak.");
                 handleCloseReject();
                 fetchLoanDetail();
             }
         } catch (err) {
-            alert(err.response?.data?.message || "Gagal menolak pengajuan.");
+            showFeedback("error", err.response?.data?.message || "Gagal menolak pengajuan.");
         }
     };
 
@@ -232,6 +247,33 @@ const LeadLoanDetailPage = () => {
                                     <Typography variant="body1" sx={{ width: 140, color: "#64748B", fontWeight: 500 }}>Potong Gaji</Typography>
                                     <Typography variant="body1" sx={{ fontWeight: 700 }}>: {formatMonthYear(loan?.bulan_potong_gaji)}</Typography>
                                 </Box>
+                                {loan?.document_url && (
+                                    <Box sx={{ display: "flex", gap: 1, mt: 1 }}>
+                                        <Typography variant="body1" sx={{ width: 140, color: "#64748B", fontWeight: 500 }}>Bukti Nota</Typography>
+                                        <Box sx={{ display: "flex", flexDirection: "column", gap: 0.5 }}>
+                                            <Typography variant="body1" sx={{ fontWeight: 700, mb: 0.5 }}>: </Typography>
+                                            <Box 
+                                                component="img" 
+                                                src={loan.document_url} 
+                                                alt="Bukti Nota"
+                                                sx={{ 
+                                                    width: 120, 
+                                                    height: 120, 
+                                                    objectFit: 'cover', 
+                                                    borderRadius: 2,
+                                                    cursor: 'pointer',
+                                                    border: '1px solid #E5E7EB',
+                                                    ml: 1,
+                                                    '&:hover': { opacity: 0.8 }
+                                                }} 
+                                                onClick={() => window.open(loan.document_url, '_blank')}
+                                            />
+                                            <Typography variant="caption" sx={{ ml: 1, color: 'primary.main', cursor: 'pointer', fontWeight: 600 }} onClick={() => window.open(loan.document_url, '_blank')}>
+                                                Klik untuk memperbesar
+                                            </Typography>
+                                        </Box>
+                                    </Box>
+                                )}
                             </Stack>
 
                             <Box sx={{ mt: 3 }}>
@@ -349,6 +391,13 @@ const LeadLoanDetailPage = () => {
                     </Card>
                 </Stack>
             </Box>
+
+            <LoanFeedbackSnackbar
+                open={feedback.open}
+                message={feedback.message}
+                severity={feedback.severity}
+                onClose={handleCloseFeedback}
+            />
 
             {/* MODAL REJECT */}
             <Dialog open={openReject} onClose={handleCloseReject} fullWidth maxWidth="xs">

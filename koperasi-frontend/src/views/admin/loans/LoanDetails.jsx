@@ -18,20 +18,26 @@ import {
   LinearProgress,
   CircularProgress,
   Alert,
+  Checkbox,
 } from "@mui/material";
 
 import DownloadIcon from "@mui/icons-material/Download";
 import NavigateNextIcon from "@mui/icons-material/NavigateNext";
 
-import ConfirmPaymentModal from "../../../ui-component/cards/Loans/Admin/ConfirmPaymentModal";
+
 import PostponeInstallmentModal from "../../../ui-component/cards/Loans/Admin/PostponeInstallmentModal";
+import LoanFeedbackSnackbar from "../../../ui-component/feedback/LoanFeedbackSnackbar";
 import api from "../../../api/axios";
 
 export default function LoanDetails() {
-  const [openConfirmModal, setOpenConfirmModal] = useState(false);
   const [postponeModalOpen, setPostponeModalOpen] = useState(false);
   const [selectedInstallment, setSelectedInstallment] = useState(null);
   const [saving, setSaving] = useState(false);
+  const [feedback, setFeedback] = useState({
+    open: false,
+    message: "",
+    severity: "success",
+  });
   const navigate = useNavigate();
   const location = useLocation();
   const [searchParams] = useSearchParams();
@@ -67,30 +73,29 @@ export default function LoanDetails() {
     return next;
   };
 
-  const handleConfirmPayment = async ({ tukinStatus, note }) => {
-    if (!selectedInstallment || !loan?.id) {
-      setOpenConfirmModal(false);
-      setSelectedInstallment(null);
-      return;
-    }
+  const showFeedback = (severity, message) => {
+    setFeedback({ open: true, severity, message });
+  };
+
+  const handleDirectConfirm = async (installment, isPaid) => {
+    if (!installment || !loan?.id) return;
 
     setSaving(true);
     setError("");
 
     try {
-      await api.patch(`/loans/${loan.id}/cicilan/${selectedInstallment.id}`, {
-        tukin_status: tukinStatus,
-        note,
+      await api.patch(`/loans/${loan.id}/cicilan/${installment.id}`, {
+        tukin_status: isPaid ? "sudah" : "pending",
+        status_pembayaran: isPaid ? "paid" : "pending",
+        note: "",
       });
 
-      // Refresh loan details after successful confirmation
       await fetchLoanDetail();
+      showFeedback("success", isPaid ? "Pembayaran berhasil dikonfirmasi" : "Status pembayaran berhasil direset");
     } catch (err) {
-      setError(err.response?.data?.message || "Gagal menyimpan status cicilan.");
+      showFeedback("error", err.response?.data?.message || "Gagal mengubah status cicilan.");
     } finally {
       setSaving(false);
-      setSelectedInstallment(null);
-      setOpenConfirmModal(false);
     }
   };
 
@@ -145,6 +150,7 @@ export default function LoanDetails() {
   const sisaPinjaman = Math.max(0, totalPokok - totalTerbayar);
   const progress = totalPokok > 0 ? Math.round((totalTerbayar / totalPokok) * 100) : 0;
   const sisaCicilan = cicilanList.filter((item) => item.tukin_status !== "sudah").length;
+  const nominalPerBulan = cicilanList[0]?.nominal || 0;
 
   const formatCurrency = (value) => `Rp ${new Intl.NumberFormat("id-ID").format(Number(value || 0))}`;
   const formatDate = (value) => {
@@ -156,18 +162,16 @@ export default function LoanDetails() {
 
   const getStatusStyle = (item) => {
     // 1. Sudah Bayar
-    if (item.tukin_status === "sudah" || item.status_pembayaran === "paid") {
-      return {
-        label: "Sudah Bayar",
-        sx: { bgcolor: "success.main", color: "#fff", fontWeight: 600 }
-      };
-    }
-
-    // 2. Ditunda (Postponed)
-    if (item.tukin_status === "postponed" || item.status_pembayaran === "postponed") {
+    if (item.status_pembayaran === "postponed") {
       return {
         label: "Ditunda",
-        sx: { bgcolor: "info.main", color: "#fff", fontWeight: 600 }
+        sx: { bgcolor: "#E2E8F0", color: "#64748B", fontWeight: 600 }
+      };
+    }
+    if (item.status_pembayaran === "paid") {
+      return {
+        label: "Lunas",
+        sx: { bgcolor: "#DBEAFE", color: "#2563EB", fontWeight: 600 }
       };
     }
 
@@ -191,7 +195,7 @@ export default function LoanDetails() {
     if (!item?.id) return false;
 
     const isMarkedPostponed =
-      item.tukin_status === "postponed" || item.status_pembayaran === "postponed";
+      item.status_pembayaran === "postponed";
 
     if (isMarkedPostponed) return true;
     if (!loan?.postpone_cicilan_id) return false;
@@ -222,12 +226,23 @@ export default function LoanDetails() {
     try {
       await api.patch(`/loans/${loan.id}/cicilan/${selectedInstallment.id}`, {
         tukin_status: "postponed",
+        status_pembayaran: "postponed",
         admin_note: note,
       });
       await fetchLoanDetail();
+      setFeedback({
+        open: true,
+        severity: "success",
+        message: "Penundaan cicilan berhasil disetujui.",
+      });
       closePostponeModal();
     } catch (err) {
       setError(err.response?.data?.message || "Gagal menyetujui penundaan.");
+      setFeedback({
+        open: true,
+        severity: "error",
+        message: err.response?.data?.message || "Gagal menyetujui penundaan.",
+      });
     } finally {
       setSaving(false);
     }
@@ -241,16 +256,31 @@ export default function LoanDetails() {
     try {
       // Rejecting postponement: set status back to 'belum' so it can be paid normally
       await api.patch(`/loans/${loan.id}/cicilan/${selectedInstallment.id}`, {
-        tukin_status: "belum",
+        tukin_status: "pending",
+        status_pembayaran: "pending",
         admin_note: note,
       });
       await fetchLoanDetail();
+      setFeedback({
+        open: true,
+        severity: "success",
+        message: "Penundaan cicilan berhasil ditolak.",
+      });
       closePostponeModal();
     } catch (err) {
       setError(err.response?.data?.message || "Gagal menolak penundaan.");
+      setFeedback({
+        open: true,
+        severity: "error",
+        message: err.response?.data?.message || "Gagal menolak penundaan.",
+      });
     } finally {
       setSaving(false);
     }
+  };
+
+  const handleCloseFeedback = () => {
+    setFeedback((prev) => ({ ...prev, open: false }));
   };
 
   return (
@@ -273,11 +303,12 @@ export default function LoanDetails() {
       </Breadcrumbs>
 
       {/* LABEL */}
+      {/* LABEL */}
       <Chip
-        label="Pinjaman Aktif"
+        label={loan?.status_pengajuan === "paid" ? "Pinjaman Lunas" : "Pinjaman Aktif"}
         sx={{
-          background: "#DBEAFE",
-          color: "#2563EB",
+          background: loan?.status_pengajuan === "paid" ? "#DBEAFE" : "#DCFCE7",
+          color: loan?.status_pengajuan === "paid" ? "#2563EB" : "#16A34A",
           fontWeight: 600,
           mb: 1,
         }}
@@ -296,26 +327,6 @@ export default function LoanDetails() {
             ID Pinjam: {loan?.loan_number ? `#${loan.loan_number}` : "-"}
           </Typography>
         </Box>
-
-        <Button
-          variant="contained"
-          startIcon={<DownloadIcon />}
-          sx={{
-            borderRadius: "8px",
-            textTransform: "none",
-            fontWeight: 600,
-            px: 3,
-            py: 0.8,
-            backgroundColor: "#2563EB",
-            boxShadow: "0 4px 14px 0 rgba(37, 99, 235, 0.39)",
-            "&:hover": {
-              backgroundColor: "#1D4ED8",
-              boxShadow: "0 6px 20px rgba(37, 99, 235, 0.23)",
-            }
-          }}
-        >
-          Cetak Rekap
-        </Button>
       </Stack>
 
       {loading && (
@@ -368,6 +379,9 @@ export default function LoanDetails() {
             </Typography>
             <Typography fontSize={13} fontWeight={500} color="#94A3B8" sx={{ display: "block", mt: 1 }}>
               {sisaCicilan} cicilan tersisa
+            </Typography>
+            <Typography fontSize={13} fontWeight={500} color="#94A3B8" sx={{ display: "block" }}>
+              cicilan: {formatCurrency(nominalPerBulan)} / bulan
             </Typography>
           </CardContent>
         </Card>
@@ -436,6 +450,33 @@ export default function LoanDetails() {
                 {formatDate(loan?.created_at)}
               </TableCell>
             </TableRow>
+            {loan?.document_url && (
+              <TableRow>
+                <TableCell sx={{ width: "30%", color: "#334155", fontWeight: 600, borderBottom: "none", px: 3, py: 1.5 }}>
+                  Bukti Nota
+                </TableCell>
+                <TableCell sx={{ color: "#64748B", borderBottom: "none", px: 3, py: 1.5 }}>
+                  <Box 
+                    component="img" 
+                    src={loan.document_url} 
+                    alt="Bukti Nota"
+                    sx={{ 
+                      width: 100, 
+                      height: 100, 
+                      objectFit: 'cover', 
+                      borderRadius: 1,
+                      cursor: 'pointer',
+                      border: '1px solid #E5E7EB',
+                      '&:hover': { opacity: 0.8 }
+                    }} 
+                    onClick={() => window.open(loan.document_url, '_blank')}
+                  />
+                  <Typography variant="caption" sx={{ display: 'block', mt: 0.5, color: 'primary.main', cursor: 'pointer' }} onClick={() => window.open(loan.document_url, '_blank')}>
+                    Klik untuk memperbesar
+                  </Typography>
+                </TableCell>
+              </TableRow>
+            )}
           </TableBody>
         </Table>
       </Card>
@@ -502,10 +543,17 @@ export default function LoanDetails() {
                           if (isReviewTarget) {
                             return (
                               <Button
+                                fullWidth
                                 variant="contained"
                                 size="small"
-                                color="info"
-                                sx={{ borderRadius: 3, textTransform: "none" }}
+                                sx={{
+                                  borderRadius: "10px",
+                                  textTransform: "none",
+                                  fontWeight: 600,
+                                  fontSize: "12px",
+                                  bgcolor: "primary.main",
+                                  "&:hover": { bgcolor: "primary.dark" },
+                                }}
                                 onClick={() => openPostponeModal(item)}
                               >
                                 Konfirmasi Pending &gt;
@@ -513,17 +561,8 @@ export default function LoanDetails() {
                             );
                           }
 
-                          if (item.tukin_status === "sudah") {
-                            return <Chip label={style.label} sx={style.sx} size="small" />;
-                          }
-
-                          if (item.status_pembayaran === "postponed" || item.tukin_status === "postponed") {
-                            return <Chip label={style.label} sx={style.sx} size="small" />;
-                          }
-
                           const canConfirm = isSameMonth(item.tanggal_pembayaran);
-                          const isLocked = !canConfirm;
-                          if (isLocked) {
+                          if (!canConfirm && item.status_pembayaran !== "paid") {
                             return (
                               <Chip
                                 label="Terkunci"
@@ -534,17 +573,18 @@ export default function LoanDetails() {
                           }
 
                           return (
-                            <Button
-                              variant="contained"
-                              size="small"
-                              sx={{ borderRadius: 3, textTransform: "none" }}
-                              onClick={() => {
-                                setSelectedInstallment(item);
-                                setOpenConfirmModal(true);
-                              }}
-                            >
-                              Konfirmasi Pembayaran &gt;
-                            </Button>
+                            <Stack direction="row" spacing={1} alignItems="center">
+                              <Checkbox
+                                checked={item.status_pembayaran === "paid"}
+                                size="small"
+                                onChange={(e) => handleDirectConfirm(item, e.target.checked)}
+                                disabled={saving}
+                                sx={{ p: 0 }}
+                              />
+                              {item.status_pembayaran === "paid" && (
+                                <Chip label={style.label} sx={style.sx} size="small" />
+                              )}
+                            </Stack>
                           );
                         })()}
                       </TableCell>
@@ -565,27 +605,19 @@ export default function LoanDetails() {
         </CardContent>
       </Card>
 
-      <ConfirmPaymentModal
-        open={openConfirmModal}
-        handleClose={() => {
-          setOpenConfirmModal(false);
-          setSelectedInstallment(null);
-        }}
-        loanData={{
-          id: loan?.loan_number ? `#${loan.loan_number}` : "-",
-          installment: selectedInstallment?.cicilan || cicilanList.find((item) => item.tukin_status !== "sudah")?.cicilan,
-          amount: formatCurrency(selectedInstallment?.nominal || cicilanList.find((item) => item.tukin_status !== "sudah")?.nominal || 0),
-          dueDate: formatDate(selectedInstallment?.tanggal_pembayaran || cicilanList.find((item) => item.tukin_status !== "sudah")?.tanggal_pembayaran),
-        }}
-        onSubmit={handleConfirmPayment}
-        loading={saving}
-      />
       <PostponeInstallmentModal
         open={postponeModalOpen}
         handleClose={closePostponeModal}
         loanData={selectedInstallment}
         onApprove={handleApprovePostpone}
         onReject={handleRejectPostpone}
+      />
+
+      <LoanFeedbackSnackbar
+        open={feedback.open}
+        message={feedback.message}
+        severity={feedback.severity}
+        onClose={handleCloseFeedback}
       />
     </Box>
   );

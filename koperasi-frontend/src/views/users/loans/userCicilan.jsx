@@ -25,6 +25,7 @@ import NavigateNextIcon from "@mui/icons-material/NavigateNext";
 import MoreVertIcon from "@mui/icons-material/MoreVert";
 
 import PostponeInstallmentModal from "../../../ui-component/cards/Loans/User/userTundaCicilan";
+import LoanFeedbackSnackbar from "../../../ui-component/feedback/LoanFeedbackSnackbar";
 import api from "../../../api/axios";
 
 const StatusChip = ({ status }) => {
@@ -65,6 +66,11 @@ const UserCicilan = () => {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
     const [loan, setLoan] = useState(null);
+    const [feedback, setFeedback] = useState({
+        open: false,
+        message: "",
+        severity: "success",
+    });
 
     const loanId = searchParams.get("loan_id");
     const userId = searchParams.get("user_id") || "5";
@@ -122,6 +128,14 @@ const UserCicilan = () => {
         if (status === "paid") return "paid";
         if (status === "postponed") return "postponed";
         return "unpaid";
+    };
+
+    const showFeedback = (severity, message) => {
+        setFeedback({ open: true, severity, message });
+    };
+
+    const handleCloseFeedback = () => {
+        setFeedback((prev) => ({ ...prev, open: false }));
     };
 
     return (
@@ -408,6 +422,14 @@ const UserCicilan = () => {
                     installments: cicilanList
                 }}
                 onSuccess={fetchLoanDetail}
+                onNotify={showFeedback}
+            />
+
+            <LoanFeedbackSnackbar
+                open={feedback.open}
+                message={feedback.message}
+                severity={feedback.severity}
+                onClose={handleCloseFeedback}
             />
         </Box>
     );

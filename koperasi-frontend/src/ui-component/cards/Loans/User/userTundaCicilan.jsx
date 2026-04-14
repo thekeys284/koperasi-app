@@ -19,10 +19,19 @@ import CloseIcon from "@mui/icons-material/Close";
 
 import api from "../../../../api/axios";
 
-const PostponeInstallmentModal = ({ open, handleClose, data, onSuccess }) => {
+const PostponeInstallmentModal = ({ open, handleClose, data, onSuccess, onNotify }) => {
   const [selectedCicilanId, setSelectedCicilanId] = useState("");
   const [reason, setReason] = useState("");
   const [loading, setLoading] = useState(false);
+
+  const notify = (severity, message) => {
+    if (onNotify) {
+      onNotify(severity, message);
+      return;
+    }
+
+    window.alert(message);
+  };
 
   // Filter cicilan yang bisa ditunda (hanya yang statusnya pending dan bukan ditunda)
   const availableInstallments = (data?.installments || []).filter(
@@ -33,12 +42,12 @@ const PostponeInstallmentModal = ({ open, handleClose, data, onSuccess }) => {
 
   const handleSubmit = async () => {
     if (!selectedCicilanId) {
-      alert("Silakan pilih cicilan yang ingin ditunda.");
+      notify("warning", "Silakan pilih cicilan yang ingin ditunda.");
       return;
     }
 
     if (!reason.trim()) {
-      alert("Alasan penundaan wajib diisi.");
+      notify("warning", "Alasan penundaan wajib diisi.");
       return;
     }
 
@@ -51,7 +60,7 @@ const PostponeInstallmentModal = ({ open, handleClose, data, onSuccess }) => {
       });
 
       if (response.data.success) {
-        alert("Pengajuan penundaan cicilan berhasil dikirim!");
+        notify("success", response.data?.message || "Pengajuan penundaan cicilan berhasil dikirim!");
         if (onSuccess) onSuccess();
         handleClose();
         // Reset state
@@ -59,7 +68,7 @@ const PostponeInstallmentModal = ({ open, handleClose, data, onSuccess }) => {
         setReason("");
       }
     } catch (err) {
-      alert(err.response?.data?.message || "Gagal mengirim pengajuan.");
+      notify("error", err.response?.data?.message || "Gagal mengirim pengajuan.");
     } finally {
       setLoading(false);
     }

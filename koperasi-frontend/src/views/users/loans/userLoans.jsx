@@ -6,9 +6,6 @@ import {
     Box,
     Typography,
     Stack,
-    Accordion,
-    AccordionSummary,
-    AccordionDetails,
     Card,
     CardContent,
     Button,
@@ -34,8 +31,8 @@ import NavigateNextIcon from "@mui/icons-material/NavigateNext";
 import AddIcon from "@mui/icons-material/Add";
 import MoreVertIcon from "@mui/icons-material/MoreVert";
 import DeleteIcon from "@mui/icons-material/DeleteOutline";
-import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import { IconLock } from "@tabler/icons-react";
+import LoanFeedbackSnackbar from "../../../ui-component/feedback/LoanFeedbackSnackbar";
 
 const StatusBadge = ({ loan }) => {
     const statusPengajuan = loan?.status_pengajuan;
@@ -109,51 +106,27 @@ const StatusBadge = ({ loan }) => {
 };
 
 const PostponeDecisionNote = ({ loan }) => {
-    const [expanded, setExpanded] = React.useState(false);
     if (!loan?.postpone_decision) return null;
 
     const isApproved = loan.postpone_decision === "approved";
     const label = isApproved ? "Penundaan Diterima" : "Penundaan Ditolak";
-    const color = isApproved ? "#16A34A" : "#DC2626";
     const note = loan.postpone_decision_note || "Tidak ada catatan admin.";
-    
-    const isLong = note.length > 50;
-    const displayText = expanded || !isLong ? note : `${note.substring(0, 50)}...`;
 
     return (
-        <Box 
-            sx={{ 
-                mt: 0.5, 
-                maxWidth: 180, 
-                cursor: isLong ? "pointer" : "default" 
-            }}
-            onClick={() => isLong && setExpanded(!expanded)}
-        >
-            <Typography 
-                fontSize={11} 
-                color={color} 
-                fontWeight={700}
-                sx={{ lineHeight: 1.2 }}
-            >
+        <Box sx={{ mt: 0.5, maxWidth: 200 }}>
+            <Typography fontSize={11} color="#64748B" fontWeight={700} sx={{ lineHeight: 1.2 }}>
                 {label}
             </Typography>
-            <Typography 
-                fontSize={11} 
-                color="#64748B" 
+            <Typography
+                fontSize={11}
+                color="#64748B"
                 fontWeight={500}
-                sx={{ 
+                sx={{
                     lineHeight: 1.4,
                     fontStyle: "italic",
-                    textDecoration: isLong && !expanded ? 'underline' : 'none',
-                    textDecorationStyle: 'dotted'
                 }}
             >
-                Catatan: {displayText}
-                {isLong && !expanded && (
-                    <Typography component="span" fontSize={10} sx={{ ml: 0.5, fontWeight: 700 }}>
-                        (Lihat)
-                    </Typography>
-                )}
+                Catatan: {note}
             </Typography>
         </Box>
     );
@@ -243,6 +216,11 @@ const UserLoans = () => {
     const [deleteModalOpen, setDeleteModalOpen] = React.useState(false);
     const [loanToDelete, setLoanToDelete] = React.useState(null);
     const [deleting, setDeleting] = React.useState(false);
+    const [feedback, setFeedback] = React.useState({
+        open: false,
+        message: "",
+        severity: "success",
+    });
 
     const fetchLoans = async () => {
         try {
@@ -277,28 +255,45 @@ const UserLoans = () => {
             });
             await fetchLoans();
             setDeleteModalOpen(false);
+            setFeedback({
+                open: true,
+                message: "Pengajuan berhasil dihapus.",
+                severity: "success",
+            });
         } catch (err) {
-            alert(err.response?.data?.message || "Gagal menghapus pengajuan.");
+            setFeedback({
+                open: true,
+                message: err.response?.data?.message || "Gagal menghapus pengajuan.",
+                severity: "error",
+            });
         } finally {
             setDeleting(false);
             setLoanToDelete(null);
         }
     };
 
-    const selectedLoan = loans.find(l => !["lunas", "rejected"].includes(l.status)) || loans[0] || null;
-    const isRejected = selectedLoan?.status === "rejected";
+    const handleCloseFeedback = () => {
+        setFeedback((prev) => ({ ...prev, open: false }));
+    };
+
+    // Aggregate statistics across ONLY approved loans (confirmed by Admin & Ketua)
+    const approvedLoans = loans.filter(l => ["disetujui_ketua", "aktif", "paid"].includes(l.status_pengajuan));
     
-    const selectedLoanCicilan = selectedLoan?.cicilan || [];
-    const totalPokok = selectedLoan && !isRejected ? Number(selectedLoan.jumlah_pinjaman || 0) : 0;
-    const totalTerbayar = selectedLoan && !isRejected 
-        ? selectedLoanCicilan
+    const totalPokok = approvedLoans.reduce((sum, loan) => sum + Number(loan.jumlah_pinjaman || 0), 0);
+    
+    const totalTerbayar = approvedLoans.reduce((sum, loan) => {
+        const loanCicilan = loan.cicilan || [];
+        const paidAmount = loanCicilan
             .filter((item) => item.status_pembayaran === "paid")
-            .reduce((sum, item) => sum + Number(item.nominal || 0), 0)
-        : 0;
+            .reduce((s, item) => s + Number(item.nominal || 0), 0);
+        return sum + paidAmount;
+    }, 0);
+
     const sisaPinjaman = Math.max(0, totalPokok - totalTerbayar);
     const progress = totalPokok > 0 ? Math.round((totalTerbayar / totalPokok) * 100) : 0;
-    const sisaCicilan = isRejected ? 0 : selectedLoanCicilan.filter((item) => item.status_pembayaran !== "paid").length;
-    const hasActiveLoan = loans.some(loan => !["lunas", "rejected"].includes(loan.status));
+    
+    const selectedLoan = loans.find(l => !["paid", "rejected"].includes(l.status_pengajuan)) || loans[0] || null;
+    const hasActiveLoan = loans.some(loan => !["paid", "rejected"].includes(loan.status_pengajuan));
 
     return (
         <Box sx={{ p: 4, background: "#F5F7FB", minHeight: "100vh" }}>
@@ -452,9 +447,9 @@ const UserLoans = () => {
                                 <Typography fontSize={28} fontWeight={800} color="#EF4444">
                                     {formatCurrency(sisaPinjaman)}
                                 </Typography>
-                                <Typography fontSize={13} fontWeight={500} color="#94A3B8" sx={{ display: "block", mt: 1 }}>
+                                {/* <Typography fontSize={13} fontWeight={500} color="#94A3B8" sx={{ display: "block", mt: 1 }}>
                                     {sisaCicilan} cicilan tersisa
-                                </Typography>
+                                </Typography> */}
                             </CardContent>
                         </Card>
                     </Stack>
@@ -474,9 +469,8 @@ const UserLoans = () => {
                                 </Typography>
 
                                 <Button
-                                    startIcon={hasActiveLoan ? <IconLock size={18} /> : <AddIcon />}
+                                    startIcon={<AddIcon />}
                                     variant="contained"
-                                    disabled={hasActiveLoan}
                                     onClick={() => navigate("/user/loans/add")}
                                     sx={{
                                         borderRadius: "10px",
@@ -484,17 +478,13 @@ const UserLoans = () => {
                                         fontWeight: 700,
                                         px: 3,
                                         py: 1,
-                                        backgroundColor: hasActiveLoan ? "#94A3B8" : "#2563EB",
+                                        backgroundColor: "#2563EB",
                                         "&:hover": {
-                                            backgroundColor: hasActiveLoan ? "#94A3B8" : "#1D4ED8",
-                                        },
-                                        "&.Mui-disabled": {
-                                            backgroundColor: "#E2E8F0",
-                                            color: "#94A3B8"
+                                            backgroundColor: "#1D4ED8",
                                         }
                                     }}
                                 >
-                                    {hasActiveLoan ? "Pinjaman Aktif" : "Pengajuan Baru"}
+                                    Pengajuan Baru
                                 </Button>
                             </Stack>
 
@@ -659,6 +649,13 @@ const UserLoans = () => {
                     </Button>
                 </DialogActions>
             </Dialog>
+
+            <LoanFeedbackSnackbar
+                open={feedback.open}
+                message={feedback.message}
+                severity={feedback.severity}
+                onClose={handleCloseFeedback}
+            />
         </Box>
     );
 };

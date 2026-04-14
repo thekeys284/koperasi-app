@@ -115,7 +115,7 @@ const StatusBadge = ({ loan }) => {
     }
 
     return (
-        <Stack spacing={0.5}>
+        <Stack spacing={0.5} alignItems="center">
             <Chip
                 label={config.label}
                 size="small"
@@ -123,6 +123,7 @@ const StatusBadge = ({ loan }) => {
                     background: config.bg,
                     color: config.color,
                     fontWeight: 600,
+                    width: "fit-content",
                 }}
             />
             <RejectionNote reason={config.reason} />
@@ -189,7 +190,7 @@ const LeadLoanPage = () => {
             const apiSummary = response.data?.summary;
             setSummary({
                 total: apiSummary?.total_pengajuan || fetchedLoans.length,
-                pending: fetchedLoans.filter(l => ['pending', 'pending_pengajuan'].includes(l.status_pengajuan)).length,
+                pending: fetchedLoans.filter(l => l.status_pengajuan === 'pending_pengajuan').length,
                 approved: (apiSummary?.total_disetujui || 0) + (apiSummary?.total_lunas || 0)
             });
 
@@ -213,8 +214,8 @@ const LeadLoanPage = () => {
     };
 
     const filteredLoans = tabValue === 0 
-        ? loans.filter(l => ['pending', 'pending_pengajuan'].includes(l.status_pengajuan))
-        : loans.filter(l => !['pending', 'pending_pengajuan'].includes(l.status_pengajuan));
+        ? loans.filter(l => l.status_pengajuan === 'pending_pengajuan')
+        : loans.filter(l => l.status_pengajuan !== 'pending_pengajuan');
 
     return (
         <Box sx={{ p: 4, background: "#f5f7fb", minHeight: "100vh" }}>
@@ -284,7 +285,7 @@ const LeadLoanPage = () => {
             <Card sx={{ borderRadius: 3 }}>
                 <Box sx={{ borderBottom: 1, borderColor: 'divider', px: 2, pt: 1 }}>
                     <Tabs value={tabValue} onChange={handleTabChange} textColor="primary" indicatorColor="primary">
-                        <Tab label={`Perlu Persetujuan (${loans.filter(l => ['pending', 'pending_pengajuan'].includes(l.status_pengajuan)).length})`} sx={{ fontWeight: 700, textTransform: 'none' }} />
+                        <Tab label={`Perlu Persetujuan (${loans.filter(l => l.status_pengajuan === 'pending_pengajuan').length})`} sx={{ fontWeight: 700, textTransform: 'none' }} />
                         <Tab label="Riwayat Pengajuan" sx={{ fontWeight: 700, textTransform: 'none' }} />
                     </Tabs>
                 </Box>
@@ -324,7 +325,7 @@ const LeadLoanPage = () => {
                                     <TableCell>ANGGOTA</TableCell>
                                     <TableCell>JENIS & JUMLAH</TableCell>
                                     <TableCell>TENOR</TableCell>
-                                    <TableCell>STATUS</TableCell>
+                                    <TableCell align="center">STATUS</TableCell>
                                     <TableCell align="center">AKSI</TableCell>
                                 </TableRow>
                             </TableHead>
@@ -355,7 +356,7 @@ const LeadLoanPage = () => {
 
                                         <TableCell sx={{ fontWeight: 600 }}>{loan.lama_pembayaran} Bulan</TableCell>
 
-                                        <TableCell>
+                                        <TableCell align="center">
                                             <StatusBadge loan={loan} />
                                         </TableCell>
 

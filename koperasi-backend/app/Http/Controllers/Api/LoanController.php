@@ -70,17 +70,7 @@ class LoanController extends Controller
                 ], 401);
             }
 
-            // Validasi: Cek apakah user memiliki pinjaman yang belum lunas
-            $activeLoan = Loan::where('user_id', $user->id)
-                ->whereNotIn('status_pengajuan', ['paid', 'rejected'])
-                ->exists();
 
-            if ($activeLoan) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Anda masih memiliki pinjaman aktif yang belum lunas. Selesaikan pinjaman sebelumnya sebelum mengajukan yang baru.'
-                ], 403);
-            }
 
             $validated = $request->validate([
                 'type' => 'nullable|in:Konsumtif,Produktif,konsumtif,produktif',
@@ -141,9 +131,24 @@ class LoanController extends Controller
                 'reason' => $request->reason,
             ];
 
+            if ($loanType['value'] === 0 && !$request->hasFile('document')) {
+                throw ValidationException::withMessages([
+                    'document' => 'Bukti nota pembelian wajib diunggah untuk jenis pinjaman konsumtif.'
+                ]);
+            }
+
             if ($request->hasFile('document')) {
                 $file = $request->file('document');
-                $loanData['file_path'] = $file->store('loans', 'public');
+                
+                // Validate file format and size
+                $request->validate([
+                    'document' => 'required|image|mimes:jpg,jpeg,png|max:2048'
+                ]);
+
+                // Store with unique name in bukti-nota folder
+                $path = $file->store('bukti-nota', 'public');
+                $loanData['bukti_nota'] = $path;
+                $loanData['file_path'] = $path; // Keep file_path for backward compatibility
             }
 
             $loan = DB::transaction(function () use ($loanData, $user, $loanType) {
@@ -366,41 +371,40 @@ class LoanController extends Controller
                     $cicilan->update([
                         'status_pembayaran' => 'pending',
                     ]);
+                } else if ($loan->status_pengajuan === 'postpone' || $validated['tukin_status'] === 'pending') {
+                    // Penolakan pengajuan penundaan atau reset manual: kembalikan cicilan ke status normal.
+                    $cicilan->update([
+                        'status_pembayaran' => 'pending',
+                    ]);
                 } else {
                     // Jika admin memilih 'Belum' secara manual di ConfirmPaymentModal
                     // (Bukan hasil dari penolakan pengajuan penundaan)
-                    if ($loan->status_pengajuan === 'postpone') {
-                        $cicilan->update([
+                    $lastInstallment = LoanCicilan::where('loans_id', $loan->id)
+                        ->orderByDesc('cicilan')
+                        ->first();
+
+                    if ($lastInstallment) {
+                        $lastDueDate = Carbon::parse($lastInstallment->tanggal_pembayaran);
+                        $newDueDate = $lastDueDate->copy()->addMonthNoOverflow();
+
+                        LoanCicilan::create([
+                            'loans_id' => $loan->id,
+                            'tanggal_pembayaran' => $newDueDate->toDateString(),
+                            'nominal' => $cicilan->nominal,
                             'status_pembayaran' => 'pending',
+                            'cicilan' => ($lastInstallment->cicilan ?? 0) + 1,
                         ]);
-                    } else {
-                        $lastInstallment = LoanCicilan::where('loans_id', $loan->id)
-                            ->orderByDesc('cicilan')
-                            ->first();
 
-                        if ($lastInstallment) {
-                            $lastDueDate = Carbon::parse($lastInstallment->tanggal_pembayaran);
-                            $newDueDate = $lastDueDate->copy()->addMonth();
-
-                            LoanCicilan::create([
-                                'loans_id' => $loan->id,
-                                'tanggal_pembayaran' => $newDueDate->toDateString(),
-                                'nominal' => $cicilan->nominal,
-                                'status_pembayaran' => 'pending',
-                                'cicilan' => ($lastInstallment->cicilan ?? 0) + 1,
-                            ]);
-
-                            // Tandai sebagai 'postponed' agar pindah ke riwayat ditunda untuk bulan ini
-                            $cicilan->update(['status_pembayaran' => 'postponed']);
-                        }
+                        // Tandai sebagai 'postponed' agar pindah ke riwayat ditunda untuk bulan ini
+                        $cicilan->update(['status_pembayaran' => 'postponed']);
                     }
                 }
 
                 $loan->update([
                     'admin_note' => $validated['admin_note'] ?? $validated['note'] ?? $loan->admin_note,
                     'status_pengajuan' => ($validated['tukin_status'] === 'postponed' || $validated['tukin_status'] === 'belum') ? 'disetujui_ketua' : $loan->status_pengajuan,
-                    'lama_pembayaran' => (in_array($validated['tukin_status'], ['postponed', 'belum']) && $loan->status_pengajuan !== 'postpone') || $validated['tukin_status'] === 'postponed' 
-                        ? ($loan->lama_pembayaran + 1) 
+                    'lama_pembayaran' => (in_array($validated['tukin_status'], ['postponed', 'belum']) && $loan->status_pengajuan !== 'postpone') || $validated['tukin_status'] === 'postponed'
+                        ? ($loan->lama_pembayaran + 1)
                         : $loan->lama_pembayaran,
                     'postpone_cicilan_id' => ($validated['tukin_status'] === 'postponed' || $validated['tukin_status'] === 'belum') ? null : $loan->postpone_cicilan_id,
                     'postpone_decision' => ($loan->status_pengajuan === 'postpone' && $validated['tukin_status'] === 'postponed')
@@ -691,7 +695,7 @@ class LoanController extends Controller
             }
 
             $installment->update([
-                'tanggal_pembayaran' => Carbon::parse($installment->tanggal_pembayaran)->addMonth()->toDateString(),
+                'tanggal_pembayaran' => Carbon::parse($installment->tanggal_pembayaran)->addMonthNoOverflow()->toDateString(),
                 'status_pembayaran' => 'pending',
             ]);
         }
@@ -784,8 +788,10 @@ class LoanController extends Controller
             'tanggal_mulai_cicilan' => optional($loan->tanggal_mulai_cicilan)->toDateString(),
             'reason' => $loan->reason,
             'admin_note' => $loan->admin_note,
-            'document_path' => $loan->file_path,
-            'document_url' => $loan->file_path ? asset('storage/' . $loan->file_path) : null,
+            'document_path' => $loan->bukti_nota ?: $loan->file_path,
+            'document_url' => ($loan->bukti_nota ?: $loan->file_path) ? asset('storage/' . ($loan->bukti_nota ?: $loan->file_path)) : null,
+            'bukti_nota' => $loan->bukti_nota,
+            'bukti_nota_url' => $loan->bukti_nota ? asset('storage/' . $loan->bukti_nota) : null,
             'status_pengajuan' => $loan->status_pengajuan,
             'postpone_cicilan_id' => $loan->postpone_cicilan_id,
             'postpone_decision' => $loan->postpone_decision,
@@ -893,7 +899,7 @@ class LoanController extends Controller
                 'cicilan' => $installmentNumber,
             ]);
 
-            $currentDueDate = $currentDueDate->copy()->addMonth();
+            $currentDueDate = $currentDueDate->copy()->addMonthNoOverflow();
         }
     }
 }

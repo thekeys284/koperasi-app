@@ -20,7 +20,7 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
-  TextField
+  TextField,
 } from "@mui/material";
 
 import NavigateNextIcon from "@mui/icons-material/NavigateNext";
@@ -28,13 +28,13 @@ import {
   IconUser,
   IconFileText,
   IconShieldCheck,
-  IconCalendar,
   IconCircleCheck,
   IconCircleX,
   IconDots,
   IconLock,
-  IconClipboardList
 } from "@tabler/icons-react";
+
+import LoanFeedbackSnackbar from "../../../ui-component/feedback/LoanFeedbackSnackbar";
 
 const LoanSubmissionDetailPage = () => {
   const navigate = useNavigate();
@@ -42,6 +42,11 @@ const LoanSubmissionDetailPage = () => {
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState("");
   const [loan, setLoan] = React.useState(null);
+  const [feedback, setFeedback] = React.useState({
+    open: false,
+    message: "",
+    severity: "success",
+  });
 
   const [openReject, setOpenReject] = React.useState(false);
   const [reason, setReason] = React.useState("");
@@ -55,8 +60,8 @@ const LoanSubmissionDetailPage = () => {
       const response = await api.get(`/loans/${loanId}`, {
         params: {
           all: 1,
-          user_id: userId
-        }
+          user_id: userId,
+        },
       });
       setLoan(response.data?.data || null);
     } catch (err) {
@@ -75,37 +80,45 @@ const LoanSubmissionDetailPage = () => {
   const handleOpenReject = () => setOpenReject(true);
   const handleCloseReject = () => setOpenReject(false);
 
+  const showFeedback = (severity, message) => {
+    setFeedback({ open: true, severity, message });
+  };
+
+  const handleCloseFeedback = () => {
+    setFeedback((prev) => ({ ...prev, open: false }));
+  };
+
   const handleSendApprove = async () => {
     try {
       const response = await api.patch(`/loans/${loanId}/approve`, {
-        user_id: userId
+        user_id: userId,
       });
       if (response.data.success) {
-        alert(response.data?.message || "Pengajuan berhasil dikonfirmasi admin.");
+        showFeedback("success", response.data?.message || "Pengajuan berhasil dikonfirmasi admin.");
         fetchLoanDetail();
       }
     } catch (err) {
-      alert(err.response?.data?.message || "Gagal mengonfirmasi pengajuan.");
+      showFeedback("error", err.response?.data?.message || "Gagal mengonfirmasi pengajuan.");
     }
   };
 
   const handleSendReject = async () => {
     if (!reason.trim()) {
-      alert("Alasan penolakan wajib diisi.");
+      showFeedback("warning", "Alasan penolakan wajib diisi.");
       return;
     }
     try {
       const response = await api.patch(`/loans/${loanId}/reject`, {
         user_id: userId,
-        reason
+        reason,
       });
       if (response.data.success) {
-        alert("Pengajuan telah ditolak.");
+        showFeedback("success", response.data?.message || "Pengajuan telah ditolak.");
         handleCloseReject();
         fetchLoanDetail();
       }
     } catch (err) {
-      alert(err.response?.data?.message || "Gagal menolak pengajuan.");
+      showFeedback("error", err.response?.data?.message || "Gagal menolak pengajuan.");
     }
   };
 
@@ -120,7 +133,7 @@ const LoanSubmissionDetailPage = () => {
   };
 
   const formatCurrency = (value) => `Rp ${new Intl.NumberFormat("id-ID").format(Number(value || 0))}`;
-  
+
   const formatDate = (value) => {
     if (!value) return "-";
     const date = new Date(value);
@@ -130,31 +143,48 @@ const LoanSubmissionDetailPage = () => {
 
   const canApproveAsAdmin = loan?.status_pengajuan === "pending";
 
-  if (loading) return (
-    <Box sx={{ p: 5, textAlign: "center" }}>
-      <CircularProgress size={40} thickness={4} />
-      <Typography sx={{ mt: 2 }} color="text.secondary">Memuat detail pengajuan...</Typography>
-    </Box>
-  );
+  if (loading) {
+    return (
+      <Box sx={{ p: 5, textAlign: "center" }}>
+        <CircularProgress size={40} thickness={4} />
+        <Typography sx={{ mt: 2 }} color="text.secondary">
+          Memuat detail pengajuan...
+        </Typography>
+      </Box>
+    );
+  }
 
-  if (error) return (
-    <Box sx={{ p: 5 }}>
-      <Alert severity="error">{error}</Alert>
-      <Button variant="outlined" sx={{ mt: 2 }} onClick={() => navigate(-1)}>Kembali</Button>
-    </Box>
-  );
+  if (error) {
+    return (
+      <Box sx={{ p: 5 }}>
+        <Alert severity="error">{error}</Alert>
+        <Button variant="outlined" sx={{ mt: 2 }} onClick={() => navigate(-1)}>
+          Kembali
+        </Button>
+      </Box>
+    );
+  }
 
   return (
     <Box sx={{ p: 4, background: "#f5f7fb", minHeight: "100vh" }}>
       <Breadcrumbs separator={<NavigateNextIcon fontSize="small" />} sx={{ mb: 2 }}>
-        <Link underline="hover" color="inherit" onClick={() => navigate("/admin/loans/pengajuan")} sx={{ cursor: "pointer" }}>Pengajuan Cicilan</Link>
+        <Link underline="hover" color="inherit" onClick={() => navigate("/admin/loans/pengajuan")} sx={{ cursor: "pointer" }}>
+          Pengajuan Cicilan
+        </Link>
         <Typography color="text.primary">Detail Pengajuan</Typography>
       </Breadcrumbs>
 
       <Card sx={{ borderRadius: 4, mb: 3, boxShadow: "none", border: "1px solid #E5E7EB" }}>
         <CardContent sx={{ py: 2, "&:last-child": { pb: 2 } }}>
           <Stack direction="row" spacing={2} alignItems="center">
-            <Avatar sx={{ bgcolor: "#FFF8E1", color: "#F59E0B", width: 44, height: 44 }}>
+            <Avatar
+              sx={{
+                bgcolor: loan?.status_pengajuan === "paid" ? "#DBEAFE" : "#FFF8E1",
+                color: loan?.status_pengajuan === "paid" ? "#2563EB" : "#F59E0B",
+                width: 44,
+                height: 44
+              }}
+            >
               <IconFileText size="1.3rem" />
             </Avatar>
             <Box>
@@ -162,7 +192,15 @@ const LoanSubmissionDetailPage = () => {
                 {loan?.loan_number ? `#${loan.loan_number}` : "-"}
               </Typography>
               <Typography variant="h3" sx={{ fontWeight: 800, color: "#1E293B", mt: 0.2 }}>
-                {loan?.status_pengajuan === "pending" ? "Menunggu Konfirmasi Admin" : (loan?.status_pengajuan === "pending_pengajuan" ? "Menunggu Konfirmasi Lead" : (loan?.status_pengajuan === "rejected" ? "Ditolak" : "Pengajuan Diproses"))}
+                {loan?.status_pengajuan === "pending"
+                  ? "Menunggu Konfirmasi Admin"
+                  : loan?.status_pengajuan === "pending_pengajuan"
+                    ? "Menunggu Konfirmasi Lead"
+                    : loan?.status_pengajuan === "rejected"
+                      ? "Ditolak"
+                      : loan?.status_pengajuan === "paid"
+                        ? "Lunas"
+                        : "Pengajuan Diproses"}
               </Typography>
             </Box>
           </Stack>
@@ -171,7 +209,6 @@ const LoanSubmissionDetailPage = () => {
 
       <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", lg: "2fr 1fr" }, gap: 3 }}>
         <Stack spacing={3}>
-          {/* INFORMASI ANGGOTA */}
           <Card sx={{ borderRadius: 3, border: "1px solid #E5E7EB", boxShadow: "none" }}>
             <CardContent sx={{ p: 3 }}>
               <Stack direction="row" spacing={1} alignItems="center" mb={2}>
@@ -179,7 +216,7 @@ const LoanSubmissionDetailPage = () => {
                 <Typography variant="h4" fontWeight={700}>Informasi Anggota</Typography>
               </Stack>
               <Divider sx={{ mb: 2 }} />
-              
+
               <Stack spacing={1.5}>
                 <Box sx={{ display: "flex", gap: 1 }}>
                   <Typography variant="body1" sx={{ width: 140, color: "#64748B", fontWeight: 500 }}>Nama Anggota</Typography>
@@ -193,7 +230,6 @@ const LoanSubmissionDetailPage = () => {
             </CardContent>
           </Card>
 
-          {/* DETAIL PINJAMAN */}
           <Card sx={{ borderRadius: 3, border: "1px solid #E5E7EB", boxShadow: "none" }}>
             <CardContent sx={{ p: 3 }}>
               <Stack direction="row" spacing={1} alignItems="center" mb={2}>
@@ -206,7 +242,7 @@ const LoanSubmissionDetailPage = () => {
                 <Box sx={{ display: "flex", gap: 1 }}>
                   <Typography variant="body1" sx={{ width: 140, color: "#64748B", fontWeight: 500 }}>Jenis Pinjaman</Typography>
                   <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                    <Typography variant="body1" sx={{ fontWeight: 700 }}>:</Typography>
+                    <Typography variant="body1" sx={{ fontWeight: 700 }}>: </Typography>
                     <Chip
                       label={String(loan?.type || "Produktif").toUpperCase()}
                       size="small"
@@ -230,17 +266,44 @@ const LoanSubmissionDetailPage = () => {
                   <Typography variant="body1" sx={{ width: 140, color: "#64748B", fontWeight: 500 }}>Potong Gaji</Typography>
                   <Typography variant="body1" sx={{ fontWeight: 700 }}>: {formatMonthYear(loan?.bulan_potong_gaji)}</Typography>
                 </Box>
+                {loan?.document_url && (
+                  <Box sx={{ display: "flex", gap: 1 }}>
+                    <Typography variant="body1" sx={{ width: 140, color: "#64748B", fontWeight: 500 }}>Bukti Nota</Typography>
+                    <Box sx={{ display: "flex", flexDirection: "column", gap: 0.5 }}>
+                      <Typography variant="body1" sx={{ fontWeight: 700, mb: 0.5 }}>: </Typography>
+                      <Box 
+                        component="img" 
+                        src={loan.document_url} 
+                        alt="Bukti Nota"
+                        sx={{ 
+                          width: 120, 
+                          height: 120, 
+                          objectFit: 'cover', 
+                          borderRadius: 2,
+                          cursor: 'pointer',
+                          border: '1px solid #E5E7EB',
+                          ml: 1,
+                          '&:hover': { opacity: 0.8 }
+                        }} 
+                        onClick={() => window.open(loan.document_url, '_blank')}
+                      />
+                      <Typography variant="caption" sx={{ ml: 1, color: 'primary.main', cursor: 'pointer', fontWeight: 600 }} onClick={() => window.open(loan.document_url, '_blank')}>
+                        Klik untuk memperbesar
+                      </Typography>
+                    </Box>
+                  </Box>
+                )}
               </Stack>
 
               <Box sx={{ mt: 3 }}>
                 <Typography variant="caption" color="text.secondary" fontWeight={800} sx={{ mb: 1, display: "block", letterSpacing: 1 }}>ALASAN PINJAMAN</Typography>
-                <Box 
-                  sx={{ 
-                    bgcolor: "#f4f8faff", 
-                    p: 2.5, 
-                    borderRadius: "0 12px 12px 0", 
+                <Box
+                  sx={{
+                    bgcolor: "#f4f8faff",
+                    p: 2.5,
+                    borderRadius: "0 12px 12px 0",
                     borderLeft: "5px solid #6fa8c7ff",
-                    boxShadow: "0 2px 4px rgba(0,0,0,0.02)"
+                    boxShadow: "0 2px 4px rgba(0,0,0,0.02)",
                   }}
                 >
                   <Typography variant="body1" sx={{ color: "#505d6eff", fontWeight: 500, lineHeight: 1.6 }}>
@@ -274,10 +337,10 @@ const LoanSubmissionDetailPage = () => {
                     borderRadius: 2,
                     textTransform: "none",
                     fontWeight: 700,
-                    "&:hover": { bgcolor: "#2d7f4b" }
+                    "&:hover": { bgcolor: "#2d7f4b" },
                   }}
                 >
-                  {canApproveAsAdmin ? "Konfirmasi Pengajuan" : "Sudah Dikonfirmasi Admin"}
+                  {canApproveAsAdmin ? "Setujui Pengajuan" : "Sudah Diproses"}
                 </Button>
 
                 <Button
@@ -293,7 +356,7 @@ const LoanSubmissionDetailPage = () => {
                     textTransform: "none",
                     fontWeight: 700,
                     borderWidth: 2,
-                    "&:hover": { borderWidth: 2 }
+                    "&:hover": { borderWidth: 2 },
                   }}
                 >
                   Tolak Pengajuan
@@ -310,7 +373,7 @@ const LoanSubmissionDetailPage = () => {
                       bgcolor: loan?.status_pengajuan === "pending" ? "#FFF8E1" : "#DCFCE7",
                       color: loan?.status_pengajuan === "pending" ? "#F59E0B" : "#16A34A",
                       width: 32,
-                      height: 32
+                      height: 32,
                     }}
                   >
                     <IconDots size="1rem" />
@@ -318,7 +381,7 @@ const LoanSubmissionDetailPage = () => {
                   <Box>
                     <Typography variant="subtitle2" fontWeight={700}>Admin</Typography>
                     <Typography variant="caption" color="text.secondary">
-                      {loan?.status_pengajuan === "pending" ? "Menunggu Konfirmasi" : (loan?.status_pengajuan === "rejected" && !loan?.tgl_acc_admin ? "Ditolak" : `Dikonfirmasi`)}
+                      {loan?.status_pengajuan === "pending" ? "Menunggu Konfirmasi" : loan?.status_pengajuan === "rejected" && !loan?.tgl_acc_admin ? "Ditolak" : "Dikonfirmasi"}
                     </Typography>
                   </Box>
                 </Stack>
@@ -326,10 +389,10 @@ const LoanSubmissionDetailPage = () => {
                 <Stack direction="row" spacing={2} alignItems="center">
                   <Avatar
                     sx={{
-                      bgcolor: loan?.status_pengajuan === "pending_pengajuan" ? "#E3F2FD" : (loan?.status_pengajuan === "disetujui_ketua" || loan?.status_pengajuan === "aktif" ? "#DCFCE7" : "#F1F5F9"),
-                      color: loan?.status_pengajuan === "pending_pengajuan" ? "#2196F3" : (loan?.status_pengajuan === "disetujui_ketua" || loan?.status_pengajuan === "aktif" ? "#16A34A" : "#94A3B8"),
+                      bgcolor: loan?.status_pengajuan === "pending_pengajuan" ? "#E3F2FD" : (["disetujui_ketua", "aktif", "paid"].includes(loan?.status_pengajuan) ? "#DCFCE7" : "#F1F5F9"),
+                      color: loan?.status_pengajuan === "pending_pengajuan" ? "#2196F3" : (["disetujui_ketua", "aktif", "paid"].includes(loan?.status_pengajuan) ? "#16A34A" : "#94A3B8"),
                       width: 32,
-                      height: 32
+                      height: 32,
                     }}
                   >
                     <IconLock size="1rem" />
@@ -337,7 +400,15 @@ const LoanSubmissionDetailPage = () => {
                   <Box>
                     <Typography variant="subtitle2" fontWeight={700}>Lead</Typography>
                     <Typography variant="caption" color="text.secondary">
-                      {loan?.status_pengajuan === "pending" ? "Menunggu Admin" : (loan?.status_pengajuan === "pending_pengajuan" ? "Menunggu Konfirmasi" : (loan?.status_pengajuan === "rejected" && loan?.tgl_acc_admin ? "Ditolak" : (loan?.status_pengajuan === "disetujui_ketua" || loan?.status_pengajuan === "aktif" ? "Disetujui" : "-")))}
+                      {loan?.status_pengajuan === "pending"
+                        ? "Menunggu Admin"
+                        : loan?.status_pengajuan === "pending_pengajuan"
+                          ? "Menunggu Konfirmasi"
+                          : loan?.status_pengajuan === "rejected" && loan?.tgl_acc_admin
+                            ? "Ditolak"
+                            : ["disetujui_ketua", "aktif", "paid"].includes(loan?.status_pengajuan)
+                              ? "Disetujui"
+                              : "-"}
                     </Typography>
                   </Box>
                 </Stack>
@@ -347,7 +418,6 @@ const LoanSubmissionDetailPage = () => {
         </Stack>
       </Box>
 
-      {/* MODAL REJECT */}
       <Dialog open={openReject} onClose={handleCloseReject} fullWidth maxWidth="xs">
         <DialogTitle sx={{ fontWeight: 700 }}>Tolak Pengajuan</DialogTitle>
         <DialogContent>
@@ -369,6 +439,13 @@ const LoanSubmissionDetailPage = () => {
           <Button onClick={handleSendReject} variant="contained" color="error">Ya, Tolak</Button>
         </DialogActions>
       </Dialog>
+
+      <LoanFeedbackSnackbar
+        open={feedback.open}
+        message={feedback.message}
+        severity={feedback.severity}
+        onClose={handleCloseFeedback}
+      />
     </Box>
   );
 };

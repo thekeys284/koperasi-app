@@ -17,16 +17,21 @@ import {
     Breadcrumbs,
     Link,
     Alert,
-    Snackbar
+    Dialog,
+    DialogTitle,
+    DialogContent,
+    IconButton,
 } from "@mui/material";
 import api from "../../../api/axios";
+import LoanFeedbackSnackbar from "../../../ui-component/feedback/LoanFeedbackSnackbar";
 
 import {
     IconFileDescription,
     IconPaperclip,
     IconChevronDown,
     IconLock,
-    IconInfoCircle
+    IconInfoCircle,
+    IconCircleX
 } from "@tabler/icons-react";
 
 import NavigateNextIcon from "@mui/icons-material/NavigateNext";
@@ -58,7 +63,13 @@ const LeadLoanCreatePage = () => {
     const [keterangan, setKeterangan] = React.useState("");
     const [submitting, setSubmitting] = React.useState(false);
     const [errorMessage, setErrorMessage] = React.useState("");
-    const [successOpen, setSuccessOpen] = React.useState(false);
+    const [feedback, setFeedback] = React.useState({
+        open: false,
+        message: "",
+        severity: "success",
+    });
+    const [previewOpen, setPreviewOpen] = React.useState(false);
+    const [previewUrl, setPreviewUrl] = React.useState("");
     const fileRef = React.useRef();
 
     React.useEffect(() => {
@@ -77,8 +88,21 @@ const LeadLoanCreatePage = () => {
     const handleFile = (e) => {
         const file = e.target.files[0];
         if (file) {
+            // Validation: Max 2MB
+            if (file.size > 2 * 1024 * 1024) {
+                setErrorMessage("Ukuran file maksimal adalah 2MB.");
+                return;
+            }
+            // Validation: Format
+            if (!['image/jpeg', 'image/png', 'image/jpg'].includes(file.type)) {
+                setErrorMessage("Format file harus JPG, JPEG, atau PNG.");
+                return;
+            }
+
             setFileName(file.name);
             setSelectedFile(file);
+            setPreviewUrl(URL.createObjectURL(file));
+            setErrorMessage("");
         }
     };
 
@@ -86,6 +110,13 @@ const LeadLoanCreatePage = () => {
         try {
             setSubmitting(true);
             setErrorMessage("");
+
+            // Validation for Konsumtif
+            if (tipePinjaman === "konsumtif" && !selectedFile) {
+                setErrorMessage("Bukti nota pembelian wajib diunggah untuk pinjaman konsumtif.");
+                setSubmitting(false);
+                return;
+            }
 
             const payload = new FormData();
             payload.append("user_id", "10");
@@ -105,7 +136,11 @@ const LeadLoanCreatePage = () => {
                 },
             });
 
-            setSuccessOpen(true);
+            setFeedback({
+                open: true,
+                message: "Pengajuan pinjaman berhasil dikirim.",
+                severity: "success",
+            });
             setKeterangan("");
             setJumlah(0);
             setTenor(3);
@@ -127,6 +162,10 @@ const LeadLoanCreatePage = () => {
         } finally {
             setSubmitting(false);
         }
+    };
+
+    const handleCloseFeedback = () => {
+        setFeedback((prev) => ({ ...prev, open: false }));
     };
 
     const tenorLabel = jumlah > 0 ? tenor : 0;
@@ -206,10 +245,10 @@ const LeadLoanCreatePage = () => {
                                             Kirim Bukti Nota Pinjaman Konsumtif
                                         </Typography>
                                         <Typography fontSize={13} color="text.secondary" mb={1}>
-                                            Upload file nota pembelanjaan untuk tipe pinjaman konsumtif
+                                            Upload file nota pembelanjaan (JPG/PNG, Max 2MB)
                                         </Typography>
 
-                                        <input hidden type="file" accept="image/*,.pdf" ref={fileRef} onChange={handleFile} />
+                                        <input hidden type="file" accept="image/*" ref={fileRef} onChange={handleFile} />
 
                                         <TextField
                                             fullWidth
@@ -228,6 +267,34 @@ const LeadLoanCreatePage = () => {
                                             }}
                                             sx={{ "& .MuiOutlinedInput-root": { cursor: "pointer" } }}
                                         />
+
+                                        {previewUrl && (
+                                            <Box sx={{ mt: 2, position: 'relative', width: 'fit-content' }}>
+                                                <Box 
+                                                    component="img" 
+                                                    src={previewUrl} 
+                                                    alt="Preview" 
+                                                    sx={{ 
+                                                        width: 100, 
+                                                        height: 100, 
+                                                        borderRadius: '12px', 
+                                                        objectFit: 'cover', 
+                                                        border: '1px solid #e2e8f0',
+                                                        display: 'block',
+                                                        cursor: 'pointer'
+                                                    }} 
+                                                    onClick={() => setPreviewOpen(true)}
+                                                />
+                                                <Typography 
+                                                    variant="caption" 
+                                                    color="primary" 
+                                                    sx={{ cursor: 'pointer', mt: 0.5, display: 'block' }}
+                                                    onClick={() => setPreviewOpen(true)}
+                                                >
+                                                    Klik untuk memperbesar
+                                                </Typography>
+                                            </Box>
+                                        )}
                                     </Box>
                                 )}
 
@@ -393,16 +460,35 @@ const LeadLoanCreatePage = () => {
                 </Grid>
             </Grid>
 
-            <Snackbar
-                open={successOpen}
+            <LoanFeedbackSnackbar
+                open={feedback.open}
+                message={feedback.message}
+                severity={feedback.severity}
+                onClose={handleCloseFeedback}
                 autoHideDuration={2000}
-                onClose={() => setSuccessOpen(false)}
-                anchorOrigin={{ vertical: "top", horizontal: "right" }}
+            />
+
+            {/* MODAL PREVIEW FIGMA-STYLE */}
+            <Dialog 
+                open={previewOpen} 
+                onClose={() => setPreviewOpen(false)} 
+                maxWidth="md" 
+                PaperProps={{ sx: { borderRadius: '16px', overflow: 'hidden' } }}
             >
-                <Alert severity="success" variant="filled" onClose={() => setSuccessOpen(false)}>
-                    Pengajuan pinjaman berhasil dikirim.
-                </Alert>
-            </Snackbar>
+                <DialogTitle sx={{ m: 0, p: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <Typography variant="h5" fontWeight={700}>Preview Bukti Nota</Typography>
+                    <IconButton size="small" onClick={() => setPreviewOpen(false)}>
+                        <IconCircleX size={20} />
+                    </IconButton>
+                </DialogTitle>
+                <DialogContent sx={{ p: 0, bgcolor: '#f8fafc' }}>
+                    <Box 
+                        component="img" 
+                        src={previewUrl} 
+                        sx={{ width: '100%', maxHeight: '70vh', objectFit: 'contain', display: 'block' }} 
+                    />
+                </DialogContent>
+            </Dialog>
         </Box>
     );
 };

@@ -47,7 +47,16 @@ const getLoanStatusMeta = (loan) => {
     };
   }
 
-  if (["disetujui_ketua", "pending_pengajuan", "aktif", "paid"].includes(statusPengajuan)) {
+  if (statusPengajuan === "paid") {
+    return {
+      label: "Lunas",
+      color: "#2563eb",
+      bg: "#dbeafe",
+      reason: null,
+    };
+  }
+
+  if (["disetujui_ketua", "pending_pengajuan", "aktif"].includes(statusPengajuan)) {
     return {
       label: "Aktif",
       color: "#16a34a",
@@ -81,19 +90,19 @@ const RejectionNote = ({ reason }) => {
   const displayText = expanded || !isLong ? reason : `${reason.substring(0, 50)}...`;
 
   return (
-    <Box 
-      sx={{ 
-        mt: 0.5, 
-        maxWidth: 180, 
-        cursor: isLong ? "pointer" : "default" 
+    <Box
+      sx={{
+        mt: 0.5,
+        maxWidth: 180,
+        cursor: isLong ? "pointer" : "default"
       }}
       onClick={() => isLong && setExpanded(!expanded)}
     >
-      <Typography 
-        fontSize={11} 
-        color="#64748B" 
+      <Typography
+        fontSize={11}
+        color="#64748B"
         fontWeight={500}
-        sx={{ 
+        sx={{
           lineHeight: 1.4,
           fontStyle: "italic",
           textDecoration: isLong && !expanded ? 'underline' : 'none',
@@ -203,20 +212,20 @@ const getLoanListStatusLabel = (loan) => {
 // Categorize loans for new layout
 const categorizeLoansByStatus = (loans) => {
   const postponementRequests = loans.filter((loan) => loan.status_pengajuan === "postpone");
-  
-  const paymentConfirmationLoans = loans.filter((loan) => 
-    (loan.status_pengajuan === "disetujui_ketua") && 
+
+  const paymentConfirmationLoans = loans.filter((loan) =>
+    (loan.status_pengajuan === "disetujui_ketua") &&
     hasCurrentMonthUnpaidInstallment(loan) &&
     loan.status_pengajuan !== "postpone"
   );
-  
+
   const activeLoansPaidThisMonth = loans.filter((loan) =>
     loan.status_pengajuan === "disetujui_ketua" &&
     !hasCurrentMonthUnpaidInstallment(loan)
   );
-  
+
   const paidOffLoans = loans.filter((loan) => loan.status_pengajuan === "paid");
-  
+
   return {
     postponementRequests,
     paymentConfirmationLoans,
@@ -259,7 +268,7 @@ const LoanPage = () => {
     item.status_pengajuan === "disetujui_ketua" || item.status_pengajuan === "postpone"
   ));
   const { postponementRequests, paymentConfirmationLoans, activeLoansPaidThisMonth, paidOffLoans } = categorizeLoansByStatus(loans);
-  
+
   const pendingConfirmationLoans = runningLoans
     .filter((item) => hasCurrentMonthUnpaidInstallment(item) || item.status_pengajuan === "postpone")
     .sort((a, b) => {
@@ -270,7 +279,7 @@ const LoanPage = () => {
     });
   const paidLoans = loans
     .filter((item) => (
-      item.status_pengajuan === "paid" || 
+      item.status_pengajuan === "paid" ||
       ((item.status_pengajuan === "disetujui_ketua" || item.status_pengajuan === "postpone") && !hasCurrentMonthUnpaidInstallment(item))
     ))
     .sort((a, b) => {

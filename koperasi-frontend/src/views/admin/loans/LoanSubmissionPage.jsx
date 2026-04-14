@@ -97,24 +97,34 @@ const StatusBadge = ({ loan }) => {
       bg: "#dbeafe",
       reason: null
     };
-  } else if (["disetujui_ketua", "aktif", "paid"].includes(statusPengajuan)) {
+  } else if (["disetujui_ketua", "aktif"].includes(statusPengajuan)) {
     config = {
       label: "Selesai",
       color: "#16a34a",
       bg: "#dcfce7",
       reason: null
     };
+  } else if (statusPengajuan === "paid") {
+    config = {
+      label: "Lunas",
+      color: "#2563eb",
+      bg: "#dbeafe",
+      reason: null
+    };
   }
 
   return (
-    <Stack spacing={0.5}>
+    <Stack spacing={0.5} alignItems="center">
       <Chip
         label={config.label}
         size="small"
         sx={{
           background: config.bg,
           color: config.color,
-          fontWeight: 600
+          fontWeight: 600,
+          display: "inline-flex",
+          width: "auto",
+          maxWidth: "fit-content"
         }}
       />
       <RejectionNote reason={config.reason} />
@@ -308,7 +318,7 @@ const LoanSubmissionPage = () => {
                   <TableCell>ANGGOTA</TableCell>
                   <TableCell>JENIS & JUMLAH</TableCell>
                   <TableCell>TENOR</TableCell>
-                  <TableCell>STATUS</TableCell>
+                  <TableCell align="center">STATUS</TableCell>
                   <TableCell align="center">AKSI</TableCell>
                 </TableRow>
               </TableHead>
@@ -339,7 +349,7 @@ const LoanSubmissionPage = () => {
 
                     <TableCell sx={{ fontWeight: 600 }}>{loan.lama_pembayaran} Bulan</TableCell>
 
-                    <TableCell>
+                    <TableCell align="center">
                       <StatusBadge loan={loan} />
                     </TableCell>
 
