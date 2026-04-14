@@ -7,9 +7,6 @@ import checkGreenIcon from "../../../assets/images/admin/check-green.svg";
 import alertOrangeIcon from "../../../assets/images/admin/alert-orange.svg";
 
 import {
-  Accordion,
-  AccordionDetails,
-  AccordionSummary,
   Card,
   CardContent,
   Typography,

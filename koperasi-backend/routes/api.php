@@ -49,6 +49,7 @@ Route::prefix('loans')->group(function () {
     Route::patch('/{id}/reject', [LoanController::class, 'reject']);
     Route::patch('/{id}/postpone-request', [LoanController::class, 'postponeRequest']);
     Route::patch('/{loan}/cicilan/{cicilan}', [LoanController::class, 'updateCicilan']);
+    Route::get('/report/data', [LoanController::class, 'report']);
 });
 
 // Alias lama supaya frontend lama tetap jalan

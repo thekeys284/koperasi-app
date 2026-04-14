@@ -14,6 +14,7 @@ const AdminLoanPage = Loadable(lazy(() => import('views/admin/loans/LoanPage.jsx
 const AdminLoanDetails = Loadable(lazy(() => import('views/admin/loans/LoanDetails.jsx')));
 const AdminLoanSubmissionPage = Loadable(lazy(() => import('views/admin/loans/LoanSubmissionPage.jsx')));
 const AdminLoanSubmissionDetail = Loadable(lazy(() => import('views/admin/loans/LoanSubmissionDetail.jsx')));
+const AdminLoanGenerateReport = Loadable(lazy(() => import('views/admin/loans/LoanGenerateReport.jsx')));
 const UserLoanPage = Loadable(lazy(() => import('views/users/loans/userLoans.jsx')));
 const UserLoanCreatePage = Loadable(lazy(() => import('views/users/loans/userPengajuan.jsx')));
 const UserLoanCicilanPage = Loadable(lazy(() => import('views/users/loans/userCicilan.jsx')));
@@ -67,7 +68,8 @@ const MainRoutes = {
                             ]
                         },
                         { path: 'daftar', element: <AdminLoanPage /> },
-                        { path: 'details', element: <AdminLoanDetails /> }
+                        { path: 'details', element: <AdminLoanDetails /> },
+                        { path: 'generate-report', element: <AdminLoanGenerateReport /> }
                     ]
                 },
                 // {

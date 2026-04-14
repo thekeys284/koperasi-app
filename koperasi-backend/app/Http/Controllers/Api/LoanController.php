@@ -902,4 +902,75 @@ class LoanController extends Controller
             $currentDueDate = $currentDueDate->copy()->addMonthNoOverflow();
         }
     }
+    public function report(Request $request)
+    {
+        $query = Loan::query()->with(['user', 'cicilan']);
+
+        // Filter by Month & Year of starting installment or submission
+        if ($request->filled('month') && $request->month !== 'all') {
+            $query->whereMonth('tanggal_mulai_cicilan', $request->month);
+        }
+        if ($request->filled('year') && $request->year !== 'all') {
+            $query->whereYear('tanggal_mulai_cicilan', $request->year);
+        }
+
+        // Filter by User
+        if ($request->filled('user_id') && $request->user_id !== 'all') {
+            $query->where('user_id', $request->user_id);
+        }
+
+        // Filter by Type
+        if ($request->filled('jenis_pinjaman') && $request->jenis_pinjaman !== 'all') {
+            $query->where('jenis_pinjaman', $request->jenis_pinjaman === 'produktif' ? 1 : 0);
+        }
+
+        // Filter by Status
+        if ($request->filled('status') && $request->status !== 'all') {
+            $status = $request->status;
+            if ($status === 'aktif') {
+                $query->whereIn('status_pengajuan', ['aktif', 'disetujui_ketua']);
+            } elseif ($status === 'pending') {
+                $query->whereIn('status_pengajuan', ['pending', 'pending_pengajuan', 'postpone']);
+            } elseif ($status === 'lunas') {
+                $query->where('status_pengajuan', 'paid');
+            } else {
+                $query->where('status_pengajuan', $status);
+            }
+        }
+
+        $loans = $query->get();
+
+        $tableData = $loans->map(function ($loan) {
+            $totalTerbayar = $loan->cicilan->where('status_pembayaran', 'paid')->sum('nominal');
+            $sisaPinjaman = (float)$loan->jumlah_pinjaman - $totalTerbayar;
+            
+            return [
+                'id' => $loan->id,
+                'user_name' => $loan->user?->name,
+                'jenis_pinjaman' => $loan->jenis_pinjaman == 1 ? 'Produktif' : 'Konsumtif',
+                'jumlah_pinjaman' => (float)$loan->jumlah_pinjaman,
+                'tenor' => $loan->lama_pembayaran,
+                'cicilan_per_bulan' => $loan->cicilan->first()?->nominal ?? 0,
+                'total_terbayar' => $totalTerbayar,
+                'sisa_pinjaman' => $sisaPinjaman,
+                'status' => $this->mapStatusDisplay($loan->status_pengajuan),
+            ];
+        });
+
+        $totalPinjaman = $loans->sum('jumlah_pinjaman');
+        $totalTerbayar = $loans->sum(fn($l) => $l->cicilan->where('status_pembayaran', 'paid')->sum('nominal'));
+        $totalSisa = $totalPinjaman - $totalTerbayar;
+        $jumlahPeminjam = $loans->unique('user_id')->count();
+
+        return response()->json([
+            'success' => true,
+            'summary' => [
+                'total_pinjaman' => (float)$totalPinjaman,
+                'total_terbayar' => (float)$totalTerbayar,
+                'total_sisa' => (float)$totalSisa,
+                'jumlah_peminjam' => $jumlahPeminjam,
+            ],
+            'data' => $tableData
+        ]);
+    }
 }
