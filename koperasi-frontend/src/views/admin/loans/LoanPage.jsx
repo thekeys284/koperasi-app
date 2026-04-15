@@ -354,7 +354,7 @@ const LoanPage = () => {
         />
 
         <StatCard
-          title="Total Pinjaman Paid"
+          title="Total Pinjaman Lunas"
           value={totalPaidLoans}
           color="blue"
           icon={<AccountBalanceWalletOutlinedIcon sx={{ fontSize: 24, color: "#2563eb" }} />}

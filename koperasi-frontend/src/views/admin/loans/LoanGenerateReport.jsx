@@ -4,7 +4,6 @@ import {
     Typography,
     Breadcrumbs,
     Link,
-    Grid,
     Card,
     CardContent,
     Stack,
@@ -35,10 +34,10 @@ import {
     IconUsers,
     IconDownload,
     IconFileSpreadsheet,
-    IconPdf
 } from "@tabler/icons-react";
 
 import api from "../../../api/axios";
+import * as XLSX from "xlsx";
 
 export default function LoanGenerateReport() {
     const [loading, setLoading] = useState(false);
@@ -103,28 +102,26 @@ export default function LoanGenerateReport() {
     const handleExportExcel = () => {
         if (reportData.length === 0) return;
         
-        const headers = ["Nama Anggota", "Jenis Pinjaman", "Jumlah Pinjaman", "Tenor", "Cicilan per Bulan", "Total Terbayar", "Sisa Pinjaman", "Status"];
-        const rows = reportData.map(item => [
-            item.user_name,
-            item.jenis_pinjaman,
-            item.jumlah_pinjaman,
-            `${item.tenor} Bulan`,
-            item.cicilan_per_bulan,
-            item.total_terbayar,
-            item.sisa_pinjaman,
-            item.status
-        ]);
+        const worksheetData = reportData.map(item => ({
+            "Nama Anggota": item.user_name,
+            "Jenis Pinjaman": item.jenis_pinjaman,
+            "Jumlah Pinjaman": item.jumlah_pinjaman,
+            "Tenor": `${item.tenor} Bulan`,
+            "Cicilan per Bulan": item.cicilan_per_bulan,
+            "Total Terbayar": item.total_terbayar,
+            "Sisa Pinjaman": item.sisa_pinjaman,
+            "Status": item.status
+        }));
 
-        let csvContent = "data:text/csv;charset=utf-8," 
-            + headers.join(",") + "\n"
-            + rows.map(e => e.join(",")).join("\n");
+        const worksheet = XLSX.utils.json_to_sheet(worksheetData);
+        const workbook = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(workbook, worksheet, "Laporan Pinjaman");
 
-        const encodedUri = encodeURI(csvContent);
-        const link = document.createElement("a");
-        link.setAttribute("href", encodedUri);
-        link.setAttribute("download", `Laporan_Pinjaman_${filters.month}_${filters.year}.csv`);
-        document.body.appendChild(link);
-        link.click();
+        // Generate file name
+        const fileName = `Laporan_Pinjaman_${filters.month}_${filters.year}.xlsx`;
+
+        // Export to file
+        XLSX.writeFile(workbook, fileName);
     };
 
     return (
@@ -142,8 +139,15 @@ export default function LoanGenerateReport() {
             <Card sx={{ borderRadius: "16px", boxShadow: "0 4px 12px rgba(0,0,0,0.03)", mb: 4, border: "1px solid #e2e8f0" }}>
                 <CardContent sx={{ p: 3 }}>
                     <Typography variant="h4" sx={{ fontWeight: 700, mb: 3 }}>Filter Laporan</Typography>
-                    <Grid container spacing={3} alignItems="flex-end">
-                        <Grid item xs={12} sm={6} md={2}>
+                    <Box
+                        sx={{
+                            display: "flex",
+                            flexWrap: "wrap",
+                            gap: 2,
+                            alignItems: "flex-end"
+                        }}
+                    >
+                        <Box sx={{ flex: { xs: "1 1 100%", sm: "2 1 160px" } }}>
                             <Typography variant="body2" sx={{ fontWeight: 600, mb: 1, color: "text.secondary" }}>Bulan</Typography>
                             <Select 
                                 fullWidth size="small" 
@@ -156,8 +160,8 @@ export default function LoanGenerateReport() {
                                     <MenuItem key={m.value} value={m.value}>{m.label}</MenuItem>
                                 ))}
                             </Select>
-                        </Grid>
-                        <Grid item xs={12} sm={6} md={2}>
+                        </Box>
+                        <Box sx={{ flex: { xs: "1 1 100%", sm: "2 1 160px" } }}>
                             <Typography variant="body2" sx={{ fontWeight: 600, mb: 1, color: "text.secondary" }}>Tahun</Typography>
                             <Select 
                                 fullWidth size="small" 
@@ -169,8 +173,8 @@ export default function LoanGenerateReport() {
                                     <MenuItem key={y} value={y}>{y}</MenuItem>
                                 ))}
                             </Select>
-                        </Grid>
-                        <Grid item xs={12} sm={6} md={3}>
+                        </Box>
+                        <Box sx={{ flex: { xs: "1 1 100%", sm: "3 1 220px" } }}>
                             <Typography variant="body2" sx={{ fontWeight: 600, mb: 1, color: "text.secondary" }}>Anggota</Typography>
                             <Select 
                                 fullWidth size="small" 
@@ -183,8 +187,8 @@ export default function LoanGenerateReport() {
                                     <MenuItem key={u.id} value={u.id}>{u.name}</MenuItem>
                                 ))}
                             </Select>
-                        </Grid>
-                        <Grid item xs={12} sm={6} md={3}>
+                        </Box>
+                        <Box sx={{ flex: { xs: "1 1 100%", sm: "3 1 220px" } }}>
                             <Typography variant="body2" sx={{ fontWeight: 600, mb: 1, color: "text.secondary" }}>Status</Typography>
                             <Select 
                                 fullWidth size="small" 
@@ -198,8 +202,8 @@ export default function LoanGenerateReport() {
                                 <MenuItem value="pending">Menunggu</MenuItem>
                                 <MenuItem value="rejected">Ditolak</MenuItem>
                             </Select>
-                        </Grid>
-                        <Grid item xs={12} md={2}>
+                        </Box>
+                        <Box sx={{ flex: { xs: "1 1 100%", sm: "2 1 180px" } }}>
                             <Button 
                                 fullWidth variant="contained" 
                                 onClick={fetchReport}
@@ -215,33 +219,60 @@ export default function LoanGenerateReport() {
                             >
                                 {loading ? <CircularProgress size={24} color="inherit" /> : "Generate Laporan"}
                             </Button>
-                        </Grid>
-                    </Grid>
+                        </Box>
+                    </Box>
                 </CardContent>
             </Card>
 
-            <Grid container spacing={3} sx={{ mb: 4 }}>
+            <Box
+                sx={{
+                    mb: 4,
+                    // border: "2px solid black",
+                    display: "flex",
+                    gap: 2,
+                    flexWrap: "nowrap",
+                    overflow: "hidden"
+                }}
+            >
                 {[
                     { title: "Total Pinjaman", value: formatCurrency(summary.total_pinjaman), icon: <IconBuildingBank size={24} />, color: "#e3f2fd", iconColor: "#1e88e5" },
                     { title: "Total Terbayar", value: formatCurrency(summary.total_terbayar), icon: <IconReceipt2 size={24} />, color: "#e8f5e9", iconColor: "#43a047" },
                     { title: "Sisa Pinjaman", value: formatCurrency(summary.total_sisa), icon: <IconAlertCircle size={24} />, color: "#fff3e0", iconColor: "#fb8c00" },
                     { title: "Jumlah Peminjam", value: `${summary.jumlah_peminjam} Orang`, icon: <IconUsers size={24} />, color: "#f3e5f5", iconColor: "#8e24aa" }
-                ].map((card, idx) => (
-                    <Grid item xs={12} sm={6} md={3} lg={3} key={idx} sx={{ display: 'flex' }}>
-                        <Card sx={{ borderRadius: "16px", border: "1px solid #e2e8f0", boxShadow: "none", width: '100%', display: 'flex', alignItems: 'center' }}>
+                ].map((card, idx, arr) => (
+                    <Box key={idx} sx={{ display: "flex", flex: 1, minWidth: 0 }}>
+                        <Card sx={{ 
+                            borderRadius: 4,
+                            border: "none",
+                            borderRight: idx !== arr.length - 1 ? "1px solid #e2e8f0" : "none",
+                            boxShadow: "none",
+                            width: '100%', 
+                            display: 'flex', 
+                            alignItems: 'center',
+                            transition: "all 0.3s ease",
+                            "&:hover": {
+                                boxShadow: "0 8px 24px rgba(0,0,0,0.08)",
+                                transform: "translateY(-2px)"
+                            }
+                        }}>
                             <CardContent sx={{ display: "flex", alignItems: "center", gap: 2, p: 3, width: '100%' }}>
-                                <Avatar sx={{ bgcolor: card.color, color: card.iconColor, width: 48, height: 48 }}>
+                                <Avatar sx={{ 
+                                    bgcolor: card.color, 
+                                    color: card.iconColor, 
+                                    width: 56, 
+                                    height: 56 
+                                }}>
                                     {card.icon}
                                 </Avatar>
-                                <Box>
+                                <Box sx={{ flex: 1 }}>
                                     <Typography variant="body2" color="text.secondary" fontWeight={600}>{card.title}</Typography>
-                                    <Typography variant="h3" fontWeight={800}>{card.value}</Typography>
+                                    <Typography variant="h4" fontWeight={800} sx={{ mt: 0.5 }}>{card.value}</Typography>
                                 </Box>
                             </CardContent>
                         </Card>
-                    </Grid>
+                    </Box>
                 ))}
-            </Grid>
+            </Box>
 
             {/* TABLE SECTION */}
             <Card sx={{bgcolor:"success", borderRadius: "16px", border: "1px solid #e2e8f0", boxShadow: "none", overflow: "hidden" }}>
