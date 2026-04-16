@@ -25,12 +25,14 @@ import {
   Alert,
   Tabs,
   Tab,
+  Checkbox,
 } from "@mui/material";
 
 import NavigateNextIcon from "@mui/icons-material/NavigateNext";
 import MoreVertIcon from "@mui/icons-material/MoreVert";
 import AccountBalanceWalletOutlinedIcon from "@mui/icons-material/AccountBalanceWalletOutlined";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
+import LoanFeedbackSnackbar from "../../../ui-component/feedback/LoanFeedbackSnackbar";
 
 const getLoanStatusMeta = (loan) => {
   const statusPengajuan = loan?.status_pengajuan;
@@ -121,7 +123,7 @@ const StatusBadge = ({ loan }) => {
   const meta = getLoanStatusMeta(loan);
 
   return (
-    <Stack spacing={0.5}>
+    <Stack spacing={0.5} alignItems="flex-start">
       <Chip
         label={meta.label}
         size="small"
@@ -238,26 +240,85 @@ const LoanPage = () => {
   const [summary, setSummary] = React.useState(null);
   const [loans, setLoans] = React.useState([]);
   const [tabValue, setTabValue] = React.useState(0);
+  const [updatingInstallmentIds, setUpdatingInstallmentIds] = React.useState([]);
+  const [feedback, setFeedback] = React.useState({
+    open: false,
+    message: "",
+    severity: "success",
+  });
+
+  const fetchLoans = async () => {
+    try {
+      setLoading(true);
+      const response = await api.get("/loans", {
+        params: {
+          all: 1,
+          user_id: 1,
+        },
+      });
+      setSummary(response.data?.summary || null);
+      setLoans(response.data?.data || []);
+    } catch (err) {
+      setError(err.response?.data?.message || "Gagal mengambil data pinjaman.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDirectConfirm = async (loan, installment, isPaid) => {
+    if (!installment || !loan?.id) return;
+
+    const nextStatus = isPaid ? "paid" : "pending";
+    const nextTukinStatus = isPaid ? "sudah" : "belum";
+
+    setUpdatingInstallmentIds((prev) =>
+      prev.includes(installment.id) ? prev : [...prev, installment.id]
+    );
+
+    // Optimistic update
+    setLoans((prevLoans) =>
+      prevLoans.map((l) =>
+        l.id === loan.id
+          ? {
+              ...l,
+              cicilan: (l.cicilan || []).map((c) =>
+                c.id === installment.id
+                  ? { ...c, status_pembayaran: nextStatus, tukin_status: nextTukinStatus }
+                  : c
+              ),
+            }
+          : l
+      )
+    );
+
+    try {
+      await api.patch(`/loans/${loan.id}/cicilan/${installment.id}`, {
+        tukin_status: isPaid ? "sudah" : "pending",
+        note: "",
+      });
+
+      setFeedback({
+        open: true,
+        severity: "success",
+        message: isPaid ? "Pembayaran berhasil dikonfirmasi" : "Status pembayaran berhasil direset",
+      });
+      
+      // Refresh data in background
+      fetchLoans();
+    } catch (err) {
+      // Rollback on error
+      fetchLoans();
+      setFeedback({
+        open: true,
+        severity: "error",
+        message: err.response?.data?.message || "Gagal mengubah status cicilan.",
+      });
+    } finally {
+      setUpdatingInstallmentIds((prev) => prev.filter((id) => id !== installment.id));
+    }
+  };
 
   React.useEffect(() => {
-    const fetchLoans = async () => {
-      try {
-        setLoading(true);
-        const response = await api.get("/loans", {
-          params: {
-            all: 1,
-            user_id: 1,
-          },
-        });
-        setSummary(response.data?.summary || null);
-        setLoans(response.data?.data || []);
-      } catch (err) {
-        setError(err.response?.data?.message || "Gagal mengambil data pinjaman.");
-      } finally {
-        setLoading(false);
-      }
-    };
-
     fetchLoans();
   }, []);
 
@@ -423,41 +484,75 @@ const LoanPage = () => {
             <Box sx={{ overflowX: "auto" }}>
               <Table sx={{ minWidth: 600, "& .MuiTableCell-root": { borderBottom: "1px solid #F1F5F9", py: 2, px: 2 } }}>
                 <TableHead>
-                  <TableRow sx={{ backgroundColor: "#F8FAFC", "& .MuiTableCell-head": { fontWeight: 700, fontSize: "12px", color: "#475569", textTransform: "uppercase", borderBottom: "2px solid #E2E8F0" } }}>
+                  <TableRow sx={{ backgroundColor: "#F8FAFC", "& .MuiTableCell-head": { 
+                    fontWeight: 700, fontSize: "12px", color: "#475569", textTransform: "uppercase", borderBottom: "2px solid #E2E8F0" } }}>
                     <TableCell>ID & TGL PENGAJUAN</TableCell>
                     <TableCell>ANGGOTA</TableCell>
                     <TableCell>JENIS & JUMLAH</TableCell>
                     <TableCell>TENOR</TableCell>
-                    <TableCell>STATUS</TableCell>
-                    <TableCell>DETAIL</TableCell>
+                    <TableCell>RINCIAN CICILAN</TableCell>
+                    <TableCell sx={{ width: "150px"}}>STATUS</TableCell>
+                    <TableCell sx={{ width: "110px" }}>DETAIL</TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
-                  {paymentConfirmationLoans.map((loan) => (
-                    <TableRow key={`confirm-${loan.id}`}>
-                      <TableCell>
-                        <Typography color="primary" fontWeight={600}>#{loan.loan_number}</Typography>
-                        <Typography variant="caption" color="text.secondary">{formatDate(loan.created_at)}</Typography>
-                      </TableCell>
-                      <TableCell>
-                        <Typography fontWeight={600}>{loan.user_name || "-"}</Typography>
-                        <Typography variant="caption" color="text.secondary">{loan.user_username || "-"}</Typography>
-                      </TableCell>
-                      <TableCell>
-                        <LoanTypeBadge type={loan.type_slug} />
-                        <Typography fontWeight={700}>{formatCurrency(loan.jumlah_pinjaman)}</Typography>
-                      </TableCell>
-                      <TableCell>{loan.lama_pembayaran} Bulan</TableCell>
-                      <TableCell>
-                        <StatusBadge loan={loan} />
-                      </TableCell>
-                      <TableCell>
-                        <IconButton onClick={() => openLoanDetail(loan.id)}>
-                          <MoreVertIcon />
-                        </IconButton>
-                      </TableCell>
-                    </TableRow>
-                  ))}
+                  {paymentConfirmationLoans.map((loan) => {
+                    const currentInstallment = loan.cicilan?.find(
+                      (item) => isCurrentMonth(item.tanggal_pembayaran)
+                    );
+
+                    return (
+                      <TableRow key={`confirm-${loan.id}`}>
+                        <TableCell>
+                          <Typography color="primary" fontWeight={600}>#{loan.loan_number}</Typography>
+                          <Typography variant="caption" color="text.secondary">{formatDate(loan.created_at)}</Typography>
+                        </TableCell>
+                        <TableCell>
+                          <Typography fontWeight={600}>{loan.user_name || "-"}</Typography>
+                          <Typography variant="caption" color="text.secondary">{loan.user_username || "-"}</Typography>
+                        </TableCell>
+                        <TableCell>
+                          <LoanTypeBadge type={loan.type_slug} />
+                          <Typography fontWeight={700}>{formatCurrency(loan.jumlah_pinjaman)}</Typography>
+                        </TableCell>
+                        <TableCell>{loan.lama_pembayaran} Bulan</TableCell>
+                        <TableCell>
+                          {!currentInstallment ? "-" : (
+                            <Box>
+                              <Typography fontWeight={700} fontSize="13px">
+                                {formatCurrency(currentInstallment.nominal)}
+                              </Typography>
+                              <Typography variant="caption" color="text.secondary" sx={{ display: "block" }}>
+                                Cicilan ke-{currentInstallment.cicilan}
+                              </Typography>
+                              <Typography variant="caption" color="primary.main" fontWeight={600}>
+                                Tgl: {formatDate(currentInstallment.tanggal_pembayaran)}
+                              </Typography>
+                            </Box>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          <StatusBadge loan={loan} />
+                        </TableCell>
+                        <TableCell>
+                          <Stack direction="row" spacing={1} alignItems="center">
+                            {currentInstallment && (
+                              <Checkbox
+                                size="small"
+                                checked={currentInstallment.status_pembayaran === "paid"}
+                                onChange={(e) => handleDirectConfirm(loan, currentInstallment, e.target.checked)}
+                                disabled={updatingInstallmentIds.includes(currentInstallment.id)}
+                                sx={{ p: 0.5 }}
+                              />
+                            )}
+                            <IconButton onClick={() => openLoanDetail(loan.id)} size="small">
+                              <MoreVertIcon fontSize="small" />
+                            </IconButton>
+                          </Stack>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
                 </TableBody>
               </Table>
             </Box>
@@ -596,6 +691,13 @@ const LoanPage = () => {
           )}
         </CardContent>
       </Card>
+
+      <LoanFeedbackSnackbar
+        open={feedback.open}
+        message={feedback.message}
+        severity={feedback.severity}
+        onClose={() => setFeedback(prev => ({ ...prev, open: false }))}
+      />
     </Box>
   );
 };

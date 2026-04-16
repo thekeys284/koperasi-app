@@ -7,25 +7,14 @@ use App\Http\Controllers\Controller;
 use App\Models\Loan;
 use App\Models\LoanCicilan;
 use App\Models\User;
-use App\Service\CicilanService;
-use App\Service\LoanApprovalService;
-use App\Service\LoanService;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
 
 class LoanController extends Controller
 {
-    public function __construct(
-        protected LoanService $loanService,
-        protected CicilanService $cicilanService,
-        protected LoanApprovalService $loanApprovalService,
-    ) {}
-
-    // =========================================================================
-    // CRUD
-    // =========================================================================
-
     /**
      * Display a listing of loans.
      * GET /api/loans
@@ -68,86 +57,98 @@ class LoanController extends Controller
             $user = $this->resolveUser($request);
 
             if (!$user) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'User tidak ditemukan. Pastikan ada user di database atau kirim user_id yang valid.',
-                ], 401);
+                return response()->json(['success' => false, 'message' => 'User tidak ditemukan.'], 401);
             }
 
             $validated = $request->validate([
-                'type'                 => 'nullable|in:Konsumtif,Produktif,konsumtif,produktif',
-                'jenis_pinjaman'       => 'nullable',
-                'amount_requested'     => 'nullable|numeric|min:10000',
-                'jumlah_pinjaman'      => 'nullable|numeric|min:10000',
-                'tenor_months'         => 'nullable|integer|in:3,6,12',
-                'lama_pembayaran'      => 'nullable|integer|in:3,6,12',
-                'start_date'           => 'nullable|date_format:Y-m',
-                'tanggal_mulai_cicilan' => 'nullable|date',
-                'bulan_potong_gaji'    => 'nullable|string|max:255',
-                'reason'               => 'nullable|string|max:500',
-                'document'             => 'nullable|file|mimes:pdf,jpg,jpeg,png|max:5120',
+                'type' => 'nullable|string',
+                'jenis_pinjaman' => 'nullable|string',
+                'amount_requested' => 'nullable|numeric|min:0',
+                'jumlah_pinjaman' => 'nullable|numeric|min:0',
+                'tenor_months' => 'nullable|integer|min:1|max:60',
+                'lama_pembayaran' => 'nullable|integer|min:1|max:60',
+                'start_date' => 'nullable',
+                'tanggal_mulai_cicilan' => 'nullable',
+                'bulan_potong_gaji' => 'nullable',
+                'note' => 'nullable|string|max:500',
+                'admin_note' => 'nullable|string|max:500',
+                'document' => 'nullable|file|mimes:pdf,jpg,jpeg,png|max:5120',
             ]);
 
-            // ── Resolve alias fields ──────────────────────────────────────────
-            $typeInput        = $validated['type'] ?? $validated['jenis_pinjaman'] ?? null;
-            $amountRequested  = $validated['amount_requested'] ?? $validated['jumlah_pinjaman'] ?? null;
-            $tenorMonths      = $validated['tenor_months'] ?? $validated['lama_pembayaran'] ?? null;
-            $startDate        = $validated['start_date'] ?? null;
-            $tanggalMulai     = $validated['tanggal_mulai_cicilan'] ?? null;
-            $bulanPotongGaji  = $validated['bulan_potong_gaji'] ?? null;
+            $typeInput = $validated['type'] ?? $validated['jenis_pinjaman'] ?? null;
+            $amountRequested = $validated['amount_requested'] ?? $validated['jumlah_pinjaman'] ?? null;
+            $tenorMonths = $validated['tenor_months'] ?? $validated['lama_pembayaran'] ?? null;
+            $startDate = $validated['start_date'] ?? null;
+            $tanggalMulai = $validated['tanggal_mulai_cicilan'] ?? null;
+            $bulanPotongGaji = $validated['bulan_potong_gaji'] ?? null;
 
-            // ── Manual required checks ────────────────────────────────────────
             if ($typeInput === null) {
-                throw ValidationException::withMessages(['type' => 'Tipe pinjaman wajib diisi.']);
+                return response()->json(['success' => false, 'message' => 'Jenis pinjaman wajib diisi.'], 422);
             }
+
             if ($amountRequested === null) {
-                throw ValidationException::withMessages(['amount_requested' => 'Jumlah pinjaman wajib diisi.']);
+                return response()->json(['success' => false, 'message' => 'Jumlah pinjaman wajib diisi.'], 422);
             }
+
             if ($tenorMonths === null) {
-                throw ValidationException::withMessages(['tenor_months' => 'Tenor pinjaman wajib diisi.']);
+                return response()->json(['success' => false, 'message' => 'Tenor pinjaman wajib diisi.'], 422);
             }
+
             if ($startDate === null && $tanggalMulai === null && $bulanPotongGaji === null) {
-                throw ValidationException::withMessages(['start_date' => 'Tanggal mulai cicilan atau bulan potong gaji wajib diisi.']);
+                return response()->json(['success' => false, 'message' => 'Tanggal mulai cicilan wajib diisi.'], 422);
             }
 
-            // ── Normalize & resolve values ────────────────────────────────────
-            $loanType              = $this->loanService->normalizeLoanType($typeInput);
-            $resolvedStartDate     = $this->loanService->resolveStartDate($startDate, $tanggalMulai, $bulanPotongGaji);
+            $loanType = $this->normalizeLoanType($typeInput);
+            $resolvedStartDate = $this->resolveStartDate($startDate, $tanggalMulai, $bulanPotongGaji);
 
-            // ── Build loan data ───────────────────────────────────────────────
             $loanData = [
-                'user_id'              => $user->id,
-                'jenis_pinjaman'       => $loanType['value'],
-                'jumlah_pinjaman'      => $amountRequested,
-                'lama_pembayaran'      => $tenorMonths,
-                'bulan_potong_gaji'    => $bulanPotongGaji,
-                'status_pengajuan'     => 'pending',
+                'user_id' => $user->id,
+                'jenis_pinjaman' => $loanType['value'],
+                'jumlah_pinjaman' => $amountRequested,
+                'lama_pembayaran' => $tenorMonths,
                 'tanggal_mulai_cicilan' => $resolvedStartDate,
-                'reason'               => $request->reason,
+                'tanggal_pengajuan' => now(),
+                'bulan_potong_gaji' => $bulanPotongGaji,
+                'reason' => $request->input('reason') ?? $validated['note'] ?? null,
+                'admin_note' => $validated['admin_note'] ?? null,
             ];
 
-            // ── Document upload ───────────────────────────────────────────────
             if ($loanType['value'] === 0 && !$request->hasFile('document')) {
-                throw ValidationException::withMessages([
-                    'document' => 'Bukti nota pembelian wajib diunggah untuk jenis pinjaman konsumtif.',
-                ]);
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Dokumen pengajuan pinjaman konsumtif wajib diunggah.',
+                ], 422);
             }
 
             if ($request->hasFile('document')) {
-                $request->validate(['document' => 'required|image|mimes:jpg,jpeg,png|max:2048']);
-                $path = $request->file('document')->store('bukti-nota', 'public');
-                $loanData['bukti_nota']  = $path;
-                $loanData['file_path']   = $path; // backward compatibility
+                $path = $request->file('document')->store('loans', 'public');
+                $loanData['file_path'] = $path;
             }
 
-            // ── Delegate creation to service ──────────────────────────────────
-            $loan = $this->loanService->createLoan($loanData, $user);
+            $loan = DB::transaction(function () use ($loanData, $user) {
+                $loan = Loan::create($loanData);
+                $this->generateLoanCicilan($loan);
+                $loan->load(['user', 'cicilan']);
 
-            dd(\DB::getQueryLog()); // ✅ LIHAT HASILNYA
+                $label = (int) $loan->jenis_pinjaman === 1 ? 'Produktif' : 'Konsumtif';
+
+                try {
+                    ActivityLogHelper::create(
+                        $user->id,
+                        'Pengajuan Pinjaman Baru',
+                        'Pengajuan pinjaman ' . $label . ' sebesar Rp ' . number_format((float) $loan->jumlah_pinjaman, 0, ',', '.') . ' dengan tenor ' . $loan->lama_pembayaran . ' bulan'
+                    );
+                } catch (\Exception $e) {
+                    Log::warning('Activity log failed: ' . $e->getMessage());
+                }
+
+                return $loan;
+            });
+
             return response()->json([
                 'success' => true,
-                'message' => 'Pengajuan pinjaman berhasil dikirim. Silakan tunggu verifikasi dari pihak koperasi.',
-                'data'    => $this->formatLoan($loan, true),
+                'message' => 'Pengajuan pinjaman berhasil dibuat.',
+                'data' => $this->formatLoan($loan, true),
             ], 201);
         } catch (ValidationException $e) {
             return response()->json(['success' => false, 'message' => 'Validasi gagal', 'errors' => $e->errors()], 422);
@@ -238,140 +239,6 @@ class LoanController extends Controller
         }
     }
 
-    // =========================================================================
-    // CICILAN
-    // =========================================================================
-
-    /**
-     * Update status cicilan.
-     * PATCH /api/loans/{loanId}/cicilan/{cicilanId}
-     */
-    public function updateCicilan(Request $request, $loanId, $cicilanId)
-    {
-        try {
-            $user = $this->resolveUser($request);
-
-            if (!$user) {
-                return response()->json(['success' => false, 'message' => 'User tidak ditemukan.'], 404);
-            }
-
-            $validated = $request->validate([
-                'tukin_status' => 'required|in:sudah,postponed,belum,pending',
-                'note'         => 'nullable|string|max:500',
-                'admin_note'   => 'nullable|string|max:500',
-            ]);
-
-            $query = Loan::with(['user', 'cicilan'])->where('id', $loanId);
-
-            if (!$this->shouldShowAllLoans($request, $user)) {
-                $query->where('user_id', $user->id);
-            }
-
-            $loan = $query->first();
-
-            if (!$loan) {
-                return response()->json(['success' => false, 'message' => 'Pengajuan pinjaman tidak ditemukan.'], 404);
-            }
-
-            $cicilan = LoanCicilan::where('loans_id', $loan->id)->where('id', $cicilanId)->first();
-
-            if (!$cicilan) {
-                return response()->json(['success' => false, 'message' => 'Data cicilan tidak ditemukan.'], 404);
-            }
-
-            $this->cicilanService->updateCicilan($loan, $cicilan, $validated, $user);
-
-            $loan->refresh()->load('cicilan');
-
-            return response()->json([
-                'success' => true,
-                'message' => 'Status cicilan berhasil diperbarui.',
-                'data'    => $this->formatLoan($loan, true),
-            ]);
-        } catch (ValidationException $e) {
-            return response()->json(['success' => false, 'message' => 'Validasi gagal', 'errors' => $e->errors()], 422);
-        } catch (\Exception $e) {
-            Log::error('Loan updateCicilan error: ' . $e->getMessage() . ' ' . $e->getFile() . ':' . $e->getLine());
-            return response()->json(['success' => false, 'message' => 'Terjadi kesalahan: ' . $e->getMessage()], 500);
-        }
-    }
-
-    // =========================================================================
-    // APPROVAL
-    // =========================================================================
-
-    /**
-     * Approve a loan (Admin → Lead/Ketua).
-     * PATCH /api/loans/{id}/approve
-     */
-    public function approve(Request $request, $id)
-    {
-        try {
-            $user = $this->resolveUser($request);
-
-            if (!$user) {
-                return response()->json(['success' => false, 'message' => 'User tidak ditemukan.'], 404);
-            }
-
-            $loan = Loan::where('id', $id)->first();
-
-            if (!$loan) {
-                return response()->json(['success' => false, 'message' => 'Pengajuan pinjaman tidak ditemukan.'], 404);
-            }
-
-            $result = $this->loanApprovalService->approve($loan, $user);
-
-            if (!$result['success']) {
-                return response()->json(['success' => false, 'message' => $result['message']], 400);
-            }
-
-            return response()->json([
-                'success' => true,
-                'message' => $result['message'],
-                'data'    => $this->formatLoan($result['loan'], true),
-            ]);
-        } catch (\Exception $e) {
-            Log::error('Loan approve error: ' . $e->getMessage());
-            return response()->json(['success' => false, 'message' => 'Terjadi kesalahan: ' . $e->getMessage()], 500);
-        }
-    }
-
-    /**
-     * Reject a loan.
-     * PATCH /api/loans/{id}/reject
-     */
-    public function reject(Request $request, $id)
-    {
-        try {
-            $user = $this->resolveUser($request);
-
-            if (!$user) {
-                return response()->json(['success' => false, 'message' => 'User tidak ditemukan.'], 404);
-            }
-
-            $validated = $request->validate(['reason' => 'required|string|max:500']);
-
-            $loan = Loan::where('id', $id)->first();
-
-            if (!$loan) {
-                return response()->json(['success' => false, 'message' => 'Pengajuan pinjaman tidak ditemukan.'], 404);
-            }
-
-            $loan = $this->loanApprovalService->reject($loan, $validated['reason'], $user);
-
-            return response()->json([
-                'success' => true,
-                'message' => 'Pengajuan pinjaman berhasil ditolak.',
-                'data'    => $this->formatLoan($loan, true),
-            ]);
-        } catch (ValidationException $e) {
-            return response()->json(['success' => false, 'message' => 'Alasan penolakan wajib diisi.', 'errors' => $e->errors()], 422);
-        } catch (\Exception $e) {
-            Log::error('Loan reject error: ' . $e->getMessage());
-            return response()->json(['success' => false, 'message' => 'Terjadi kesalahan: ' . $e->getMessage()], 500);
-        }
-    }
-
     /**
      * Request a loan postponement (User).
      * PATCH /api/loans/{id}/postpone-request
@@ -432,80 +299,74 @@ class LoanController extends Controller
         }
     }
 
-    // =========================================================================
-    // REPORT
-    // =========================================================================
 
-    /**
-     * GET /api/loans/report
-     */
-    public function report(Request $request)
+    private function generateLoanCicilan(Loan $loan): void
     {
-        $query = Loan::query()->with(['user', 'cicilan']);
+        $tenor = max(1, (int) $loan->lama_pembayaran);
+        $principal = (float) $loan->jumlah_pinjaman;
+        $baseInstallment = round($principal / $tenor, 2);
+        $currentDueDate = Carbon::parse($loan->tanggal_mulai_cicilan ?? $loan->created_at ?? now())->startOfDay();
+        $runningTotal = 0.0;
 
-        if ($request->filled('month') && $request->month !== 'all') {
-            $query->whereMonth('tanggal_mulai_cicilan', $request->month);
-        }
-        if ($request->filled('year') && $request->year !== 'all') {
-            $query->whereYear('tanggal_mulai_cicilan', $request->year);
-        }
-        if ($request->filled('user_id') && $request->user_id !== 'all') {
-            $query->where('user_id', $request->user_id);
-        }
-        if ($request->filled('jenis_pinjaman') && $request->jenis_pinjaman !== 'all') {
-            $query->where('jenis_pinjaman', $request->jenis_pinjaman === 'produktif' ? 1 : 0);
-        }
-        if ($request->filled('status') && $request->status !== 'all') {
-            $status = $request->status;
-            if ($status === 'aktif') {
-                $query->whereIn('status_pengajuan', ['aktif', 'disetujui_ketua']);
-            } elseif ($status === 'pending') {
-                $query->whereIn('status_pengajuan', ['pending', 'pending_pengajuan', 'postpone']);
-            } elseif ($status === 'lunas') {
-                $query->where('status_pengajuan', 'paid');
-            } else {
-                $query->where('status_pengajuan', $status);
-            }
-        }
+        for ($installmentNumber = 1; $installmentNumber <= $tenor; $installmentNumber++) {
+            $nominal = $installmentNumber === $tenor
+                ? round($principal - $runningTotal, 2)
+                : $baseInstallment;
 
-        $loans = $query->get();
+            $runningTotal += $nominal;
 
-        $tableData = $loans->map(function ($loan) {
-            $totalTerbayar = $loan->cicilan->where('status_pembayaran', 'paid')->sum('nominal');
-            $sisaPinjaman  = (float) $loan->jumlah_pinjaman - $totalTerbayar;
+            LoanCicilan::create([
+                'loans_id' => $loan->id,
+                'tanggal_pembayaran' => $currentDueDate->toDateString(),
+                'nominal' => $nominal,
+                'status_pembayaran' => 'pending',
+                'cicilan' => $installmentNumber,
+            ]);
+
+            $currentDueDate = $currentDueDate->copy()->addMonthNoOverflow();
+        }
+    }
+
+    private function normalizeLoanType(mixed $typeInput): array
+    {
+        if (is_numeric($typeInput)) {
+            $value = (int) $typeInput;
 
             return [
-                'id'               => $loan->id,
-                'user_name'        => $loan->user?->name,
-                'jenis_pinjaman'   => $loan->jenis_pinjaman == 1 ? 'Produktif' : 'Konsumtif',
-                'jumlah_pinjaman'  => (float) $loan->jumlah_pinjaman,
-                'tenor'            => $loan->lama_pembayaran,
-                'cicilan_per_bulan' => $loan->cicilan->first()?->nominal ?? 0,
-                'total_terbayar'   => $totalTerbayar,
-                'sisa_pinjaman'    => $sisaPinjaman,
-                'status'           => $this->mapStatusDisplay($loan->status_pengajuan),
+                'value' => $value === 1 ? 1 : 0,
+                'label' => $value === 1 ? 'Produktif' : 'Konsumtif',
+                'slug' => $value === 1 ? 'produktif' : 'konsumtif',
             ];
-        });
+        }
 
-        $totalPinjaman  = $loans->sum('jumlah_pinjaman');
-        $totalTerbayar  = $loans->sum(fn($l) => $l->cicilan->where('status_pembayaran', 'paid')->sum('nominal'));
-        $totalSisa      = $totalPinjaman - $totalTerbayar;
-        $jumlahPeminjam = $loans->unique('user_id')->count();
+        $normalized = strtolower(trim((string) $typeInput));
 
-        return response()->json([
-            'success' => true,
-            'summary' => [
-                'total_pinjaman'  => (float) $totalPinjaman,
-                'total_terbayar'  => (float) $totalTerbayar,
-                'total_sisa'      => (float) $totalSisa,
-                'jumlah_peminjam' => $jumlahPeminjam,
-            ],
-            'data' => $tableData,
-        ]);
+        if ($normalized === 'produktif') {
+            return ['value' => 1, 'label' => 'Produktif', 'slug' => 'produktif'];
+        }
+
+        return ['value' => 0, 'label' => 'Konsumtif', 'slug' => 'konsumtif'];
+    }
+
+    private function resolveStartDate(?string $startDate, ?string $tanggalMulaiCicilan, ?string $bulanPotongGaji): string
+    {
+        if ($tanggalMulaiCicilan) {
+            return substr($tanggalMulaiCicilan, 0, 10);
+        }
+
+        if ($startDate) {
+            return $startDate . '-01';
+        }
+
+        if ($bulanPotongGaji) {
+            return strlen($bulanPotongGaji) === 7 ? $bulanPotongGaji . '-01' : substr($bulanPotongGaji, 0, 10);
+        }
+
+        return now()->startOfMonth()->toDateString();
     }
 
     // =========================================================================
-    // PRIVATE HELPERS (tidak dipindah ke service — tetap di controller)
+    // PRIVATE HELPERS
     // =========================================================================
 
     private function resolveUser(Request $request): ?User

@@ -7,6 +7,8 @@ use App\Http\Controllers\Api\ProductController;
 use App\Http\Controllers\Api\TransactionController;
 use App\Http\Controllers\Api\CategoryController;
 use App\Http\Controllers\Api\LoanController;
+use App\Http\Controllers\Api\CicilanController;
+use App\Http\Controllers\Api\LoanApprovalController;
 
 // API Master Data
 
@@ -41,15 +43,22 @@ Route::prefix('categories')->group(function(){
 
 // --- LOANS / SUBMISSIONS (PENGAJUAN PINJAMAN) ---
 Route::prefix('loans')->group(function () {
+    // Report - must come before dynamic routes
+    Route::get('/report/data', [ReportController::class, 'loanReport']);
+
+    // Basic CRUD - LoanController
     Route::get('/', [LoanController::class, 'index']);
     Route::post('/', [LoanController::class, 'store']);
     Route::get('/{id}', [LoanController::class, 'show']);
     Route::delete('/{id}', [LoanController::class, 'destroy']);
-    Route::patch('/{id}/approve', [LoanController::class, 'approve']);
-    Route::patch('/{id}/reject', [LoanController::class, 'reject']);
+
+    // Approval & Rejection - LoanApprovalController
+    Route::patch('/{id}/approve', [LoanApprovalController::class, 'approve']);
+    Route::patch('/{id}/reject', [LoanApprovalController::class, 'reject']);
+
+    // Cicilan & Postponement - must come before generic {id} routes
+    Route::patch('/{loan}/cicilan/{cicilan}', [CicilanController::class, 'update']);
     Route::patch('/{id}/postpone-request', [LoanController::class, 'postponeRequest']);
-    Route::patch('/{loan}/cicilan/{cicilan}', [LoanController::class, 'updateCicilan']);
-    Route::get('/report/data', [LoanController::class, 'report']);
 });
 
 // Alias lama supaya frontend lama tetap jalan

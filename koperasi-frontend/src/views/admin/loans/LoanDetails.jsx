@@ -33,6 +33,7 @@ export default function LoanDetails() {
   const [postponeModalOpen, setPostponeModalOpen] = useState(false);
   const [selectedInstallment, setSelectedInstallment] = useState(null);
   const [saving, setSaving] = useState(false);
+  const [updatingInstallmentIds, setUpdatingInstallmentIds] = useState([]);
   const [feedback, setFeedback] = useState({
     open: false,
     message: "",
@@ -80,28 +81,70 @@ export default function LoanDetails() {
   const handleDirectConfirm = async (installment, isPaid) => {
     if (!installment || !loan?.id) return;
 
-    setSaving(true);
     setError("");
+    const nextStatus = isPaid ? "paid" : "pending";
+    const nextTukinStatus = isPaid ? "sudah" : "belum";
+    const previousStatus = installment.status_pembayaran;
+    const previousTukinStatus = installment.tukin_status;
+
+    setUpdatingInstallmentIds((prev) =>
+      prev.includes(installment.id) ? prev : [...prev, installment.id]
+    );
+
+    setLoan((prevLoan) => {
+      if (!prevLoan) return prevLoan;
+
+      return {
+        ...prevLoan,
+        cicilan: (prevLoan.cicilan || []).map((item) =>
+          item.id === installment.id
+            ? {
+                ...item,
+                status_pembayaran: nextStatus,
+                tukin_status: nextTukinStatus,
+              }
+            : item
+        ),
+      };
+    });
 
     try {
       await api.patch(`/loans/${loan.id}/cicilan/${installment.id}`, {
         tukin_status: isPaid ? "sudah" : "pending",
-        status_pembayaran: isPaid ? "paid" : "pending",
         note: "",
       });
 
-      await fetchLoanDetail();
+      // Keep UI responsive; sync detail in background without blocking checkbox state.
+      fetchLoanDetail(false);
       showFeedback("success", isPaid ? "Pembayaran berhasil dikonfirmasi" : "Status pembayaran berhasil direset");
     } catch (err) {
+      setLoan((prevLoan) => {
+        if (!prevLoan) return prevLoan;
+
+        return {
+          ...prevLoan,
+          cicilan: (prevLoan.cicilan || []).map((item) =>
+            item.id === installment.id
+              ? {
+                  ...item,
+                  status_pembayaran: previousStatus,
+                  tukin_status: previousTukinStatus,
+                }
+              : item
+          ),
+        };
+      });
       showFeedback("error", err.response?.data?.message || "Gagal mengubah status cicilan.");
     } finally {
-      setSaving(false);
+      setUpdatingInstallmentIds((prev) => prev.filter((id) => id !== installment.id));
     }
   };
 
-  const fetchLoanDetail = async () => {
+  const fetchLoanDetail = async (withLoading = true) => {
     try {
-      setLoading(true);
+      if (withLoading) {
+        setLoading(true);
+      }
 
       let targetLoanId = loanId;
       if (!targetLoanId) {
@@ -129,7 +172,9 @@ export default function LoanDetails() {
     } catch (err) {
       setError(err.response?.data?.message || "Gagal mengambil detail pinjaman.");
     } finally {
-      setLoading(false);
+      if (withLoading) {
+        setLoading(false);
+      }
     }
   };
 
@@ -578,7 +623,7 @@ export default function LoanDetails() {
                                 checked={item.status_pembayaran === "paid"}
                                 size="small"
                                 onChange={(e) => handleDirectConfirm(item, e.target.checked)}
-                                disabled={saving}
+                                disabled={saving || updatingInstallmentIds.includes(item.id)}
                                 sx={{ p: 0 }}
                               />
                               {item.status_pembayaran === "paid" && (

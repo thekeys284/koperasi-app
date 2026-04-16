@@ -95,7 +95,9 @@ const LoanSubmissionDetailPage = () => {
       });
       if (response.data.success) {
         showFeedback("success", response.data?.message || "Pengajuan berhasil dikonfirmasi admin.");
-        fetchLoanDetail();
+        setTimeout(() => {
+          navigate("/admin/loans/pengajuan");
+        }, 1200);
       }
     } catch (err) {
       showFeedback("error", err.response?.data?.message || "Gagal mengonfirmasi pengajuan.");
@@ -115,7 +117,9 @@ const LoanSubmissionDetailPage = () => {
       if (response.data.success) {
         showFeedback("success", response.data?.message || "Pengajuan telah ditolak.");
         handleCloseReject();
-        fetchLoanDetail();
+        setTimeout(() => {
+          navigate("/admin/loans/pengajuan");
+        }, 1200);
       }
     } catch (err) {
       showFeedback("error", err.response?.data?.message || "Gagal menolak pengajuan.");
@@ -169,7 +173,7 @@ const LoanSubmissionDetailPage = () => {
     <Box sx={{ p: 4, background: "#f5f7fb", minHeight: "100vh" }}>
       <Breadcrumbs separator={<NavigateNextIcon fontSize="small" />} sx={{ mb: 2 }}>
         <Link underline="hover" color="inherit" onClick={() => navigate("/admin/loans/pengajuan")} sx={{ cursor: "pointer" }}>
-          Pengajuan Cicilan
+          Pengajuan Pinjaman
         </Link>
         <Typography color="text.primary">Detail Pengajuan</Typography>
       </Breadcrumbs>

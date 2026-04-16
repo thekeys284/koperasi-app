@@ -71,7 +71,9 @@ export default function LoanGenerateReport() {
         const fetchUsers = async () => {
             try {
                 const response = await api.get("/users");
-                setUsers(response.data?.data || []);
+                const rawUsers = response.data?.data || [];
+                const anggotaOnly = rawUsers.filter((user) => user?.role === "user");
+                setUsers(anggotaOnly);
             } catch (err) {
                 console.error("Gagal mengambil data user:", err);
             }
@@ -99,6 +101,7 @@ export default function LoanGenerateReport() {
 
     const formatCurrency = (value) => `Rp ${new Intl.NumberFormat("id-ID").format(Number(value || 0))}`;
 
+
     const handleExportExcel = () => {
         if (reportData.length === 0) return;
         
@@ -107,10 +110,13 @@ export default function LoanGenerateReport() {
             "Jenis Pinjaman": item.jenis_pinjaman,
             "Jumlah Pinjaman": item.jumlah_pinjaman,
             "Tenor": `${item.tenor} Bulan`,
-            "Cicilan per Bulan": item.cicilan_per_bulan,
+            "Cicilan Bulan Dipilih": item.cicilan_per_bulan,
+            "Cicilan Ke": item.cicilan_ke || "-",
+            "Tanggal Cicilan": item.tanggal_cicilan || "-",
+            "Status Cicilan": item.status_cicilan_label || "-",
             "Total Terbayar": item.total_terbayar,
             "Sisa Pinjaman": item.sisa_pinjaman,
-            "Status": item.status
+            "Status Pengajuan": item.status_label || item.status
         }));
 
         const worksheet = XLSX.utils.json_to_sheet(worksheetData);
@@ -321,18 +327,50 @@ export default function LoanGenerateReport() {
                                     </TableCell>
                                     <TableCell sx={{ fontWeight: 700 }}>{formatCurrency(row.jumlah_pinjaman)}</TableCell>
                                     <TableCell>{row.tenor} Bulan</TableCell>
-                                    <TableCell>{formatCurrency(row.cicilan_per_bulan)}</TableCell>
+                                    <TableCell>
+                                        <Typography variant="body2" sx={{ fontWeight: 700 }}>
+                                            {formatCurrency(row.cicilan_per_bulan)}
+                                        </Typography>
+                                        <Typography variant="caption" color="text.secondary">
+                                            {row.cicilan_ke ? `Cicilan ke-${row.cicilan_ke}` : "Cicilan belum tersedia"}
+                                        </Typography>
+                                        {row.tanggal_cicilan && (
+                                            <Typography variant="caption" display="block" color="text.secondary">
+                                                Jatuh tempo: {row.tanggal_cicilan}
+                                            </Typography>
+                                        )}
+                                        {row.status_cicilan_label && (
+                                            <Typography variant="caption" display="block" sx={{ color: "#0f766e", fontWeight: 700 }}>
+                                                Status cicilan: {row.status_cicilan_label}
+                                            </Typography>
+                                        )}
+                                    </TableCell>
                                     <TableCell sx={{ color: "success.main", fontWeight: 600 }}>{formatCurrency(row.total_terbayar)}</TableCell>
                                     <TableCell sx={{ color: "error.main", fontWeight: 700 }}>{formatCurrency(row.sisa_pinjaman)}</TableCell>
                                     <TableCell>
                                         <Chip 
-                                            label={row.status.toUpperCase()} 
+                                            label={row.status_label || row.status} 
                                             size="small" 
                                             sx={{ 
-                                                bgcolor: row.status === 'aktif' ? '#dcfce7' : (row.status === 'lunas' ? '#eff6ff' : '#fef3c7'),
-                                                color: row.status === 'aktif' ? '#16a34a' : (row.status === 'lunas' ? '#2563eb' : '#d97706'),
+                                                bgcolor:
+                                                    row.status === 'aktif'
+                                                        ? '#dcfce7'
+                                                        : row.status === 'lunas'
+                                                            ? '#eff6ff'
+                                                            : row.status === 'rejected'
+                                                                ? '#fee2e2'
+                                                                : '#fef3c7',
+                                                color:
+                                                    row.status === 'aktif'
+                                                        ? '#16a34a'
+                                                        : row.status === 'lunas'
+                                                            ? '#2563eb'
+                                                            : row.status === 'rejected'
+                                                                ? '#b91c1c'
+                                                                : '#d97706',
                                                 fontWeight: 800,
-                                                fontSize: "10px"
+                                                fontSize: "10px",
+                                                textTransform: "none"
                                             }} 
                                         />
                                     </TableCell>

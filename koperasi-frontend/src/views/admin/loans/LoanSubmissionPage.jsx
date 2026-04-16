@@ -114,7 +114,7 @@ const StatusBadge = ({ loan }) => {
   }
 
   return (
-    <Stack spacing={0.5} alignItems="center">
+    <Stack spacing={0.5} alignItems="flex-start">
       <Chip
         label={config.label}
         size="small"
@@ -225,12 +225,12 @@ const LoanSubmissionPage = () => {
           onClick={() => navigate("/admin/loans/pengajuan")}
           sx={{ cursor: "pointer", display: "flex", alignItems: "center" }}
         >
-          Pengajuan Cicilan
+          Pengajuan Pinjaman
         </Link>
       </Breadcrumbs>
 
       <Typography variant="h2" fontWeight={800} mb={1}>
-        Daftar Pengajuan Cicilan (Admin)
+        Daftar Pengajuan Pinjaman (Admin)
       </Typography>
 
       <Typography color="text.secondary" mb={4}>
@@ -318,8 +318,8 @@ const LoanSubmissionPage = () => {
                   <TableCell>ANGGOTA</TableCell>
                   <TableCell>JENIS & JUMLAH</TableCell>
                   <TableCell>TENOR</TableCell>
-                  <TableCell align="center">STATUS</TableCell>
-                  <TableCell align="center">AKSI</TableCell>
+                  <TableCell sx={{ width: "180px" }}>STATUS</TableCell>
+                  <TableCell align="center" sx={{ width: "80px" }}>AKSI</TableCell>
                 </TableRow>
               </TableHead>
 
@@ -349,7 +349,7 @@ const LoanSubmissionPage = () => {
 
                     <TableCell sx={{ fontWeight: 600 }}>{loan.lama_pembayaran} Bulan</TableCell>
 
-                    <TableCell align="center">
+                    <TableCell>
                       <StatusBadge loan={loan} />
                     </TableCell>
 

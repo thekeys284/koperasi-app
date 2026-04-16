@@ -208,7 +208,7 @@ const LeadLoanCreatePage = () => {
                 Pengajuan Pinjaman Baru
             </Typography>
             <Typography color="text.secondary" sx={{ mt: 0.5, mb: { xs: 3, md: 4 }, maxWidth: 720 }}>
-                Silakan lengkapi rincian pengajuan pinjaman Anda untuk proses verifikasi otomatis.
+                Silakan lengkapi rincian pengajuan pinjaman Anda untuk proses verifikasi
             </Typography>
 
             <Grid container spacing={{ xs: 2, md: 3 }} alignItems="flex-start">
@@ -409,8 +409,6 @@ const LeadLoanCreatePage = () => {
                                 Pengajuan akan diverifikasi oleh tim koperasi sesuai ketentuan yang berlaku.
                                 <br />
                                 Pastikan dokumen dan nominal yang diisi sesuai dengan bukti transaksi.
-                                <br />
-                                Keputusan persetujuan mengacu pada saldo simpanan dan limit pinjaman anggota.
                             </Typography>
                         </Alert>
                     </Stack>
