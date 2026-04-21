@@ -40,6 +40,13 @@ const MainRoutes = {
                 {
                     path: 'loans',
                     children: [
+                        {
+                            path: 'pengajuan',
+                            children: [
+                                { path: '', element: <LeadLoanPage /> },
+                                { path: 'details', element: <LeadLoanDetails /> }
+                            ]
+                        },
                         { path: '', element: <LeadLoanPage /> },
                         { path: 'details', element: <LeadLoanDetails /> }
                     ]
@@ -68,8 +75,13 @@ const MainRoutes = {
                             ]
                         },
                         { path: 'daftar', element: <AdminLoanPage /> },
-                        { path: 'details', element: <AdminLoanDetails /> },
-                        { path: 'generate-report', element: <AdminLoanGenerateReport /> }
+                        { path: 'details', element: <AdminLoanDetails /> }
+                    ]
+                },
+                {
+                    path: 'laporan',
+                    children: [
+                        { path: 'peminjaman', element: <AdminLoanGenerateReport /> }
                     ]
                 },
                 // {
@@ -88,6 +100,7 @@ const MainRoutes = {
                     children: [
                         { path: '', element: <UserLoanPage /> },
                         { path: 'add', element: <UserLoanCreatePage /> },
+                        { path: 'topup', element: <UserLoanCreatePage /> },
                         { path: 'cicilan', element: <UserLoanCicilanPage /> }
                     ]
                 }

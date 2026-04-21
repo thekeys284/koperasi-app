@@ -70,10 +70,10 @@ export default function LoanGenerateReport() {
     useEffect(() => {
         const fetchUsers = async () => {
             try {
-                const response = await api.get("/users");
-                const rawUsers = response.data?.data || [];
-                const anggotaOnly = rawUsers.filter((user) => user?.role === "user");
-                setUsers(anggotaOnly);
+                const response = await api.get("/loans/filter-members");
+                // Menghandle kemungkinan data dibungkus atau tidak
+                const rawData = response.data?.data || response.data || [];
+                setUsers(rawData);
             } catch (err) {
                 console.error("Gagal mengambil data user:", err);
             }

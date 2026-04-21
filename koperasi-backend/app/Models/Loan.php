@@ -12,6 +12,8 @@ class Loan extends Model
 
     protected $fillable = [
         'user_id',
+        'loan_mode',
+        'refers_to_loan_id',
         'jenis_pinjaman',
         'jumlah_pinjaman',
         'lama_pembayaran',
@@ -33,6 +35,8 @@ class Loan extends Model
     ];
 
     protected $casts = [
+        'loan_mode' => 'string',
+        'refers_to_loan_id' => 'integer',
         'jenis_pinjaman' => 'integer',
         'jumlah_pinjaman' => 'decimal:2',
         'lama_pembayaran' => 'integer',
@@ -51,5 +55,15 @@ class Loan extends Model
     public function cicilan(): HasMany
     {
         return $this->hasMany(LoanCicilan::class, 'loans_id');
+    }
+
+    public function referredLoan(): BelongsTo
+    {
+        return $this->belongsTo(self::class, 'refers_to_loan_id');
+    }
+
+    public function topupLoans(): HasMany
+    {
+        return $this->hasMany(self::class, 'refers_to_loan_id');
     }
 }

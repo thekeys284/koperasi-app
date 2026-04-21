@@ -206,7 +206,7 @@ const LeadLoanPage = () => {
     }, []);
 
     const openLoanDetail = (loanId, userId) => {
-        navigate(`/lead/loans/details?loan_id=${loanId}&user_id=${userId}`);
+        navigate(`/lead/loans/pengajuan/details?loan_id=${loanId}&user_id=${userId}`);
     };
 
     const handleTabChange = (event, newValue) => {
@@ -228,7 +228,7 @@ const LeadLoanPage = () => {
                 <Link
                     underline="hover"
                     color="text.primary"
-                    onClick={() => navigate("/lead/loans")}
+                    onClick={() => navigate("/lead/loans/pengajuan")}
                     sx={{ cursor: "pointer", display: "flex", alignItems: "center" }}
                 >
                     Daftar Pengajuan

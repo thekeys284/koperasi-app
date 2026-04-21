@@ -62,7 +62,18 @@ function MenuList() {
 
     fetchCounts();
     const interval = setInterval(fetchCounts, 30000); // Sinkronkan setiap 30 detik
-    return () => clearInterval(interval);
+
+    const handleRefresh = () => {
+      console.log('Refreshing menu counts via event...');
+      fetchCounts();
+    };
+
+    window.addEventListener('refresh-menu-counts', handleRefresh);
+
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('refresh-menu-counts', handleRefresh);
+    };
   }, []);
 
   const lastItem = null;

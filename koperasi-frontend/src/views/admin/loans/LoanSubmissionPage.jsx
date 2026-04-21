@@ -155,6 +155,24 @@ const LoanTypeBadge = ({ type }) => {
   );
 };
 
+const LoanModeBadge = ({ mode }) => {
+  const normalized = String(mode || "new").toLowerCase();
+  const isTopup = normalized === "topup";
+
+  return (
+    <Chip
+      label={isTopup ? "TOP-UP" : "BARU"}
+      size="small"
+      sx={{
+        background: isTopup ? "#FEE2E2" : "#E0F2FE",
+        color: isTopup ? "#B91C1C" : "#075985",
+        fontWeight: 700,
+        textTransform: "uppercase"
+      }}
+    />
+  );
+};
+
 const formatCurrency = (value) => `Rp ${new Intl.NumberFormat("id-ID").format(Number(value || 0))}`;
 
 const formatDate = (value) => {
@@ -343,8 +361,34 @@ const LoanSubmissionPage = () => {
                     </TableCell>
 
                     <TableCell>
-                      <LoanTypeBadge type={loan.type_slug} />
+                      <Stack direction="row" spacing={1} sx={{ mb: 0.5 }}>
+                        <LoanTypeBadge type={loan.type_slug} />
+                        <LoanModeBadge mode={loan.loan_mode} />
+                      </Stack>
                       <Typography fontWeight={800} sx={{ mt: 0.5 }}>{formatCurrency(loan.jumlah_pinjaman)}</Typography>
+                      {loan.referred_loan?.loan_number && (
+                        <Typography variant="caption" color="text.secondary" sx={{ display: "block" }}>
+                          Ref: #{loan.referred_loan.loan_number}
+                        </Typography>
+                      )}
+                      {loan.document_url && (
+                        <Typography 
+                          variant="caption" 
+                          sx={{ 
+                            color: "#2563eb", 
+                            fontWeight: 700, 
+                            mt: 0.5, 
+                            display: "flex", 
+                            alignItems: "center", 
+                            gap: 0.5,
+                            cursor: "pointer",
+                            "&:hover": { textDecoration: "underline" }
+                          }}
+                          onClick={(e) => { e.stopPropagation(); window.open(loan.document_url, '_blank'); }}
+                        >
+                          [ Lihat Nota ]
+                        </Typography>
+                      )}
                     </TableCell>
 
                     <TableCell sx={{ fontWeight: 600 }}>{loan.lama_pembayaran} Bulan</TableCell>

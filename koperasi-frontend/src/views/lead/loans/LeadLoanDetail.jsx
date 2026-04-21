@@ -161,7 +161,7 @@ const LeadLoanDetailPage = () => {
         <Box sx={{ p: 4, background: "#f5f7fb", minHeight: "100vh" }}>
             {/* BREADCRUMB */}
             <Breadcrumbs separator={<NavigateNextIcon fontSize="small" />} sx={{ mb: 2 }}>
-                <Link underline="hover" color="inherit" onClick={() => navigate("/lead/loans")} sx={{ cursor: "pointer" }}>Daftar Pengajuan</Link>
+                <Link underline="hover" color="inherit" onClick={() => navigate("/lead/loans/pengajuan")} sx={{ cursor: "pointer" }}>Daftar Pengajuan</Link>
                 <Typography color="text.primary" fontWeight={700}>Detail Pengajuan</Typography>
             </Breadcrumbs>
 
@@ -243,6 +243,29 @@ const LeadLoanDetailPage = () => {
                                     <Typography variant="body1" sx={{ width: 140, color: "#64748B", fontWeight: 500 }}>Tenor</Typography>
                                     <Typography variant="body1" sx={{ fontWeight: 700 }}>: {loan?.lama_pembayaran} Bulan</Typography>
                                 </Box>
+                                <Box sx={{ display: "flex", gap: 1 }}>
+                                    <Typography variant="body1" sx={{ width: 140, color: "#64748B", fontWeight: 500 }}>Mode Pengajuan</Typography>
+                                    <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                                        <Typography variant="body1" sx={{ fontWeight: 700 }}>:</Typography>
+                                        <Chip
+                                            label={String(loan?.loan_mode_label || "Baru").toUpperCase()}
+                                            size="small"
+                                            sx={{
+                                                bgcolor: loan?.loan_mode === "topup" ? "#FEE2E2" : "#DBEAFE",
+                                                color: loan?.loan_mode === "topup" ? "#B91C1C" : "#1D4ED8",
+                                                fontWeight: 700,
+                                                px: 1,
+                                                height: 24
+                                            }}
+                                        />
+                                    </Box>
+                                </Box>
+                                {loan?.referred_loan && (
+                                    <Box sx={{ display: "flex", gap: 1 }}>
+                                        <Typography variant="body1" sx={{ width: 140, color: "#64748B", fontWeight: 500 }}>Referensi Loan</Typography>
+                                        <Typography variant="body1" sx={{ fontWeight: 700 }}>: #{loan.referred_loan.loan_number}</Typography>
+                                    </Box>
+                                )}
                                 <Box sx={{ display: "flex", gap: 1 }}>
                                     <Typography variant="body1" sx={{ width: 140, color: "#64748B", fontWeight: 500 }}>Potong Gaji</Typography>
                                     <Typography variant="body1" sx={{ fontWeight: 700 }}>: {formatMonthYear(loan?.bulan_potong_gaji)}</Typography>

@@ -203,6 +203,8 @@ CREATE TABLE IF NOT EXISTS `submissions` (
 CREATE TABLE IF NOT EXISTS loans (
   id BIGINT UNSIGNED PRIMARY KEY AUTO_INCREMENT,
   user_id BIGINT UNSIGNED NOT NULL, -- Foreign Key ke tabel User
+  loan_mode ENUM('new', 'topup') DEFAULT 'new',
+  refers_to_loan_id BIGINT UNSIGNED NULL,
   jenis_pinjaman TINYINT(1) NOT NULL, -- 0 -> Konsumtif, 1 -> Produktif
   jumlah_pinjaman DECIMAL(15,2) NOT NULL, -- Total uang yang dipinjam
   lama_pembayaran INT NOT NULL, -- Tenor (misal: 6, 12, 24 bulan)
@@ -226,9 +228,12 @@ CREATE TABLE IF NOT EXISTS loans (
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   FOREIGN KEY (user_id) REFERENCES users(id),
+  FOREIGN KEY (refers_to_loan_id) REFERENCES loans(id) ON DELETE SET NULL,
   FOREIGN KEY (pj_id) REFERENCES users(id) ON DELETE SET NULL,
   FOREIGN KEY (ketua_id) REFERENCES users(id) ON DELETE SET NULL
 ) ENGINE=InnoDB;
+
+CREATE INDEX idx_loans_refers_to_loan_id ON loans(refers_to_loan_id);
 
 -- loan_cicilan (Cicilan)
 CREATE TABLE IF NOT EXISTS loan_cicilan (

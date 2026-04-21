@@ -45,6 +45,7 @@ Route::prefix('categories')->group(function(){
 Route::prefix('loans')->group(function () {
     // Report - must come before dynamic routes
     Route::get('/report/data', [ReportController::class, 'loanReport']);
+    Route::get('/filter-members', [LoanController::class, 'getFilterMembers']);
 
     // Basic CRUD - LoanController
     Route::get('/', [LoanController::class, 'index']);
@@ -59,6 +60,8 @@ Route::prefix('loans')->group(function () {
     // Cicilan & Postponement - must come before generic {id} routes
     Route::patch('/{loan}/cicilan/{cicilan}', [CicilanController::class, 'update']);
     Route::patch('/{id}/postpone-request', [LoanController::class, 'postponeRequest']);
+    Route::patch('/{id}/postpone-approve', [LoanController::class, 'postponeApprove']);
+    Route::patch('/{id}/postpone-reject', [LoanController::class, 'postponeReject']);
 });
 
 // Alias lama supaya frontend lama tetap jalan

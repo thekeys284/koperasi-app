@@ -9,6 +9,7 @@ import alertOrangeIcon from "../../../assets/images/admin/alert-orange.svg";
 import {
   Card,
   CardContent,
+  Button,
   Typography,
   Table,
   TableBody,
@@ -26,13 +27,18 @@ import {
   Tabs,
   Tab,
   Checkbox,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
 } from "@mui/material";
 
 import NavigateNextIcon from "@mui/icons-material/NavigateNext";
 import MoreVertIcon from "@mui/icons-material/MoreVert";
 import AccountBalanceWalletOutlinedIcon from "@mui/icons-material/AccountBalanceWalletOutlined";
-import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
+import CheckCircleOutlineIcon from "@mui/icons-material/CheckCircleOutline";
 import LoanFeedbackSnackbar from "../../../ui-component/feedback/LoanFeedbackSnackbar";
+import PostponeInstallmentModal from "../../../ui-component/cards/Loans/Admin/PostponeInstallmentModal";
 
 const getLoanStatusMeta = (loan) => {
   const statusPengajuan = loan?.status_pengajuan;
@@ -161,6 +167,24 @@ const LoanTypeBadge = ({ type }) => {
   );
 };
 
+const LoanModeBadge = ({ mode }) => {
+  const normalized = String(mode || "new").toLowerCase();
+  const isTopup = normalized === "topup";
+
+  return (
+    <Chip
+      label={isTopup ? "TOP-UP" : "BARU"}
+      size="small"
+      sx={{
+        background: isTopup ? "#FEE2E2" : "#E0F2FE",
+        color: isTopup ? "#B91C1C" : "#075985",
+        fontWeight: 700,
+        textTransform: "uppercase",
+      }}
+    />
+  );
+};
+
 const formatCurrency = (value) => `Rp ${new Intl.NumberFormat("id-ID").format(Number(value || 0))}`;
 
 const formatDate = (value) => {
@@ -184,10 +208,6 @@ const hasCurrentMonthUnpaidInstallment = (loan) => {
   );
 };
 
-const hasPendingPostponement = (loan) => {
-  return loan.status_pengajuan === "postpone";
-};
-
 const getCurrentMonthUnpaidInstallmentNo = (loan) => {
   if (!Array.isArray(loan.cicilan)) return Number.MAX_SAFE_INTEGER;
 
@@ -200,12 +220,6 @@ const getCurrentMonthUnpaidInstallmentNo = (loan) => {
 
 const getRunningLoanPriority = (loan) => {
   return loan.status_pengajuan === "postpone" ? 0 : 1;
-};
-
-const getLoanListStatusLabel = (loan) => {
-  if (loan.status === "pending") return "Pending";
-  if (loan.status === "aktif" && hasCurrentMonthUnpaidInstallment(loan)) return "Menunggu Konfirmasi";
-  return "Aktif";
 };
 
 // Categorize loans for new layout
@@ -240,11 +254,19 @@ const LoanPage = () => {
   const [summary, setSummary] = React.useState(null);
   const [loans, setLoans] = React.useState([]);
   const [tabValue, setTabValue] = React.useState(0);
+  const [selectedInstallments, setSelectedInstallments] = React.useState([]);
+  const [confirmDialogOpen, setConfirmDialogOpen] = React.useState(false);
   const [updatingInstallmentIds, setUpdatingInstallmentIds] = React.useState([]);
   const [feedback, setFeedback] = React.useState({
     open: false,
     message: "",
     severity: "success",
+  });
+
+  const [postponeModal, setPostponeModal] = React.useState({
+    open: false,
+    loading: false,
+    loan: null,
   });
 
   const fetchLoans = async () => {
@@ -265,56 +287,127 @@ const LoanPage = () => {
     }
   };
 
-  const handleDirectConfirm = async (loan, installment, isPaid) => {
+  const selectInstallment = (loan, installment) => {
     if (!installment || !loan?.id) return;
 
-    const nextStatus = isPaid ? "paid" : "pending";
-    const nextTukinStatus = isPaid ? "sudah" : "belum";
+    setSelectedInstallments((prev) => {
+      const exists = prev.some((item) => item.installmentId === installment.id);
 
-    setUpdatingInstallmentIds((prev) =>
-      prev.includes(installment.id) ? prev : [...prev, installment.id]
-    );
+      if (exists) {
+        return prev.filter((item) => item.installmentId !== installment.id);
+      }
 
-    // Optimistic update
-    setLoans((prevLoans) =>
-      prevLoans.map((l) =>
-        l.id === loan.id
-          ? {
-              ...l,
-              cicilan: (l.cicilan || []).map((c) =>
-                c.id === installment.id
-                  ? { ...c, status_pembayaran: nextStatus, tukin_status: nextTukinStatus }
-                  : c
-              ),
-            }
-          : l
-      )
-    );
+      return [
+        ...prev,
+        {
+          loanId: loan.id,
+          loanNumber: loan.loan_number,
+          userName: loan.user_name || "-",
+          userUsername: loan.user_username || "-",
+          installmentId: installment.id,
+          installmentNo: installment.cicilan,
+          installmentNominal: installment.nominal,
+          installmentDate: installment.tanggal_pembayaran,
+        },
+      ];
+    });
+
+    setConfirmDialogOpen(false);
+  };
+
+  const isInstallmentSelected = (installmentId) => {
+    return selectedInstallments.some((item) => item.installmentId === installmentId);
+  };
+
+  const isUpdatingSelectedInstallments = selectedInstallments.some((item) =>
+    updatingInstallmentIds.includes(item.installmentId)
+  );
+
+  const confirmSelectedInstallment = async () => {
+    if (selectedInstallments.length === 0) return;
+
+    const validSelections = selectedInstallments
+      .map((selectedItem) => {
+        const loan = loans.find((item) => item.id === selectedItem.loanId);
+        const installment = loan?.cicilan?.find((item) => item.id === selectedItem.installmentId);
+
+        if (!loan || !installment) return null;
+
+        return {
+          loan,
+          installment,
+        };
+      })
+      .filter(Boolean);
+
+    if (validSelections.length === 0) {
+      setFeedback({
+        open: true,
+        severity: "error",
+        message: "Data cicilan tidak ditemukan lagi. Silakan pilih ulang.",
+      });
+      setConfirmDialogOpen(false);
+      setSelectedInstallments([]);
+      return;
+    }
+
+    const selectedIds = validSelections.map((item) => item.installment.id);
+
+    setUpdatingInstallmentIds((prev) => {
+      const next = [...prev];
+      selectedIds.forEach((id) => {
+        if (!next.includes(id)) next.push(id);
+      });
+      return next;
+    });
 
     try {
-      await api.patch(`/loans/${loan.id}/cicilan/${installment.id}`, {
-        tukin_status: isPaid ? "sudah" : "pending",
-        note: "",
+      const results = await Promise.allSettled(
+        validSelections.map(({ loan, installment }) =>
+          api.patch(`/loans/${loan.id}/cicilan/${installment.id}`, {
+            tukin_status: "sudah",
+            note: "Dikonfirmasi oleh admin",
+          })
+        )
+      );
+
+      const failedIds = [];
+      results.forEach((result, index) => {
+        if (result.status === "rejected") {
+          failedIds.push(validSelections[index].installment.id);
+        }
       });
+
+      const successCount = validSelections.length - failedIds.length;
 
       setFeedback({
         open: true,
-        severity: "success",
-        message: isPaid ? "Pembayaran berhasil dikonfirmasi" : "Status pembayaran berhasil direset",
+        severity: failedIds.length > 0 ? "warning" : "success",
+        message:
+          failedIds.length > 0
+            ? `${successCount} cicilan berhasil dikonfirmasi, ${failedIds.length} cicilan gagal. Silakan coba lagi.`
+            : `${successCount} cicilan berhasil dikonfirmasi`,
       });
       
-      // Refresh data in background
-      fetchLoans();
+      await fetchLoans();
+
+      if (failedIds.length > 0) {
+        setSelectedInstallments((prev) =>
+          prev.filter((item) => failedIds.includes(item.installmentId))
+        );
+      } else {
+        setSelectedInstallments([]);
+        setConfirmDialogOpen(false);
+      }
     } catch (err) {
-      // Rollback on error
-      fetchLoans();
       setFeedback({
         open: true,
         severity: "error",
         message: err.response?.data?.message || "Gagal mengubah status cicilan.",
       });
+      await fetchLoans();
     } finally {
-      setUpdatingInstallmentIds((prev) => prev.filter((id) => id !== installment.id));
+      setUpdatingInstallmentIds((prev) => prev.filter((id) => !selectedIds.includes(id)));
     }
   };
 
@@ -355,6 +448,52 @@ const LoanPage = () => {
 
   const openLoanDetail = (loanId) => {
     navigate(`/admin/loans/details?loan_id=${loanId}&user_id=1`);
+  };
+
+  const openPostponeModal = (loan) => {
+    const postponedInstallment = loan.cicilan?.find(c => c.id === loan.postpone_cicilan_id);
+    setPostponeModal({
+      open: true,
+      loading: false,
+      loan: {
+        ...loan,
+        installment: postponedInstallment?.cicilan,
+        amount: postponedInstallment?.nominal,
+        dueDate: postponedInstallment?.tanggal_pembayaran,
+      },
+    });
+  };
+
+  const handlePostponeDecision = async (decision, { note }) => {
+    if (!postponeModal.loan) return;
+
+    try {
+      setPostponeModal(prev => ({ ...prev, loading: true }));
+      const endpoint = decision === "approve" ? "postpone-approve" : "postpone-reject";
+      
+      const response = await api.patch(`/loans/${postponeModal.loan.id}/${endpoint}`, {
+        note,
+        user_id: 1, // Fallback as usual
+      });
+
+      if (response.data?.success) {
+        setFeedback({
+          open: true,
+          severity: "success",
+          message: response.data.message,
+        });
+        setPostponeModal({ open: false, loading: false, loan: null });
+        await fetchLoans();
+      }
+    } catch (err) {
+      setFeedback({
+        open: true,
+        severity: "error",
+        message: err.response?.data?.message || `Gagal ${decision === "approve" ? "menyetujui" : "menolak"} penundaan.`,
+      });
+    } finally {
+      setPostponeModal(prev => ({ ...prev, loading: false }));
+    }
   };
 
   return (
@@ -434,38 +573,115 @@ const LoanPage = () => {
               <Table sx={{ minWidth: 600, "& .MuiTableCell-root": { borderBottom: "1px solid #F1F5F9", py: 2, px: 2 } }}>
                 <TableHead>
                   <TableRow sx={{ backgroundColor: "#F8FAFC", "& .MuiTableCell-head": { fontWeight: 700, fontSize: "12px", color: "#475569", textTransform: "uppercase", borderBottom: "2px solid #E2E8F0" } }}>
-                    <TableCell>ID & TGL PENGAJUAN</TableCell>
+                    <TableCell>ID PENGAJUAN</TableCell>
                     <TableCell>ANGGOTA</TableCell>
-                    <TableCell>JENIS & JUMLAH</TableCell>
-                    <TableCell>ALASAN PENUNDAAN</TableCell>
-                    <TableCell>DETAIL</TableCell>
+                    <TableCell>JENIS PINJAMAN</TableCell>
+                    <TableCell>CICILAN KE</TableCell>
+                    <TableCell>STATUS</TableCell>
+                    <TableCell align="center">AKSI</TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
-                  {postponementRequests.map((loan) => (
-                    <TableRow key={`postpone-${loan.id}`}>
-                      <TableCell>
-                        <Typography color="primary" fontWeight={600}>#{loan.loan_number}</Typography>
-                        <Typography variant="caption" color="text.secondary">{formatDate(loan.created_at)}</Typography>
-                      </TableCell>
-                      <TableCell>
-                        <Typography fontWeight={600}>{loan.user_name || "-"}</Typography>
-                        <Typography variant="caption" color="text.secondary">{loan.user_username || "-"}</Typography>
-                      </TableCell>
-                      <TableCell>
-                        <LoanTypeBadge type={loan.type_slug} />
-                        <Typography fontWeight={700}>{formatCurrency(loan.jumlah_pinjaman)}</Typography>
-                      </TableCell>
-                      <TableCell>
-                        <Typography fontSize={13}>{loan.reason || "-"}</Typography>
-                      </TableCell>
-                      <TableCell>
-                        <IconButton onClick={() => openLoanDetail(loan.id)}>
-                          <MoreVertIcon />
-                        </IconButton>
-                      </TableCell>
-                    </TableRow>
-                  ))}
+                  {postponementRequests.map((loan) => {
+                    const postponedInstallment = loan.cicilan?.find(c => c.id === loan.postpone_cicilan_id);
+                    const installmentNo = postponedInstallment ? postponedInstallment.cicilan : "-";
+
+                    return (
+                      <TableRow key={`postpone-${loan.id}`} hover>
+                        <TableCell>
+                          <Typography color="primary" fontWeight={600} sx={{ fontSize: "14px" }}>
+                            #{loan.loan_number}
+                          </Typography>
+                          <Typography variant="caption" color="text.secondary">
+                            {formatDate(loan.created_at)}
+                          </Typography>
+                        </TableCell>
+                        <TableCell>
+                          <Typography fontWeight={600}>{loan.user_name || "-"}</Typography>
+                          <Typography variant="caption" color="text.secondary">
+                            {loan.user_username || "-"}
+                          </Typography>
+                        </TableCell>
+                        <TableCell>
+                          <Stack direction="row" spacing={1} sx={{ mb: 0.5 }}>
+                            <LoanTypeBadge type={loan.type_slug} />
+                            <LoanModeBadge mode={loan.loan_mode} />
+                          </Stack>
+                          <Typography fontWeight={700} sx={{ fontSize: "14px" }}>
+                            {formatCurrency(loan.jumlah_pinjaman)}
+                          </Typography>
+                        </TableCell>
+                        <TableCell>
+                          <Typography fontWeight={600} sx={{ fontSize: "14px" }}>
+                            {installmentNo}
+                          </Typography>
+                          <Typography 
+                            variant="caption" 
+                            color="text.secondary" 
+                            sx={{ 
+                              display: "block", 
+                              maxWidth: "200px",
+                              whiteSpace: "nowrap",
+                              overflow: "hidden",
+                              textOverflow: "ellipsis"
+                            }}
+                          >
+                            {loan.reason || "-"}
+                          </Typography>
+                        </TableCell>
+                        <TableCell>
+                          <Chip 
+                            label="PENDING" 
+                            size="small" 
+                            sx={{ 
+                              bgcolor: "#fef3c7", 
+                              color: "#d97706", 
+                              fontWeight: 700, 
+                              fontSize: "10px",
+                              borderRadius: "6px"
+                            }} 
+                          />
+                        </TableCell>
+                        <TableCell align="center">
+                          <Stack direction="row" spacing={1} justifyContent="center" alignItems="center">
+                            <Button 
+                              variant="contained" 
+                              size="small"
+                              onClick={() => openPostponeModal(loan)}
+                              endIcon={<NavigateNextIcon />}
+                              sx={{ 
+                                textTransform: "none", 
+                                fontWeight: 600,
+                                borderRadius: "8px",
+                                bgcolor: "#eff6ff",
+                                color: "#1e40af",
+                                boxShadow: "none",
+                                border: "1px solid #dbeafe",
+                                "&:hover": {
+                                  bgcolor: "#dbeafe",
+                                  boxShadow: "none",
+                                  border: "1px solid #bfdbfe",
+                                }
+                              }}
+                            >
+                              Review
+                            </Button>
+                            <IconButton 
+                              size="small" 
+                              onClick={() => openLoanDetail(loan.id)}
+                              sx={{ 
+                                bgcolor: "#f1f5f9",
+                                color: "#64748b",
+                                "&:hover": { bgcolor: "#e2e8f0" }
+                              }}
+                            >
+                              <MoreVertIcon fontSize="small" />
+                            </IconButton>
+                          </Stack>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
                 </TableBody>
               </Table>
             </Box>
@@ -477,9 +693,26 @@ const LoanPage = () => {
       {paymentConfirmationLoans.length > 0 && (
         <Card sx={{ borderRadius: 3, mb: 4 }}>
           <CardContent>
-            <Typography color="text.primary" fontSize="18px" fontWeight={800} mb={2}>
-              Daftar Konfirmasi Cicilan Bulan Ini
-            </Typography>
+            <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 2, mb: 2 }}>
+              <Box>
+                <Typography color="text.primary" fontSize="18px" fontWeight={800}>
+                  Daftar Konfirmasi Cicilan Bulan Ini
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  Pilih satu baris dulu, lalu konfirmasi dari tombol di kanan atas.
+                </Typography>
+              </Box>
+
+              <Button
+                variant="contained"
+                startIcon={<CheckCircleOutlineIcon />}
+                disabled={selectedInstallments.length === 0 || isUpdatingSelectedInstallments}
+                onClick={() => setConfirmDialogOpen(true)}
+                sx={{ textTransform: "none", fontWeight: 700, borderRadius: 2, boxShadow: "none" }}
+              >
+                Konfirmasi Terpilih ({selectedInstallments.length})
+              </Button>
+            </Box>
 
             <Box sx={{ overflowX: "auto" }}>
               <Table sx={{ minWidth: 600, "& .MuiTableCell-root": { borderBottom: "1px solid #F1F5F9", py: 2, px: 2 } }}>
@@ -500,9 +733,23 @@ const LoanPage = () => {
                     const currentInstallment = loan.cicilan?.find(
                       (item) => isCurrentMonth(item.tanggal_pembayaran)
                     );
+                    const isSelected = !!currentInstallment && isInstallmentSelected(currentInstallment.id);
 
                     return (
-                      <TableRow key={`confirm-${loan.id}`}>
+                      <TableRow
+                        key={`confirm-${loan.id}`}
+                        selected={isSelected}
+                        sx={{
+                          cursor: currentInstallment ? "pointer" : "default",
+                          "&.Mui-selected > *": {
+                            backgroundColor: "#EFF6FF",
+                          },
+                          "&.Mui-selected:hover > *": {
+                            backgroundColor: "#DBEAFE",
+                          },
+                        }}
+                        onClick={() => currentInstallment && selectInstallment(loan, currentInstallment)}
+                      >
                         <TableCell>
                           <Typography color="primary" fontWeight={600}>#{loan.loan_number}</Typography>
                           <Typography variant="caption" color="text.secondary">{formatDate(loan.created_at)}</Typography>
@@ -512,8 +759,34 @@ const LoanPage = () => {
                           <Typography variant="caption" color="text.secondary">{loan.user_username || "-"}</Typography>
                         </TableCell>
                         <TableCell>
-                          <LoanTypeBadge type={loan.type_slug} />
+                          <Stack direction="row" spacing={1} sx={{ mb: 0.5 }}>
+                            <LoanTypeBadge type={loan.type_slug} />
+                            <LoanModeBadge mode={loan.loan_mode} />
+                          </Stack>
                           <Typography fontWeight={700}>{formatCurrency(loan.jumlah_pinjaman)}</Typography>
+                          {loan.referred_loan?.loan_number && (
+                            <Typography variant="caption" color="text.secondary" sx={{ display: "block" }}>
+                              Ref: #{loan.referred_loan.loan_number}
+                            </Typography>
+                          )}
+                          {loan.document_url && (
+                             <Typography 
+                                variant="caption" 
+                                sx={{ 
+                                    color: "#2563eb", 
+                                    fontWeight: 700, 
+                                    mt: 0.5, 
+                                    display: "flex", 
+                                    alignItems: "center", 
+                                    gap: 0.5,
+                                    cursor: "pointer",
+                                    "&:hover": { textDecoration: "underline" }
+                                }}
+                                onClick={(e) => { e.stopPropagation(); window.open(loan.document_url, '_blank'); }}
+                             >
+                                [ Lihat Nota ]
+                             </Typography>
+                          )}
                         </TableCell>
                         <TableCell>{loan.lama_pembayaran} Bulan</TableCell>
                         <TableCell>
@@ -539,13 +812,20 @@ const LoanPage = () => {
                             {currentInstallment && (
                               <Checkbox
                                 size="small"
-                                checked={currentInstallment.status_pembayaran === "paid"}
-                                onChange={(e) => handleDirectConfirm(loan, currentInstallment, e.target.checked)}
+                                checked={isSelected}
+                                onClick={(event) => event.stopPropagation()}
+                                onChange={() => selectInstallment(loan, currentInstallment)}
                                 disabled={updatingInstallmentIds.includes(currentInstallment.id)}
                                 sx={{ p: 0.5 }}
                               />
                             )}
-                            <IconButton onClick={() => openLoanDetail(loan.id)} size="small">
+                            <IconButton
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                openLoanDetail(loan.id);
+                              }}
+                              size="small"
+                            >
                               <MoreVertIcon fontSize="small" />
                             </IconButton>
                           </Stack>
@@ -600,8 +880,34 @@ const LoanPage = () => {
                           <Typography variant="caption" color="text.secondary">{loan.user_username || "-"}</Typography>
                         </TableCell>
                         <TableCell>
-                          <LoanTypeBadge type={loan.type_slug} />
+                          <Stack direction="row" spacing={1} sx={{ mb: 0.5 }}>
+                            <LoanTypeBadge type={loan.type_slug} />
+                            <LoanModeBadge mode={loan.loan_mode} />
+                          </Stack>
                           <Typography fontWeight={700}>{formatCurrency(loan.jumlah_pinjaman)}</Typography>
+                          {loan.referred_loan?.loan_number && (
+                            <Typography variant="caption" color="text.secondary" sx={{ display: "block" }}>
+                              Ref: #{loan.referred_loan.loan_number}
+                            </Typography>
+                          )}
+                          {loan.document_url && (
+                             <Typography 
+                                variant="caption" 
+                                sx={{ 
+                                    color: "#2563eb", 
+                                    fontWeight: 700, 
+                                    mt: 0.5, 
+                                    display: "flex", 
+                                    alignItems: "center", 
+                                    gap: 0.5,
+                                    cursor: "pointer",
+                                    "&:hover": { textDecoration: "underline" }
+                                }}
+                                onClick={(e) => { e.stopPropagation(); window.open(loan.document_url, '_blank'); }}
+                             >
+                                [ Lihat Nota ]
+                             </Typography>
+                          )}
                         </TableCell>
                         <TableCell>{loan.lama_pembayaran} Bulan</TableCell>
                         <TableCell>
@@ -660,8 +966,16 @@ const LoanPage = () => {
                           <Typography variant="caption" color="text.secondary">{loan.user_username || "-"}</Typography>
                         </TableCell>
                         <TableCell>
-                          <LoanTypeBadge type={loan.type_slug} />
+                          <Stack direction="row" spacing={1} sx={{ mb: 0.5 }}>
+                            <LoanTypeBadge type={loan.type_slug} />
+                            <LoanModeBadge mode={loan.loan_mode} />
+                          </Stack>
                           <Typography fontWeight={700}>{formatCurrency(loan.jumlah_pinjaman)}</Typography>
+                          {loan.referred_loan?.loan_number && (
+                            <Typography variant="caption" color="text.secondary">
+                              Ref: #{loan.referred_loan.loan_number}
+                            </Typography>
+                          )}
                         </TableCell>
                         <TableCell>{loan.lama_pembayaran} Bulan</TableCell>
                         <TableCell>
@@ -692,11 +1006,78 @@ const LoanPage = () => {
         </CardContent>
       </Card>
 
+      <Dialog
+        open={confirmDialogOpen}
+        onClose={() => {
+          if (isUpdatingSelectedInstallments) return;
+          setConfirmDialogOpen(false);
+        }}
+        PaperProps={{
+          sx: { borderRadius: 3, p: 1, width: "100%", maxWidth: 520 },
+        }}
+      >
+        <DialogTitle sx={{ fontWeight: 800, pb: 1 }}>
+          Konfirmasi Pembayaran Cicilan
+        </DialogTitle>
+        <DialogContent>
+          <Typography color="text.secondary" sx={{ mb: 2 }}>
+            Apakah Anda ingin menyetujui pembayaran cicilan pada {selectedInstallments.length} anggota berikut:
+          </Typography>
+          <Box 
+            sx={{ 
+              bgcolor: "#F8FAFC", 
+              p: 2, 
+              borderRadius: 2, 
+              border: "1px solid #CBD5E1", 
+              maxHeight: 100, 
+              overflowY: "auto",
+              boxShadow: "inset 0 2px 4px 0 rgba(0, 0, 0, 0.05)",
+              "&::-webkit-scrollbar": { width: "6px" },
+              "&::-webkit-scrollbar-thumb": { bgcolor: "#CBD5E1", borderRadius: "10px" }
+            }}
+          >
+            {selectedInstallments.map((item, idx) => (
+              <Typography key={item.installmentId} variant="body2" fontWeight={700} color="primary" sx={{ mb: 0.8 }}>
+                {idx + 1}. {item.userName}
+              </Typography>
+            ))}
+          </Box>
+        </DialogContent>
+        <DialogActions sx={{ p: 2, pt: 0, gap: 1 }}>
+          <Button
+            onClick={() => setConfirmDialogOpen(false)}
+            disabled={isUpdatingSelectedInstallments}
+            sx={{ textTransform: "none", fontWeight: 600, borderRadius: 2, px: 2.5 }}
+          >
+            Batal
+          </Button>
+          <Button
+            variant="contained"
+            onClick={confirmSelectedInstallment}
+            disabled={selectedInstallments.length === 0 || isUpdatingSelectedInstallments}
+            sx={{ textTransform: "none", fontWeight: 700, borderRadius: 2, px: 2.5, boxShadow: "none" }}
+          >
+            {isUpdatingSelectedInstallments
+              ? "Menyimpan..."
+              : `Ya, Konfirmasi ${selectedInstallments.length} Cicilan`}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <PostponeInstallmentModal
+        open={postponeModal.open}
+        handleClose={() => setPostponeModal({ ...postponeModal, open: false })}
+        loanData={postponeModal.loan}
+        loading={postponeModal.loading}
+        onApprove={(data) => handlePostponeDecision("approve", data)}
+        onReject={(data) => handlePostponeDecision("reject", data)}
+      />
+
       <LoanFeedbackSnackbar
         open={feedback.open}
         message={feedback.message}
         severity={feedback.severity}
-        onClose={() => setFeedback(prev => ({ ...prev, open: false }))}
+        onClose={() => setFeedback({ ...feedback, open: false })}
       />
     </Box>
   );

@@ -35,6 +35,7 @@ import {
 } from "@tabler/icons-react";
 
 import LoanFeedbackSnackbar from "../../../ui-component/feedback/LoanFeedbackSnackbar";
+import TopupInfoCard from "../../../ui-component/cards/Loans/Admin/TopupInfoCard";
 
 const LoanSubmissionDetailPage = () => {
   const navigate = useNavigate();
@@ -95,6 +96,10 @@ const LoanSubmissionDetailPage = () => {
       });
       if (response.data.success) {
         showFeedback("success", response.data?.message || "Pengajuan berhasil dikonfirmasi admin.");
+        
+        // Trigger sidebar refresh
+        window.dispatchEvent(new CustomEvent('refresh-menu-counts'));
+
         setTimeout(() => {
           navigate("/admin/loans/pengajuan");
         }, 1200);
@@ -117,6 +122,10 @@ const LoanSubmissionDetailPage = () => {
       if (response.data.success) {
         showFeedback("success", response.data?.message || "Pengajuan telah ditolak.");
         handleCloseReject();
+
+        // Trigger sidebar refresh
+        window.dispatchEvent(new CustomEvent('refresh-menu-counts'));
+
         setTimeout(() => {
           navigate("/admin/loans/pengajuan");
         }, 1200);
@@ -213,6 +222,9 @@ const LoanSubmissionDetailPage = () => {
 
       <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", lg: "2fr 1fr" }, gap: 3 }}>
         <Stack spacing={3}>
+          {loan?.loan_mode === 'topup' && (
+            <TopupInfoCard referredLoan={loan.referred_loan} currentAmount={loan.jumlah_pinjaman} />
+          )}
           <Card sx={{ borderRadius: 3, border: "1px solid #E5E7EB", boxShadow: "none" }}>
             <CardContent sx={{ p: 3 }}>
               <Stack direction="row" spacing={1} alignItems="center" mb={2}>
@@ -267,36 +279,77 @@ const LoanSubmissionDetailPage = () => {
                   <Typography variant="body1" sx={{ fontWeight: 700 }}>: {loan?.lama_pembayaran} Bulan</Typography>
                 </Box>
                 <Box sx={{ display: "flex", gap: 1 }}>
+                  <Typography variant="body1" sx={{ width: 140, color: "#64748B", fontWeight: 500 }}>Mode Pengajuan</Typography>
+                  <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                    <Typography variant="body1" sx={{ fontWeight: 700 }}>: </Typography>
+                    <Chip
+                      label={String(loan?.loan_mode_label || "Baru").toUpperCase()}
+                      size="small"
+                      sx={{
+                        bgcolor: loan?.loan_mode === "topup" ? "#FEE2E2" : "#DBEAFE",
+                        color: loan?.loan_mode === "topup" ? "#B91C1C" : "#1D4ED8",
+                        fontWeight: 700,
+                        px: 1,
+                        height: 24
+                      }}
+                    />
+                  </Box>
+                </Box>
+                {loan?.referred_loan && (
+                  <Box sx={{ display: "flex", gap: 1 }}>
+                    <Typography variant="body1" sx={{ width: 140, color: "#64748B", fontWeight: 500 }}>Referensi Loan</Typography>
+                    <Typography 
+                      variant="body1" 
+                      onClick={() => navigate(`/admin/loans/pengajuan/details?loan_id=${loan.referred_loan.id}&user_id=${loan.user_id}`)}
+                      sx={{ 
+                        fontWeight: 700, 
+                        color: "primary.main", 
+                        cursor: "pointer",
+                        "&:hover": { textDecoration: "underline" }
+                      }}
+                    >
+                      : #{loan.referred_loan.loan_number}
+                    </Typography>
+                  </Box>
+                )}
+                <Box sx={{ display: "flex", gap: 1 }}>
                   <Typography variant="body1" sx={{ width: 140, color: "#64748B", fontWeight: 500 }}>Potong Gaji</Typography>
                   <Typography variant="body1" sx={{ fontWeight: 700 }}>: {formatMonthYear(loan?.bulan_potong_gaji)}</Typography>
                 </Box>
-                {loan?.document_url && (
-                  <Box sx={{ display: "flex", gap: 1 }}>
-                    <Typography variant="body1" sx={{ width: 140, color: "#64748B", fontWeight: 500 }}>Bukti Nota</Typography>
-                    <Box sx={{ display: "flex", flexDirection: "column", gap: 0.5 }}>
-                      <Typography variant="body1" sx={{ fontWeight: 700, mb: 0.5 }}>: </Typography>
-                      <Box 
-                        component="img" 
-                        src={loan.document_url} 
-                        alt="Bukti Nota"
-                        sx={{ 
-                          width: 120, 
-                          height: 120, 
-                          objectFit: 'cover', 
-                          borderRadius: 2,
-                          cursor: 'pointer',
-                          border: '1px solid #E5E7EB',
-                          ml: 1,
-                          '&:hover': { opacity: 0.8 }
-                        }} 
-                        onClick={() => window.open(loan.document_url, '_blank')}
-                      />
-                      <Typography variant="caption" sx={{ ml: 1, color: 'primary.main', cursor: 'pointer', fontWeight: 600 }} onClick={() => window.open(loan.document_url, '_blank')}>
-                        Klik untuk memperbesar
-                      </Typography>
-                    </Box>
-                  </Box>
-                )}
+                                {loan?.document_url ? (
+                                    <Box sx={{ display: "flex", gap: 1, mt: 1 }}>
+                                        <Typography variant="body1" sx={{ width: 140, color: "#64748B", fontWeight: 500 }}>Bukti Nota</Typography>
+                                        <Box sx={{ display: "flex", flexDirection: "column", gap: 0.5 }}>
+                                            <Typography variant="body1" sx={{ fontWeight: 700, mb: 0.5 }}>: </Typography>
+                                            <Box 
+                                                component="img" 
+                                                src={loan.document_url} 
+                                                alt="Bukti Nota"
+                                                sx={{ 
+                                                    width: 120, 
+                                                    height: 120, 
+                                                    objectFit: 'cover', 
+                                                    borderRadius: 2,
+                                                    cursor: 'pointer',
+                                                    border: '1px solid #E5E7EB',
+                                                    ml: 1,
+                                                    '&:hover': { opacity: 0.8 }
+                                                }} 
+                                                onClick={() => window.open(loan.document_url, '_blank')}
+                                            />
+                                            <Typography variant="caption" sx={{ ml: 1, color: 'primary.main', cursor: 'pointer', fontWeight: 600 }} onClick={() => window.open(loan.document_url, '_blank')}>
+                                                Klik untuk memperbesar
+                                            </Typography>
+                                        </Box>
+                                    </Box>
+                                ) : (
+                                    loan?.type?.toLowerCase() === 'konsumtif' && (
+                                        <Box sx={{ display: "flex", gap: 1, mt: 1 }}>
+                                            <Typography variant="body1" sx={{ width: 140, color: "#64748B", fontWeight: 500 }}>Bukti Nota</Typography>
+                                            <Typography variant="body1" sx={{ fontWeight: 700, color: "#EF4444" }}>: Belum diunggah</Typography>
+                                        </Box>
+                                    )
+                                )}
               </Stack>
 
               <Box sx={{ mt: 3 }}>

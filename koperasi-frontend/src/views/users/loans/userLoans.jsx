@@ -160,6 +160,24 @@ const LoanTypeBadge = ({ type }) => {
     );
 };
 
+const LoanModeBadge = ({ mode }) => {
+    const normalized = String(mode || "new").toLowerCase();
+    const isTopup = normalized === "topup";
+
+    return (
+        <Chip
+            label={isTopup ? "TOP-UP" : "BARU"}
+            size="small"
+            sx={{
+                background: isTopup ? "#FEE2E2" : "#E0F2FE",
+                color: isTopup ? "#B91C1C" : "#075985",
+                fontWeight: 700,
+                textTransform: "uppercase",
+            }}
+        />
+    );
+};
+
 const formatCurrency = (value) => `Rp ${new Intl.NumberFormat("id-ID").format(Number(value || 0))}`;
 
 const formatDate = (value) => {
@@ -276,12 +294,12 @@ const UserLoans = () => {
         setFeedback((prev) => ({ ...prev, open: false }));
     };
 
-    // Aggregate statistics across ONLY approved loans (confirmed by Admin & Ketua)
-    const approvedLoans = loans.filter(l => ["disetujui_ketua", "aktif", "paid"].includes(l.status_pengajuan));
-    
-    const totalPokok = approvedLoans.reduce((sum, loan) => sum + Number(loan.jumlah_pinjaman || 0), 0);
-    
-    const totalTerbayar = approvedLoans.reduce((sum, loan) => {
+    // Scoreboard should reflect only currently active loans.
+    const activeLoans = loans.filter((l) => ["disetujui_ketua", "aktif"].includes(l.status_pengajuan));
+
+    const totalPokok = activeLoans.reduce((sum, loan) => sum + Number(loan.jumlah_pinjaman || 0), 0);
+
+    const totalTerbayar = activeLoans.reduce((sum, loan) => {
         const loanCicilan = loan.cicilan || [];
         const paidAmount = loanCicilan
             .filter((item) => item.status_pembayaran === "paid")
@@ -294,6 +312,7 @@ const UserLoans = () => {
     
     const selectedLoan = loans.find(l => !["paid", "rejected"].includes(l.status_pengajuan)) || loans[0] || null;
     const hasActiveLoan = loans.some(loan => !["paid", "rejected"].includes(loan.status_pengajuan));
+    const hasApprovedLoan = activeLoans.length > 0;
 
     return (
         <Box sx={{ p: 4, background: "#F5F7FB", minHeight: "100vh" }}>
@@ -471,7 +490,7 @@ const UserLoans = () => {
                                 <Button
                                     startIcon={<AddIcon />}
                                     variant="contained"
-                                    onClick={() => navigate("/user/loans/add")}
+                                    onClick={() => navigate(hasApprovedLoan ? "/user/loans/topup" : "/user/loans/add")}
                                     sx={{
                                         borderRadius: "10px",
                                         textTransform: "none",
@@ -484,7 +503,7 @@ const UserLoans = () => {
                                         }
                                     }}
                                 >
-                                    Pengajuan Baru
+                                    {hasApprovedLoan ? "Top Up" : "Pengajuan Baru +"}
                                 </Button>
                             </Stack>
 
@@ -541,10 +560,18 @@ const UserLoans = () => {
                                                 </TableCell>
 
                                                 <TableCell>
-                                                    <LoanTypeBadge type={loan.type_slug} />
+                                                    <Stack direction="row" spacing={1} sx={{ mb: 0.5 }}>
+                                                        <LoanTypeBadge type={loan.type_slug} />
+                                                        <LoanModeBadge mode={loan.loan_mode} />
+                                                    </Stack>
                                                     <Typography fontWeight={800} sx={{ mt: 0.5 }}>
                                                         {formatCurrency(loan.jumlah_pinjaman)}
                                                     </Typography>
+                                                    {loan.referred_loan?.loan_number && (
+                                                        <Typography variant="caption" color="text.secondary">
+                                                            Ref: #{loan.referred_loan.loan_number}
+                                                        </Typography>
+                                                    )}
                                                 </TableCell>
 
                                                 <TableCell sx={{ fontWeight: 600, color: '#475569' }}>

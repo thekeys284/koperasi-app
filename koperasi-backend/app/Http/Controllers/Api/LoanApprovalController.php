@@ -5,8 +5,10 @@ namespace App\Http\Controllers\Api;
 use App\Helpers\ActivityLogHelper;
 use App\Http\Controllers\Controller;
 use App\Models\Loan;
+use App\Models\LoanCicilan;
 use App\Models\User;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
 
@@ -50,15 +52,41 @@ class LoanApprovalController extends Controller
                 return response()->json([
                     'success' => true,
                     'message' => 'Pengajuan pinjaman berhasil dikonfirmasi admin. Menunggu konfirmasi lead.',
-                    'data' => $this->formatLoan($loan->fresh(['user']), false),
+                    'data' => $this->formatLoan($loan->fresh(['user', 'referredLoan']), false),
                 ]);
             }
 
             if ($loan->status_pengajuan === 'pending_pengajuan') {
-                $loan->update([
-                    'status_pengajuan' => 'disetujui_ketua',
-                    'tgl_acc_ketua' => now(),
-                ]);
+                $loan = DB::transaction(function () use ($loan) {
+                    $loan->update([
+                        'status_pengajuan' => 'disetujui_ketua',
+                        'tgl_acc_ketua' => now(),
+                    ]);
+
+                    if (($loan->loan_mode ?? 'new') === 'topup' && $loan->refers_to_loan_id) {
+                        $referredLoan = Loan::lockForUpdate()->find($loan->refers_to_loan_id);
+
+                        if ($referredLoan) {
+                            // Fallback for legacy top-up rows that were saved as delta only.
+                            if ((float) $loan->jumlah_pinjaman <= (float) $referredLoan->jumlah_pinjaman) {
+                                $loan->update([
+                                    'jumlah_pinjaman' => (float) $referredLoan->jumlah_pinjaman + (float) $loan->jumlah_pinjaman,
+                                ]);
+
+                                $this->rebalanceInstallments($loan->fresh());
+                            }
+
+                            // After top-up is approved, old loan should no longer appear as active.
+                            if (!in_array($referredLoan->status_pengajuan, ['paid', 'rejected'], true)) {
+                                $referredLoan->update([
+                                    'status_pengajuan' => 'paid',
+                                ]);
+                            }
+                        }
+                    }
+
+                    return $loan->fresh(['user', 'referredLoan']);
+                });
 
                 try {
                     ActivityLogHelper::create(
@@ -73,7 +101,7 @@ class LoanApprovalController extends Controller
                 return response()->json([
                     'success' => true,
                     'message' => 'Pengajuan pinjaman berhasil disetujui lead.',
-                    'data' => $this->formatLoan($loan->fresh(['user']), false),
+                    'data' => $this->formatLoan($loan, false),
                 ]);
             }
 
@@ -127,7 +155,7 @@ class LoanApprovalController extends Controller
             return response()->json([
                 'success' => true,
                 'message' => 'Pinjaman berhasil ditolak.',
-                'data' => $this->formatLoan($loan->fresh(['user']), false),
+                'data' => $this->formatLoan($loan->fresh(['user', 'referredLoan']), false),
             ]);
         } catch (ValidationException $e) {
             return response()->json(['success' => false, 'message' => 'Alasan penolakan wajib diisi.', 'errors' => $e->errors()], 422);
@@ -152,6 +180,8 @@ class LoanApprovalController extends Controller
         $loanTypeSlug = strtolower($loanType);
         $statusDisplay = $this->mapStatusDisplay($loan->status_pengajuan);
         $loanNumber   = 'PJM-' . str_pad($loan->id, 5, '0', STR_PAD_LEFT);
+        $loanMode = strtolower((string) ($loan->loan_mode ?? 'new'));
+        $referredLoan = $loan->relationLoaded('referredLoan') ? $loan->referredLoan : $loan->referredLoan;
         $payload = [
             'id'                    => $loan->id,
             'loan_number'           => $loanNumber,
@@ -164,6 +194,14 @@ class LoanApprovalController extends Controller
                 'email' => $loan->user->email,
                 'nip'   => $loan->user->nip ?? null,
             ] : null,
+            'loan_mode'             => $loanMode,
+            'loan_mode_label'       => $loanMode === 'topup' ? 'Top-Up' : 'Baru',
+            'refers_to_loan_id'     => $loan->refers_to_loan_id,
+            'referred_loan'         => $referredLoan ? [
+                'id' => $referredLoan->id,
+                'loan_number' => 'PJM-' . str_pad($referredLoan->id, 5, '0', STR_PAD_LEFT),
+                'status_pengajuan' => $referredLoan->status_pengajuan,
+            ] : null,
             'type'                  => $loanType,
             'jenis_pinjaman'        => $loan->jenis_pinjaman,
             'jenis_pinjaman_label'  => $loanType,
@@ -172,7 +210,7 @@ class LoanApprovalController extends Controller
             'lama_pembayaran'       => (int) $loan->lama_pembayaran,
             'bulan_potong_gaji'     => $loan->bulan_potong_gaji,
             'reason'                => $loan->reason,
-            'document_url'          => $loan->file_path ? asset('storage/' . $loan->file_path) : null,
+            'document_url'          => $loan->file_path ? request()->root() . '/storage/' . $loan->file_path : null,
             'tanggal_mulai_cicilan' => $loan->tanggal_mulai_cicilan,
             'tanggal_pengajuan'     => $loan->tanggal_pengajuan,
             'created_at'            => $loan->tanggal_pengajuan ?? $loan->created_at,
@@ -251,5 +289,34 @@ class LoanApprovalController extends Controller
             'disetujui_ketua', 'pending_pengajuan', 'pending' => 'active',
             default => 'unknown',
         };
+    }
+
+    private function rebalanceInstallments(Loan $loan): void
+    {
+        $tenor = max(1, (int) $loan->lama_pembayaran);
+        $principal = (float) $loan->jumlah_pinjaman;
+        $baseInstallment = round($principal / $tenor, 2);
+        $runningTotal = 0.0;
+
+        $installments = LoanCicilan::where('loans_id', $loan->id)
+            ->orderBy('cicilan')
+            ->get();
+
+        if ($installments->count() !== $tenor) {
+            return;
+        }
+
+        foreach ($installments as $index => $installment) {
+            $installmentNumber = $index + 1;
+            $nominal = $installmentNumber === $tenor
+                ? round($principal - $runningTotal, 2)
+                : $baseInstallment;
+
+            $runningTotal += $nominal;
+
+            $installment->update([
+                'nominal' => $nominal,
+            ]);
+        }
     }
 }

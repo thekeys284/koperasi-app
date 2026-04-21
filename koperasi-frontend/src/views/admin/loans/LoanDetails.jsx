@@ -194,7 +194,7 @@ export default function LoanDetails() {
     .reduce((sum, item) => sum + Number(item.nominal || 0), 0);
   const sisaPinjaman = Math.max(0, totalPokok - totalTerbayar);
   const progress = totalPokok > 0 ? Math.round((totalTerbayar / totalPokok) * 100) : 0;
-  const sisaCicilan = cicilanList.filter((item) => item.tukin_status !== "sudah").length;
+  const sisaCicilan = cicilanList.filter((item) => item.status_pembayaran === "pending").length;
   const nominalPerBulan = cicilanList[0]?.nominal || 0;
 
   const formatCurrency = (value) => `Rp ${new Intl.NumberFormat("id-ID").format(Number(value || 0))}`;
@@ -210,7 +210,7 @@ export default function LoanDetails() {
     if (item.status_pembayaran === "postponed") {
       return {
         label: "Ditunda",
-        sx: { bgcolor: "#E2E8F0", color: "#64748B", fontWeight: 600 }
+        sx: { bgcolor: "#FEF3C7", color: "#e5a143ff", fontWeight: 600 }
       };
     }
     if (item.status_pembayaran === "paid") {
@@ -495,7 +495,7 @@ export default function LoanDetails() {
                 {formatDate(loan?.created_at)}
               </TableCell>
             </TableRow>
-            {loan?.document_url && (
+            {loan?.document_url ? (
               <TableRow>
                 <TableCell sx={{ width: "30%", color: "#334155", fontWeight: 600, borderBottom: "none", px: 3, py: 1.5 }}>
                   Bukti Nota
@@ -521,6 +521,17 @@ export default function LoanDetails() {
                   </Typography>
                 </TableCell>
               </TableRow>
+            ) : (
+                loan?.type?.toLowerCase() === 'konsumtif' && (
+                  <TableRow>
+                    <TableCell sx={{ width: "30%", color: "#334155", fontWeight: 600, borderBottom: "none", px: 3, py: 1.5 }}>
+                      Bukti Nota
+                    </TableCell>
+                    <TableCell sx={{ color: "#EF4444", fontWeight: 700, borderBottom: "none", px: 3, py: 1.5 }}>
+                      Belum diunggah
+                    </TableCell>
+                  </TableRow>
+                )
             )}
           </TableBody>
         </Table>
@@ -607,7 +618,14 @@ export default function LoanDetails() {
                           }
 
                           const canConfirm = isSameMonth(item.tanggal_pembayaran);
-                          if (!canConfirm && item.status_pembayaran !== "paid") {
+                          
+                          // Jika sudah lunas atau ditunda, tampilkan labelnya langsung
+                          if (item.status_pembayaran === "paid" || item.status_pembayaran === "postponed") {
+                            return <Chip label={style.label} sx={style.sx} size="small" />;
+                          }
+
+                          // Jika bukan bulan ini, maka statusnya terkunci
+                          if (!canConfirm) {
                             return (
                               <Chip
                                 label="Terkunci"
@@ -617,18 +635,16 @@ export default function LoanDetails() {
                             );
                           }
 
+                          // Jika bulan ini dan belum bayar, tampilkan checkbox konfirmasi
                           return (
                             <Stack direction="row" spacing={1} alignItems="center">
                               <Checkbox
-                                checked={item.status_pembayaran === "paid"}
+                                checked={false}
                                 size="small"
                                 onChange={(e) => handleDirectConfirm(item, e.target.checked)}
                                 disabled={saving || updatingInstallmentIds.includes(item.id)}
                                 sx={{ p: 0 }}
                               />
-                              {item.status_pembayaran === "paid" && (
-                                <Chip label={style.label} sx={style.sx} size="small" />
-                              )}
                             </Stack>
                           );
                         })()}

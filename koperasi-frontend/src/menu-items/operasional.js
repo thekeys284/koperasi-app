@@ -35,13 +35,6 @@ const operasional = {
           type: "item",
           url: "/admin/loans/daftar",
           breadcrumbs: false,
-        },
-        {
-          id: "generate-report",
-          title: "Generate Laporan",
-          type: "item",
-          url: "/admin/loans/generate-report",
-          breadcrumbs: false,
         }
       ],
     },

@@ -1,14 +1,11 @@
 import React from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import {
     Box,
     Grid,
     Typography,
     Stack,
     TextField,
-    RadioGroup,
-    FormControlLabel,
-    Radio,
     MenuItem,
     Select,
     Button,
@@ -52,8 +49,13 @@ const cardSx = {
 };
 
 const LeadLoanCreatePage = () => {
+    const location = useLocation();
     const navigate = useNavigate();
+    const currentUserId = "10";
+    const isTopupPage = location.pathname === "/user/loans/topup";
     const [tipePinjaman, setTipePinjaman] = React.useState("konsumtif");
+    const [topupReferenceLoan, setTopupReferenceLoan] = React.useState(null);
+    const [referenceLoading, setReferenceLoading] = React.useState(false);
     const [jumlah, setJumlah] = React.useState(0);
     const [tenor, setTenor] = React.useState(3);
     const [cicilan, setCicilan] = React.useState(0);
@@ -79,6 +81,69 @@ const LeadLoanCreatePage = () => {
             setCicilan(0);
         }
     }, [jumlah, tenor]);
+
+    React.useEffect(() => {
+        let active = true;
+
+        if (!isTopupPage) {
+            setTopupReferenceLoan(null);
+            setReferenceLoading(false);
+            return () => {
+                active = false;
+            };
+        }
+
+        const fetchReferenceLoans = async () => {
+            try {
+                setReferenceLoading(true);
+                const response = await api.get("/loans", {
+                    params: {
+                        user_id: currentUserId,
+                    },
+                });
+
+                const rows = Array.isArray(response.data?.data) ? response.data.data : [];
+                const eligible = rows
+                .filter((item) => {
+                    const status = String(item?.status_pengajuan || "").toLowerCase();
+                    return ["disetujui_ketua", "aktif", "paid"].includes(status);
+                })
+                .sort((a, b) => {
+                    const aDate = new Date(a?.tgl_acc_ketua || a?.created_at || 0).getTime();
+                    const bDate = new Date(b?.tgl_acc_ketua || b?.created_at || 0).getTime();
+                    return bDate - aDate;
+                });
+
+                if (active) {
+                    setTopupReferenceLoan(eligible[0] || null);
+                }
+            } catch (err) {
+                if (active) {
+                    setTopupReferenceLoan(null);
+                }
+            } finally {
+                if (active) {
+                    setReferenceLoading(false);
+                }
+            }
+        };
+
+        fetchReferenceLoans();
+
+        return () => {
+            active = false;
+        };
+    }, [currentUserId, isTopupPage]);
+
+    React.useEffect(() => {
+        if (!isTopupPage) {
+            return;
+        }
+
+        if (topupReferenceLoan?.next_topup_month) {
+            setBulanPotongGaji(topupReferenceLoan.next_topup_month);
+        }
+    }, [isTopupPage, topupReferenceLoan]);
 
     const handleJumlah = (e) => {
         const raw = e.target.value.replace(/\D/g, "");
@@ -118,13 +183,24 @@ const LeadLoanCreatePage = () => {
                 return;
             }
 
+            if (isTopupPage && !topupReferenceLoan?.id) {
+                setErrorMessage("Belum ada pinjaman yang disetujui untuk dijadikan dasar Top Up.");
+                setSubmitting(false);
+                return;
+            }
+
             const payload = new FormData();
-            payload.append("user_id", "10");
+            payload.append("user_id", currentUserId);
             payload.append("type", tipePinjaman === "produktif" ? "Produktif" : "Konsumtif");
             payload.append("amount_requested", String(jumlah));
             payload.append("tenor_months", String(tenor));
             payload.append("bulan_potong_gaji", bulanPotongGaji || "");
             payload.append("reason", keterangan || "");
+            payload.append("loan_mode", isTopupPage ? "topup" : "new");
+
+            if (isTopupPage && topupReferenceLoan?.id) {
+                payload.append("refers_to_loan_id", String(topupReferenceLoan.id));
+            }
 
             if (selectedFile) {
                 payload.append("document", selectedFile);
@@ -138,9 +214,15 @@ const LeadLoanCreatePage = () => {
 
             setFeedback({
                 open: true,
-                message: "Pengajuan pinjaman berhasil dikirim.",
+                message: isTopupPage
+                    ? "Pengajuan top-up pinjaman berhasil dikirim."
+                    : "Pengajuan pinjaman berhasil dikirim.",
                 severity: "success",
             });
+            
+            // Trigger sidebar refresh
+            window.dispatchEvent(new CustomEvent('refresh-menu-counts'));
+
             setKeterangan("");
             setJumlah(0);
             setTenor(3);
@@ -205,7 +287,7 @@ const LeadLoanCreatePage = () => {
                     letterSpacing: "-0.02em"
                 }}
             >
-                Pengajuan Pinjaman Baru
+                {isTopupPage ? "Pengajuan Top-Up Pinjaman" : "Pengajuan Pinjaman Baru"}
             </Typography>
             <Typography color="text.secondary" sx={{ mt: 0.5, mb: { xs: 3, md: 4 }, maxWidth: 720 }}>
                 Silakan lengkapi rincian pengajuan pinjaman Anda untuk proses verifikasi
@@ -225,18 +307,38 @@ const LeadLoanCreatePage = () => {
                                     </Typography>
                                 </Stack>
 
+                                {isTopupPage && (
+                                    <Box>
+                                        <Alert severity={topupReferenceLoan ? "info" : "warning"} sx={{ borderRadius: 2 }}>
+                                            {referenceLoading
+                                                ? "Memuat data pinjaman yang sudah disetujui..."
+                                                : topupReferenceLoan
+                                                    ? `Top Up akan menggunakan pinjaman #${topupReferenceLoan.loan_number} (Rp ${formatRupiah(topupReferenceLoan.jumlah_pinjaman)}).`
+                                                    : "Belum ada pinjaman disetujui. Silakan ajukan pinjaman baru dulu lewat menu Pengajuan Baru."}
+                                        </Alert>
+                                    </Box>
+                                )}
+
                                 <Box>
                                     <Typography fontWeight={600} mb={1} fontSize={14}>
                                         Tipe Pinjaman
                                     </Typography>
-                                    <RadioGroup
-                                        row
-                                        value={tipePinjaman}
-                                        onChange={(e) => setTipePinjaman(e.target.value)}
-                                    >
-                                        <FormControlLabel value="produktif" control={<Radio />} label="Produktif" />
-                                        <FormControlLabel value="konsumtif" control={<Radio />} label="Konsumtif" />
-                                    </RadioGroup>
+                                    <Stack direction="row" spacing={2}>
+                                        <Button
+                                            variant={tipePinjaman === "produktif" ? "contained" : "outlined"}
+                                            onClick={() => setTipePinjaman("produktif")}
+                                            sx={{ textTransform: "none", borderRadius: "12px" }}
+                                        >
+                                            Produktif
+                                        </Button>
+                                        <Button
+                                            variant={tipePinjaman === "konsumtif" ? "contained" : "outlined"}
+                                            onClick={() => setTipePinjaman("konsumtif")}
+                                            sx={{ textTransform: "none", borderRadius: "12px" }}
+                                        >
+                                            Konsumtif
+                                        </Button>
+                                    </Stack>
                                 </Box>
 
                                 {tipePinjaman === "konsumtif" && (
@@ -345,10 +447,16 @@ const LeadLoanCreatePage = () => {
                                             type="month"
                                             value={bulanPotongGaji}
                                             onChange={(e) => setBulanPotongGaji(e.target.value)}
+                                            disabled={isTopupPage}
                                             placeholder="mm/yyyy"
                                             InputLabelProps={{ shrink: true }}
                                             InputProps={{ sx: { borderRadius: "12px" } }}
                                         />
+                                        {isTopupPage && topupReferenceLoan?.next_topup_month && (
+                                            <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: "block" }}>
+                                                Auto dari referensi: {topupReferenceLoan.next_topup_month}
+                                            </Typography>
+                                        )}
                                     </Grid>
                                 </Grid>
 
@@ -375,7 +483,12 @@ const LeadLoanCreatePage = () => {
                                     fullWidth
                                     variant="contained"
                                     size="large"
-                                    disabled={submitting || !jumlah || !bulanPotongGaji}
+                                    disabled={
+                                        submitting
+                                        || !jumlah
+                                        || !bulanPotongGaji
+                                        || (isTopupPage && !topupReferenceLoan?.id)
+                                    }
                                     onClick={handleSubmit}
                                     sx={{
                                         py: 1.75,
@@ -386,7 +499,7 @@ const LeadLoanCreatePage = () => {
                                         boxShadow: "0 4px 14px rgba(25, 118, 210, 0.35)"
                                     }}
                                 >
-                                    {submitting ? "Mengirim..." : "Ajukan Pinjaman"}
+                                    {submitting ? "Mengirim..." : (isTopupPage ? "Ajukan Top-Up" : "Ajukan Pinjaman")}
                                 </Button>
                             </Stack>
                         </Paper>
@@ -422,7 +535,7 @@ const LeadLoanCreatePage = () => {
                         </Typography>
 
                         <Typography fontSize={11} fontWeight={600} color="text.secondary" letterSpacing={0.8}>
-                            TOTAL PINJAMAN
+                            {isTopupPage ? "NOMINAL TOP-UP" : "TOTAL PINJAMAN"}
                         </Typography>
                         <Typography fontSize={28} fontWeight={800} color="primary.main" sx={{ mt: 0.5, mb: 2 }}>
                             Rp {formatRupiah(jumlah)}
