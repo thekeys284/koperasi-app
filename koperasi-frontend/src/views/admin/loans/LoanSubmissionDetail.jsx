@@ -32,7 +32,11 @@ import {
   IconCircleX,
   IconDots,
   IconLock,
+  IconArrowUpCircle
 } from "@tabler/icons-react";
+
+import { Accordion, AccordionSummary, AccordionDetails } from "@mui/material";
+import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 
 import LoanFeedbackSnackbar from "../../../ui-component/feedback/LoanFeedbackSnackbar";
 import TopupInfoCard from "../../../ui-component/cards/Loans/Admin/TopupInfoCard";
@@ -154,6 +158,13 @@ const LoanSubmissionDetailPage = () => {
     return date.toLocaleDateString("id-ID", { day: "2-digit", month: "long", year: "numeric" });
   };
 
+  const getFullUrl = (path) => {
+    if (!path) return "";
+    if (path.startsWith("http")) return path;
+    const baseUrl = api.defaults.baseURL.replace('/api', '');
+    return `${baseUrl}${path.startsWith('/') ? '' : '/'}${path}`;
+  };
+
   const canApproveAsAdmin = loan?.status_pengajuan === "pending";
 
   if (loading) {
@@ -223,7 +234,39 @@ const LoanSubmissionDetailPage = () => {
       <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", lg: "2fr 1fr" }, gap: 3 }}>
         <Stack spacing={3}>
           {loan?.loan_mode === 'topup' && (
-            <TopupInfoCard referredLoan={loan.referred_loan} currentAmount={loan.jumlah_pinjaman} />
+            <Accordion 
+                sx={{ 
+                    mb: 3, 
+                    borderRadius: "12px !important", 
+                    boxShadow: "none", 
+                    border: "1px solid #E5E7EB",
+                    '&:before': { display: 'none' } 
+                }}
+            >
+                <AccordionSummary 
+                    expandIcon={<ExpandMoreIcon />}
+                    sx={{ px: 3, py: 1 }}
+                >
+                    <Stack direction="row" spacing={2} alignItems="center">
+                        <Box sx={{ 
+                            width: 32, 
+                            height: 32, 
+                            borderRadius: '50%', 
+                            bgcolor: '#2563EB', 
+                            color: 'white',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center'
+                        }}>
+                            <IconArrowUpCircle size="1.1rem" />
+                        </Box>
+                        <Typography variant="h4" fontWeight={700} color="#1E293B">Informasi Detail Top-Up</Typography>
+                    </Stack>
+                </AccordionSummary>
+                <AccordionDetails sx={{ p: 0 }}>
+                    <TopupInfoCard referredLoan={loan.referred_loan} currentAmount={loan.amount_requested} isInsideAccordion />
+                </AccordionDetails>
+            </Accordion>
           )}
           <Card sx={{ borderRadius: 3, border: "1px solid #E5E7EB", boxShadow: "none" }}>
             <CardContent sx={{ p: 3 }}>
@@ -267,18 +310,6 @@ const LoanSubmissionDetailPage = () => {
                   </Box>
                 </Box>
                 <Box sx={{ display: "flex", gap: 1 }}>
-                  <Typography variant="body1" sx={{ width: 140, color: "#64748B", fontWeight: 500 }}>Tanggal Pengajuan</Typography>
-                  <Typography variant="body1" sx={{ fontWeight: 700 }}>: {formatDate(loan?.created_at)}</Typography>
-                </Box>
-                <Box sx={{ display: "flex", gap: 1 }}>
-                  <Typography variant="body1" sx={{ width: 140, color: "#64748B", fontWeight: 500 }}>Jumlah Pinjaman</Typography>
-                  <Typography variant="body1" sx={{ fontWeight: 800, color: "primary.main" }}>: {formatCurrency(loan?.jumlah_pinjaman)}</Typography>
-                </Box>
-                <Box sx={{ display: "flex", gap: 1 }}>
-                  <Typography variant="body1" sx={{ width: 140, color: "#64748B", fontWeight: 500 }}>Tenor</Typography>
-                  <Typography variant="body1" sx={{ fontWeight: 700 }}>: {loan?.lama_pembayaran} Bulan</Typography>
-                </Box>
-                <Box sx={{ display: "flex", gap: 1 }}>
                   <Typography variant="body1" sx={{ width: 140, color: "#64748B", fontWeight: 500 }}>Mode Pengajuan</Typography>
                   <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
                     <Typography variant="body1" sx={{ fontWeight: 700 }}>: </Typography>
@@ -294,6 +325,18 @@ const LoanSubmissionDetailPage = () => {
                       }}
                     />
                   </Box>
+                </Box>
+                <Box sx={{ display: "flex", gap: 1 }}>
+                  <Typography variant="body1" sx={{ width: 140, color: "#64748B", fontWeight: 500 }}>Tanggal Pengajuan</Typography>
+                  <Typography variant="body1" sx={{ fontWeight: 700 }}>: {formatDate(loan?.created_at)}</Typography>
+                </Box>
+                <Box sx={{ display: "flex", gap: 1 }}>
+                  <Typography variant="body1" sx={{ width: 140, color: "#64748B", fontWeight: 500 }}>Jumlah Pinjaman</Typography>
+                  <Typography variant="body1" sx={{ fontWeight: 800, color: "primary.main" }}>: {formatCurrency(loan?.jumlah_pinjaman)}</Typography>
+                </Box>
+                <Box sx={{ display: "flex", gap: 1 }}>
+                  <Typography variant="body1" sx={{ width: 140, color: "#64748B", fontWeight: 500 }}>Tenor</Typography>
+                  <Typography variant="body1" sx={{ fontWeight: 700 }}>: {loan?.lama_pembayaran} Bulan</Typography>
                 </Box>
                 {loan?.referred_loan && (
                   <Box sx={{ display: "flex", gap: 1 }}>
@@ -316,40 +359,40 @@ const LoanSubmissionDetailPage = () => {
                   <Typography variant="body1" sx={{ width: 140, color: "#64748B", fontWeight: 500 }}>Potong Gaji</Typography>
                   <Typography variant="body1" sx={{ fontWeight: 700 }}>: {formatMonthYear(loan?.bulan_potong_gaji)}</Typography>
                 </Box>
-                                {loan?.document_url ? (
-                                    <Box sx={{ display: "flex", gap: 1, mt: 1 }}>
-                                        <Typography variant="body1" sx={{ width: 140, color: "#64748B", fontWeight: 500 }}>Bukti Nota</Typography>
-                                        <Box sx={{ display: "flex", flexDirection: "column", gap: 0.5 }}>
-                                            <Typography variant="body1" sx={{ fontWeight: 700, mb: 0.5 }}>: </Typography>
-                                            <Box 
-                                                component="img" 
-                                                src={loan.document_url} 
-                                                alt="Bukti Nota"
-                                                sx={{ 
-                                                    width: 120, 
-                                                    height: 120, 
-                                                    objectFit: 'cover', 
-                                                    borderRadius: 2,
-                                                    cursor: 'pointer',
-                                                    border: '1px solid #E5E7EB',
-                                                    ml: 1,
-                                                    '&:hover': { opacity: 0.8 }
-                                                }} 
-                                                onClick={() => window.open(loan.document_url, '_blank')}
-                                            />
-                                            <Typography variant="caption" sx={{ ml: 1, color: 'primary.main', cursor: 'pointer', fontWeight: 600 }} onClick={() => window.open(loan.document_url, '_blank')}>
-                                                Klik untuk memperbesar
-                                            </Typography>
-                                        </Box>
-                                    </Box>
-                                ) : (
-                                    loan?.type?.toLowerCase() === 'konsumtif' && (
-                                        <Box sx={{ display: "flex", gap: 1, mt: 1 }}>
-                                            <Typography variant="body1" sx={{ width: 140, color: "#64748B", fontWeight: 500 }}>Bukti Nota</Typography>
-                                            <Typography variant="body1" sx={{ fontWeight: 700, color: "#EF4444" }}>: Belum diunggah</Typography>
-                                        </Box>
-                                    )
-                                )}
+                {loan?.document_url ? (
+                    <Box sx={{ display: "flex", gap: 1, mt: 1 }}>
+                        <Typography variant="body1" sx={{ width: 140, color: "#64748B", fontWeight: 500 }}>Bukti Nota</Typography>
+                        <Box sx={{ display: "flex", flexDirection: "column", gap: 0.5 }}>
+                            <Typography variant="body1" sx={{ fontWeight: 700, mb: 0.5 }}>: </Typography>
+                            <Box 
+                                component="img" 
+                                src={getFullUrl(loan.document_url)} 
+                                alt="Bukti Nota"
+                                sx={{ 
+                                    width: 120, 
+                                    height: 120, 
+                                    objectFit: 'cover', 
+                                    borderRadius: 2,
+                                    cursor: 'pointer',
+                                    border: '1px solid #E5E7EB',
+                                    ml: 1,
+                                    '&:hover': { opacity: 0.8 }
+                                }} 
+                                onClick={() => window.open(getFullUrl(loan.document_url), '_blank')}
+                            />
+                            <Typography variant="caption" sx={{ ml: 1, color: 'primary.main', cursor: 'pointer', fontWeight: 600 }} onClick={() => window.open(getFullUrl(loan.document_url), '_blank')}>
+                                Klik untuk memperbesar
+                            </Typography>
+                        </Box>
+                    </Box>
+                ) : (
+                    loan?.type?.toLowerCase() === 'konsumtif' && (
+                        <Box sx={{ display: "flex", gap: 1, mt: 1 }}>
+                            <Typography variant="body1" sx={{ width: 140, color: "#64748B", fontWeight: 500 }}>Bukti Nota</Typography>
+                            <Typography variant="body1" sx={{ fontWeight: 700, color: "#EF4444" }}>: Belum diunggah</Typography>
+                        </Box>
+                    )
+                )}
               </Stack>
 
               <Box sx={{ mt: 3 }}>

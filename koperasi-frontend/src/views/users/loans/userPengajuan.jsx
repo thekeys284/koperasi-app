@@ -75,12 +75,18 @@ const LeadLoanCreatePage = () => {
     const fileRef = React.useRef();
 
     React.useEffect(() => {
-        if (jumlah && tenor) {
+        if (isTopupPage && topupReferenceLoan?.sisa_pinjaman) {
+            // For topup: total = remaining installments + new topup amount
+            const sisaLama = Number(topupReferenceLoan.sisa_pinjaman || 0);
+            const totalBaru = sisaLama + Number(jumlah);
+            setCicilan(tenor > 0 ? Math.ceil(totalBaru / tenor) : 0);
+        } else if (jumlah && tenor) {
+            // For new loan: just divide by tenor
             setCicilan(Math.ceil(jumlah / tenor));
         } else {
             setCicilan(0);
         }
-    }, [jumlah, tenor]);
+    }, [jumlah, tenor, isTopupPage, topupReferenceLoan]);
 
     React.useEffect(() => {
         let active = true;
@@ -447,14 +453,13 @@ const LeadLoanCreatePage = () => {
                                             type="month"
                                             value={bulanPotongGaji}
                                             onChange={(e) => setBulanPotongGaji(e.target.value)}
-                                            disabled={isTopupPage}
                                             placeholder="mm/yyyy"
                                             InputLabelProps={{ shrink: true }}
                                             InputProps={{ sx: { borderRadius: "12px" } }}
                                         />
                                         {isTopupPage && topupReferenceLoan?.next_topup_month && (
                                             <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: "block" }}>
-                                                Auto dari referensi: {topupReferenceLoan.next_topup_month}
+                                                Saran dari referensi: {topupReferenceLoan.next_topup_month}
                                             </Typography>
                                         )}
                                     </Grid>

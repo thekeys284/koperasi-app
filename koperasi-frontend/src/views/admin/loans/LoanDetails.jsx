@@ -23,10 +23,14 @@ import {
 
 import DownloadIcon from "@mui/icons-material/Download";
 import NavigateNextIcon from "@mui/icons-material/NavigateNext";
+import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
+import { Accordion, AccordionSummary, AccordionDetails } from "@mui/material";
+import { IconArrowUpCircle } from "@tabler/icons-react";
 
 
 import PostponeInstallmentModal from "../../../ui-component/cards/Loans/Admin/PostponeInstallmentModal";
 import LoanFeedbackSnackbar from "../../../ui-component/feedback/LoanFeedbackSnackbar";
+import TopupInfoCard from "../../../ui-component/cards/Loans/Admin/TopupInfoCard";
 import api from "../../../api/axios";
 
 export default function LoanDetails() {
@@ -432,6 +436,47 @@ export default function LoanDetails() {
         </Card>
       </Stack>
 
+      {/* INFORMASI TOP-UP (Jika Top-Up) */}
+      {loan?.loan_mode === 'topup' && (
+        <Accordion 
+          sx={{ 
+            mt: 4,
+            borderRadius: "12px !important", 
+            boxShadow: "none", 
+            border: "1px solid #E5E7EB",
+            '&:before': { display: 'none' } 
+          }}
+        >
+          <AccordionSummary 
+            expandIcon={<ExpandMoreIcon />}
+            sx={{ px: 3, py: 1 }}
+          >
+            <Stack direction="row" spacing={2} alignItems="center">
+              <Box sx={{ 
+                width: 32, 
+                height: 32, 
+                borderRadius: '50%', 
+                bgcolor: '#2563EB', 
+                color: 'white',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
+              }}>
+                <IconArrowUpCircle size="1.1rem" />
+              </Box>
+              <Typography variant="h4" fontWeight={700} color="#1E293B">Informasi Detail Top-Up</Typography>
+            </Stack>
+          </AccordionSummary>
+          <AccordionDetails sx={{ p: 0 }}>
+            <TopupInfoCard 
+              referredLoan={loan.referred_loan} 
+              currentAmount={loan.amount_requested || loan.jumlah_pinjaman} 
+              isInsideAccordion 
+            />
+          </AccordionDetails>
+        </Accordion>
+      )}
+
       {/* INFORMASI PINJAMAN */}
       <Card sx={{ mt: 4, borderRadius: 3, border: "1px solid #E5E7EB", boxShadow: "none" }}>
         <Stack
@@ -461,6 +506,24 @@ export default function LoanDetails() {
               </TableCell>
               <TableCell sx={{ color: "#64748B", borderBottom: "none", borderTop: "1px solid #E5E7EB", px: 3, py: 1.5 }}>
                 {loan?.type || "-"}
+              </TableCell>
+            </TableRow>
+            <TableRow>
+              <TableCell sx={{ width: "30%", color: "#334155", fontWeight: 600, borderBottom: "none", px: 3, py: 1.5 }}>
+                Mode Pengajuan
+              </TableCell>
+              <TableCell sx={{ color: "#64748B", borderBottom: "none", px: 3, py: 1.5 }}>
+                <Chip
+                  label={String(loan?.loan_mode_label || (loan?.loan_mode === 'topup' ? "Top-Up" : "Baru")).toUpperCase()}
+                  size="small"
+                  sx={{
+                    bgcolor: loan?.loan_mode === "topup" ? "#FEE2E2" : "#DBEAFE",
+                    color: loan?.loan_mode === "topup" ? "#B91C1C" : "#1D4ED8",
+                    fontWeight: 700,
+                    px: 1,
+                    height: 24
+                  }}
+                />
               </TableCell>
             </TableRow>
             <TableRow>

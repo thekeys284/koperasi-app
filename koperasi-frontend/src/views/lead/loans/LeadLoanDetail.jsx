@@ -24,6 +24,7 @@ import {
 } from '@mui/material';
 
 import LoanFeedbackSnackbar from "../../../ui-component/feedback/LoanFeedbackSnackbar";
+import TopupInfoCard from "../../../ui-component/cards/Loans/Admin/TopupInfoCard";
 
 import NavigateNextIcon from "@mui/icons-material/NavigateNext";
 import {
@@ -35,8 +36,12 @@ import {
     IconCircleX,
     IconDots,
     IconLock,
-    IconClipboardList
+    IconClipboardList,
+    IconArrowUpCircle
 } from '@tabler/icons-react';
+
+import { Accordion, AccordionSummary, AccordionDetails } from "@mui/material";
+import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 
 const LeadLoanDetailPage = () => {
     const navigate = useNavigate();
@@ -98,7 +103,9 @@ const LeadLoanDetailPage = () => {
             });
             if (response.data.success) {
                 showFeedback("success", response.data?.message || "Pengajuan berhasil disetujui lead!");
-                fetchLoanDetail();
+                setTimeout(() => {
+                    navigate("/lead/loans/pengajuan");
+                }, 1500);
             }
         } catch (err) {
             showFeedback("error", err.response?.data?.message || "Gagal menyetujui pengajuan.");
@@ -118,7 +125,9 @@ const LeadLoanDetailPage = () => {
             if (response.data.success) {
                 showFeedback("success", response.data?.message || "Pengajuan berhasil ditolak.");
                 handleCloseReject();
-                fetchLoanDetail();
+                setTimeout(() => {
+                    navigate("/lead/loans/pengajuan");
+                }, 1500);
             }
         } catch (err) {
             showFeedback("error", err.response?.data?.message || "Gagal menolak pengajuan.");
@@ -141,6 +150,13 @@ const LeadLoanDetailPage = () => {
         const date = new Date(value);
         if (Number.isNaN(date.getTime())) return "-";
         return date.toLocaleDateString("id-ID", { day: "2-digit", month: "long", year: "numeric" });
+    };
+
+    const getFullUrl = (path) => {
+        if (!path) return "";
+        if (path.startsWith("http")) return path;
+        const baseUrl = api.defaults.baseURL.replace('/api', '');
+        return `${baseUrl}${path.startsWith('/') ? '' : '/'}${path}`;
     };
 
     if (loading) return (
@@ -188,6 +204,42 @@ const LeadLoanDetailPage = () => {
 
             <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', lg: '1fr 340px' }, gap: 3 }}>
                 <Stack spacing={3}>
+                    {loan?.loan_mode === 'topup' && (
+                        <Accordion 
+                            sx={{ 
+                                mb: 3, 
+                                borderRadius: "12px !important", 
+                                boxShadow: "none", 
+                                border: "1px solid #E5E7EB",
+                                '&:before': { display: 'none' } 
+                            }}
+                        >
+                            <AccordionSummary 
+                                expandIcon={<ExpandMoreIcon />}
+                                sx={{ px: 3, py: 1 }}
+                            >
+                                <Stack direction="row" spacing={2} alignItems="center">
+                                    <Box sx={{ 
+                                        width: 32, 
+                                        height: 32, 
+                                        borderRadius: '50%', 
+                                        bgcolor: '#2563EB', 
+                                        color: 'white',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center'
+                                    }}>
+                                        <IconArrowUpCircle size="1.1rem" />
+                                    </Box>
+                                    <Typography variant="h4" fontWeight={700} color="#1E293B">Informasi Detail Top-Up</Typography>
+                                </Stack>
+                            </AccordionSummary>
+                            <AccordionDetails sx={{ p: 0 }}>
+                                <TopupInfoCard referredLoan={loan.referred_loan} currentAmount={loan.amount_requested} isInsideAccordion />
+                            </AccordionDetails>
+                        </Accordion>
+                    )}
+
                     {/* INFORMASI ANGGOTA */}
                     <Card sx={{ borderRadius: 3, border: "1px solid #E5E7EB", boxShadow: "none" }}>
                         <CardContent sx={{ p: 3 }}>
@@ -277,7 +329,7 @@ const LeadLoanDetailPage = () => {
                                             <Typography variant="body1" sx={{ fontWeight: 700, mb: 0.5 }}>: </Typography>
                                             <Box 
                                                 component="img" 
-                                                src={loan.document_url} 
+                                                src={getFullUrl(loan.document_url)} 
                                                 alt="Bukti Nota"
                                                 sx={{ 
                                                     width: 120, 
@@ -289,9 +341,9 @@ const LeadLoanDetailPage = () => {
                                                     ml: 1,
                                                     '&:hover': { opacity: 0.8 }
                                                 }} 
-                                                onClick={() => window.open(loan.document_url, '_blank')}
+                                                onClick={() => window.open(getFullUrl(loan.document_url), '_blank')}
                                             />
-                                            <Typography variant="caption" sx={{ ml: 1, color: 'primary.main', cursor: 'pointer', fontWeight: 600 }} onClick={() => window.open(loan.document_url, '_blank')}>
+                                            <Typography variant="caption" sx={{ ml: 1, color: 'primary.main', cursor: 'pointer', fontWeight: 600 }} onClick={() => window.open(getFullUrl(loan.document_url), '_blank')}>
                                                 Klik untuk memperbesar
                                             </Typography>
                                         </Box>

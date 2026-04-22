@@ -126,7 +126,12 @@ class LoanController extends Controller
                 }
 
                 $refersToLoanId = (int) $referredLoan->id;
-                $finalRequestedAmount = (float) $referredLoan->jumlah_pinjaman + (float) $amountRequested;
+                // Calculate sisa cicilan (sum of unpaid installments)
+                $sisaPinjamanLama = $referredLoan->cicilan
+                    ->where('status_pembayaran', 'pending')
+                    ->sum('nominal');
+                // Total new loan = remaining installments + topup amount
+                $finalRequestedAmount = (float) $sisaPinjamanLama + (float) $amountRequested;
             }
 
             $loanType = $this->normalizeLoanType($typeInput);
@@ -143,9 +148,7 @@ class LoanController extends Controller
                 'refers_to_loan_id' => $loanMode === 'topup' ? $refersToLoanId : null,
                 'jenis_pinjaman' => $loanType['value'],
                 'jumlah_pinjaman' => $loanMode === 'topup' ? $finalRequestedAmount : $amountRequested,
-                'lama_pembayaran' => $loanMode === 'topup' && $referredLoan
-                    ? ((int) $referredLoan->lama_pembayaran + (int) $tenorMonths)
-                    : $tenorMonths,
+                'lama_pembayaran' => $tenorMonths,
                 'tanggal_mulai_cicilan' => $resolvedStartDate,
                 'tanggal_pengajuan' => now(),
                 'bulan_potong_gaji' => $resolvedBulanPotongGaji,
@@ -292,7 +295,7 @@ class LoanController extends Controller
             // Mengambil semua user yang bukan admin atau yang memiliki role 'user'
             // Biasanya di koperasi, semua staff juga anggota, jadi kita ambil yang role-nya 'user'
             // atau siapa saja yang pernah punya pinjaman.
-            
+
             $users = User::where('role', 'user')
                 ->select('id', 'name')
                 ->orderBy('name')
@@ -400,7 +403,7 @@ class LoanController extends Controller
                         $found = true;
                         $c->update(['status_pembayaran' => 'postponed']);
                     }
-                    
+
                     if ($found) {
                         $newDate = Carbon::parse($c->tanggal_pembayaran)->addMonthNoOverflow();
                         $c->update(['tanggal_pembayaran' => $newDate->toDateString()]);
@@ -522,42 +525,29 @@ class LoanController extends Controller
             return;
         }
 
-        $initialInstallments = $referredLoan->cicilan
-            ->sortBy('cicilan')
-            ->values();
-
-        $currentNo = 1;
-
-        // Segment 1: carry initial loan schedule as historical baseline.
-        foreach ($initialInstallments as $item) {
-            LoanCicilan::create([
-                'loans_id' => $loan->id,
-                'tanggal_pembayaran' => $item->tanggal_pembayaran?->toDateString(),
-                'nominal' => (float) $item->nominal,
-                'status_pembayaran' => $item->status_pembayaran === 'paid' ? 'paid' : 'pending',
-                'cicilan' => $currentNo,
-            ]);
-
-            $currentNo++;
-        }
-
-        $initialTenor = max(0, (int) $referredLoan->lama_pembayaran);
-        $totalTenor = max(1, (int) $loan->lama_pembayaran);
-        $topupTenor = max(1, $totalTenor - $initialTenor);
-        $topupPrincipal = max(0, (float) $loan->jumlah_pinjaman - (float) $referredLoan->jumlah_pinjaman);
-
-        $baseInstallment = round($topupPrincipal / $topupTenor, 2);
+        // For topup: only create new installments, don't copy old ones
+        // Calculate the total amount for new installments
+        $tenor = max(1, (int) $loan->lama_pembayaran);
+        $principal = (float) $loan->jumlah_pinjaman;
+        $baseInstallment = round($principal / $tenor, 2);
         $runningTotal = 0.0;
 
-        $lastInitialDate = $initialInstallments->last()?->tanggal_pembayaran
-            ? Carbon::parse($initialInstallments->last()->tanggal_pembayaran)
-            : Carbon::parse($loan->tanggal_mulai_cicilan ?? now());
-        $currentDueDate = $lastInitialDate->copy()->addMonthNoOverflow()->startOfDay();
+        // Get the last paid installment date from referenced loan
+        $lastPaidInstallment = $referredLoan->cicilan
+            ->where('status_pembayaran', 'paid')
+            ->sortByDesc('cicilan')
+            ->first();
 
-        // Segment 2: append top-up installments.
-        for ($i = 1; $i <= $topupTenor; $i++) {
-            $nominal = $i === $topupTenor
-                ? round($topupPrincipal - $runningTotal, 2)
+        $lastInstallmentDate = $lastPaidInstallment?->tanggal_pembayaran
+            ? Carbon::parse($lastPaidInstallment->tanggal_pembayaran)
+            : Carbon::parse($referredLoan->tanggal_mulai_cicilan ?? now());
+
+        $currentDueDate = $lastInstallmentDate->copy()->addMonthNoOverflow()->startOfDay();
+
+        // Create new installments for topup
+        for ($installmentNumber = 1; $installmentNumber <= $tenor; $installmentNumber++) {
+            $nominal = $installmentNumber === $tenor
+                ? round($principal - $runningTotal, 2)
                 : $baseInstallment;
 
             $runningTotal += $nominal;
@@ -567,10 +557,9 @@ class LoanController extends Controller
                 'tanggal_pembayaran' => $currentDueDate->toDateString(),
                 'nominal' => $nominal,
                 'status_pembayaran' => 'pending',
-                'cicilan' => $currentNo,
+                'cicilan' => $installmentNumber,
             ]);
 
-            $currentNo++;
             $currentDueDate = $currentDueDate->copy()->addMonthNoOverflow();
         }
     }
@@ -722,7 +711,11 @@ class LoanController extends Controller
         $loanNextTopupMonth = $loanLastInstallment?->tanggal_pembayaran
             ? Carbon::parse($loanLastInstallment->tanggal_pembayaran)->addMonthNoOverflow()->format('Y-m')
             : null;
-        $referredLoanLastInstallment = $referredLoan?->cicilan?->sortByDesc('cicilan')->first();
+        // Get the last PAID installment to determine next topup month
+        $referredLoanLastInstallment = $referredLoan?->cicilan
+            ?->where('status_pembayaran', 'paid')
+            ?->sortByDesc('cicilan')
+            ?->first();
         $nextTopupMonth = $referredLoanLastInstallment?->tanggal_pembayaran
             ? Carbon::parse($referredLoanLastInstallment->tanggal_pembayaran)->addMonthNoOverflow()->format('Y-m')
             : null;
@@ -753,7 +746,9 @@ class LoanController extends Controller
             'type'                  => $loanType,
             'type_slug'             => $loanTypeSlug,
             'jenis_pinjaman'        => (int) $loan->jenis_pinjaman,
-            'amount_requested'      => (float) $loan->jumlah_pinjaman,
+            'amount_requested'      => $loanMode === 'topup'
+                ? (float) $loan->jumlah_pinjaman - (float) $sisaPinjamanLama
+                : (float) $loan->jumlah_pinjaman,
             'jumlah_pinjaman'       => (float) $loan->jumlah_pinjaman,
             'tenor_months'          => (int) $loan->lama_pembayaran,
             'lama_pembayaran'       => (int) $loan->lama_pembayaran,

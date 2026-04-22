@@ -39,7 +39,7 @@ const InfoBox = ({ icon: Icon, title, subtitle, amount, color }) => (
   </Box>
 );
 
-const TopupInfoCard = ({ referredLoan, currentAmount }) => {
+const TopupInfoCard = ({ referredLoan, currentAmount, isInsideAccordion }) => {
   if (!referredLoan) return null;
 
   const sisaLama = Number(referredLoan.sisa_pinjaman || 0);
@@ -48,33 +48,35 @@ const TopupInfoCard = ({ referredLoan, currentAmount }) => {
 
   return (
     <Card sx={{ 
-      borderRadius: 4, 
-      border: '1px solid #DBEAFE', 
-      bgcolor: '#F8FAFF', 
+      borderRadius: isInsideAccordion ? 0 : 4, 
+      border: isInsideAccordion ? 'none' : '1px solid #DBEAFE', 
+      bgcolor: isInsideAccordion ? 'transparent' : '#F8FAFF', 
       boxShadow: 'none',
-      mb: 3,
+      mb: isInsideAccordion ? 0 : 3,
       overflow: 'hidden'
     }}>
       <CardContent sx={{ p: 3 }}>
-        <Stack direction="row" spacing={2} alignItems="center" mb={3}>
-          <Box sx={{ 
-            width: 44, 
-            height: 44, 
-            borderRadius: '50%', 
-            bgcolor: '#2563EB', 
-            color: 'white',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            flexShrink: 0
-          }}>
-            <IconArrowUpCircle size="1.5rem" />
-          </Box>
-          <Box>
-            <Typography variant="h3" fontWeight={800} color="#1E293B">Informasi Top-Up</Typography>
-            <Typography variant="body2" color="#64748B">Sisa pinjaman lama akan otomatis digabung ke pinjaman baru.</Typography>
-          </Box>
-        </Stack>
+        {!isInsideAccordion && (
+          <Stack direction="row" spacing={2} alignItems="center" mb={3}>
+            <Box sx={{ 
+              width: 44, 
+              height: 44, 
+              borderRadius: '50%', 
+              bgcolor: '#2563EB', 
+              color: 'white',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              flexShrink: 0
+            }}>
+              <IconArrowUpCircle size="1.5rem" />
+            </Box>
+            <Box>
+              <Typography variant="h3" fontWeight={800} color="#1E293B">Informasi Top-Up</Typography>
+              <Typography variant="body2" color="#64748B">Sisa pinjaman lama akan otomatis digabung ke pinjaman baru.</Typography>
+            </Box>
+          </Stack>
+        )}
 
         <Stack direction={{ xs: 'column', lg: 'row' }} spacing={2} alignItems="center">
           <InfoBox 

@@ -182,6 +182,13 @@ const formatDate = (value) => {
   return date.toLocaleDateString("id-ID", { day: "2-digit", month: "short", year: "numeric" });
 };
 
+const getFullUrl = (path) => {
+  if (!path) return "";
+  if (path.startsWith("http")) return path;
+  const baseUrl = api.defaults.baseURL.replace('/api', '');
+  return `${baseUrl}${path.startsWith('/') ? '' : '/'}${path}`;
+};
+
 const LoanSubmissionPage = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = React.useState(true);
@@ -384,7 +391,7 @@ const LoanSubmissionPage = () => {
                             cursor: "pointer",
                             "&:hover": { textDecoration: "underline" }
                           }}
-                          onClick={(e) => { e.stopPropagation(); window.open(loan.document_url, '_blank'); }}
+                          onClick={(e) => { e.stopPropagation(); window.open(getFullUrl(loan.document_url), '_blank'); }}
                         >
                           [ Lihat Nota ]
                         </Typography>
