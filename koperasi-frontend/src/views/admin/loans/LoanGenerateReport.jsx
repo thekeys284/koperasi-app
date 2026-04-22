@@ -114,6 +114,7 @@ export default function LoanGenerateReport() {
             "Cicilan Ke": item.cicilan_ke || "-",
             "Tanggal Cicilan": item.tanggal_cicilan || "-",
             "Status Cicilan": item.status_cicilan_label || "-",
+            "Mode Pengajuan": item.loan_mode_label,
             "Total Terbayar": item.total_terbayar,
             "Sisa Pinjaman": item.sisa_pinjaman,
             "Status Pengajuan": item.status_label || item.status
@@ -301,6 +302,7 @@ export default function LoanGenerateReport() {
                             <TableRow>
                                 <TableCell sx={{ fontWeight: 700, color: "#64748b" }}>Nama Anggota</TableCell>
                                 <TableCell sx={{ fontWeight: 700, color: "#64748b" }}>Jenis</TableCell>
+                                <TableCell sx={{ fontWeight: 700, color: "#64748b" }}>Mode</TableCell>
                                 <TableCell sx={{ fontWeight: 700, color: "#64748b" }}>Jumlah</TableCell>
                                 <TableCell sx={{ fontWeight: 700, color: "#64748b" }}>Tenor</TableCell>
                                 <TableCell sx={{ fontWeight: 700, color: "#64748b" }}>Cicilan</TableCell>
@@ -318,10 +320,25 @@ export default function LoanGenerateReport() {
                                             label={row.jenis_pinjaman} 
                                             size="small" 
                                             sx={{ 
-                                                bgcolor: row.jenis_pinjaman === 'Produktif' ? '#eff6ff' : '#f5f3ff',
-                                                color: row.jenis_pinjaman === 'Produktif' ? '#2563eb' : '#7c3aed',
-                                                fontWeight: 800,
-                                                fontSize: "12px"
+                                                bgcolor: row.jenis_pinjaman === 'Produktif' ? '#DBEAFE' : '#F3E8FF',
+                                                color: row.jenis_pinjaman === 'Produktif' ? '#2563EB' : '#9333EA',
+                                                fontWeight: 600,
+                                                fontSize: "12px",
+                                                textTransform: "uppercase"
+                                            }} 
+                                        />
+                                    </TableCell>
+                                    <TableCell>
+                                        <Chip 
+                                            label={row.loan_mode_label} 
+                                            size="small" 
+                                            variant="outlined"
+                                            sx={{ 
+                                                bgcolor: row.loan_mode === 'topup' ? '#FEE2E2' : '#E0F2FE',
+                                                color: row.loan_mode === 'topup' ? '#B91C1C' : '#075985',
+                                                fontWeight: 700,
+                                                fontSize: "11px",
+                                                textTransform: "uppercase"
                                             }} 
                                         />
                                     </TableCell>

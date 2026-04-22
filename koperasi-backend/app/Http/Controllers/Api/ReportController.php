@@ -113,6 +113,8 @@ class ReportController extends Controller
                 'status_cicilan_label' => $this->mapInstallmentStatusLabel($selectedInstallment?->status_pembayaran),
                 'total_terbayar'   => $totalTerbayar,
                 'sisa_pinjaman'    => $sisaPinjaman,
+                'loan_mode'        => $loan->loan_mode,
+                'loan_mode_label'  => strtolower($loan->loan_mode) === 'topup' ? 'Top-Up' : 'Baru',
                 'status'           => $normalizedStatus,
                 'status_label'     => $statusLabel,
             ];

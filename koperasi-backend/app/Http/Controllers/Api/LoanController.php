@@ -11,10 +11,11 @@ use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Validation\ValidationException;
+use App\Traits\LoanFormatting;
 
 class LoanController extends Controller
 {
+    use LoanFormatting;
     /**
      * Display a listing of loans.
      * GET /api/loans
@@ -699,150 +700,5 @@ class LoanController extends Controller
         ];
     }
 
-    private function formatLoan(Loan $loan, bool $includeCicilan = false): array
-    {
-        $loanType     = (int) $loan->jenis_pinjaman === 1 ? 'Produktif' : 'Konsumtif';
-        $loanTypeSlug = strtolower($loanType);
-        $statusDisplay = $this->mapStatusDisplay($loan->status_pengajuan);
-        $loanNumber   = 'PJM-' . str_pad($loan->id, 5, '0', STR_PAD_LEFT);
-        $loanMode = strtolower((string) ($loan->loan_mode ?? 'new'));
-        $referredLoan = $loan->relationLoaded('referredLoan') ? $loan->referredLoan : $loan->referredLoan()->with('cicilan')->first();
-        $loanLastInstallment = $loan->cicilan->sortByDesc('cicilan')->first();
-        $loanNextTopupMonth = $loanLastInstallment?->tanggal_pembayaran
-            ? Carbon::parse($loanLastInstallment->tanggal_pembayaran)->addMonthNoOverflow()->format('Y-m')
-            : null;
-        // Get the last PAID installment to determine next topup month
-        $referredLoanLastInstallment = $referredLoan?->cicilan
-            ?->where('status_pembayaran', 'paid')
-            ?->sortByDesc('cicilan')
-            ?->first();
-        $nextTopupMonth = $referredLoanLastInstallment?->tanggal_pembayaran
-            ? Carbon::parse($referredLoanLastInstallment->tanggal_pembayaran)->addMonthNoOverflow()->format('Y-m')
-            : null;
 
-        $sisaPinjamanLama = $referredLoan ? $referredLoan->cicilan->where('status_pembayaran', 'pending')->sum('nominal') : 0;
-
-        $payload = [
-            'id'                    => $loan->id,
-            'loan_number'           => $loanNumber,
-            'submission_number'     => 'SUB-' . str_pad($loan->id, 5, '0', STR_PAD_LEFT),
-            'user_id'               => $loan->user_id,
-            'user_name'             => $loan->user?->name,
-            'user_username'         => $loan->user?->username,
-            'user_role'             => $loan->user?->role,
-            'loan_mode'             => $loanMode,
-            'loan_mode_label'       => $loanMode === 'topup' ? 'Top-Up' : 'Baru',
-            'refers_to_loan_id'     => $loan->refers_to_loan_id,
-            'last_installment_date' => $loanLastInstallment?->tanggal_pembayaran?->toDateString(),
-            'next_topup_month'      => $loanNextTopupMonth,
-            'referred_loan'         => $referredLoan ? [
-                'id' => $referredLoan->id,
-                'loan_number' => 'PJM-' . str_pad($referredLoan->id, 5, '0', STR_PAD_LEFT),
-                'status_pengajuan' => $referredLoan->status_pengajuan,
-                'sisa_pinjaman' => (float) $sisaPinjamanLama,
-                'last_installment_date' => $referredLoanLastInstallment?->tanggal_pembayaran?->toDateString(),
-                'next_topup_month' => $nextTopupMonth,
-            ] : null,
-            'type'                  => $loanType,
-            'type_slug'             => $loanTypeSlug,
-            'jenis_pinjaman'        => (int) $loan->jenis_pinjaman,
-            'amount_requested'      => $loanMode === 'topup'
-                ? (float) $loan->jumlah_pinjaman - (float) $sisaPinjamanLama
-                : (float) $loan->jumlah_pinjaman,
-            'jumlah_pinjaman'       => (float) $loan->jumlah_pinjaman,
-            'tenor_months'          => (int) $loan->lama_pembayaran,
-            'lama_pembayaran'       => (int) $loan->lama_pembayaran,
-            'bulan_potong_gaji'     => $loan->bulan_potong_gaji,
-            'start_date'            => optional($loan->tanggal_mulai_cicilan)->format('Y-m'),
-            'tanggal_mulai_cicilan' => optional($loan->tanggal_mulai_cicilan)->toDateString(),
-            'reason'                => $loan->reason,
-            'admin_note'            => $loan->admin_note,
-            'document_path'         => $loan->file_path,
-            'document_url'          => $loan->file_path ? request()->root() . '/storage/' . $loan->file_path : null,
-            'bukti_nota'            => $loan->file_path,
-            'bukti_nota_url'        => $loan->file_path ? request()->root() . '/storage/' . $loan->file_path : null,
-            'status_pengajuan'      => $loan->status_pengajuan,
-            'postpone_cicilan_id'   => $loan->postpone_cicilan_id,
-            'postpone_decision'     => $loan->postpone_decision,
-            'postpone_decision_note' => $loan->postpone_decision_note,
-            'postpone_decision_at'  => $loan->postpone_decision_at,
-            'status'                => $statusDisplay,
-            'status_reason'         => $this->resolveStatusReason($loan),
-            'pj_status'             => $this->mapApprovalStatus($loan->status_pengajuan),
-            'chairman_status'       => $this->mapApprovalStatus($loan->status_pengajuan),
-            'pj_note'               => null,
-            'chairman_note'         => null,
-            'final_status'          => $this->mapFinalStatus($loan->status_pengajuan),
-            'created_at'            => $loan->tanggal_pengajuan ?? $loan->created_at,
-            'updated_at'            => $loan->updated_at,
-            'tgl_acc_pj'            => $loan->tgl_acc_pj,
-            'tgl_acc_admin'         => $loan->tgl_acc_pj,
-            'tgl_acc_ketua'         => $loan->tgl_acc_ketua,
-            // Backward compatibility aliases
-            'tgl_acc_ketua1'        => $loan->tgl_acc_pj,
-            'tgl_acc_ketua2'        => $loan->tgl_acc_ketua,
-        ];
-
-        if ($includeCicilan) {
-            $payload['cicilan'] = $loan->cicilan->map(function ($item) {
-                return [
-                    'id'                => $item->id,
-                    'cicilan'           => $item->cicilan,
-                    'tanggal_pembayaran' => $item->tanggal_pembayaran?->toDateString(),
-                    'nominal'           => (float) $item->nominal,
-                    'status_pembayaran' => $item->status_pembayaran,
-                    'tukin_status'      => $item->status_pembayaran === 'paid'
-                        ? 'sudah'
-                        : ($item->status_pembayaran === 'postponed' ? 'postponed' : 'belum'),
-                    'created_at'        => $item->created_at,
-                    'updated_at'        => $item->updated_at,
-                ];
-            });
-        }
-
-        return $payload;
-    }
-
-    private function mapStatusDisplay(?string $status): string
-    {
-        return match ($status) {
-            'disetujui_ketua', 'aktif' => 'aktif',
-            'pending_pengajuan'        => 'pending',
-            'postpone'                 => 'pending',
-            'paid'                     => 'lunas',
-            'rejected'                 => 'rejected',
-            default                    => 'pending',
-        };
-    }
-
-    private function resolveStatusReason(Loan $loan): ?string
-    {
-        if ($loan->status_pengajuan === 'rejected') {
-            return $loan->admin_note ?: $loan->reason;
-        }
-
-        return null;
-    }
-
-    private function mapApprovalStatus(?string $status): string
-    {
-        return match ($status) {
-            'disetujui_ketua', 'aktif', 'paid' => 'APPROVED',
-            'pending_pengajuan'                => 'PENDING',
-            'postpone'                         => 'REVIEW',
-            'rejected'                         => 'REJECTED',
-            default                            => 'PENDING',
-        };
-    }
-
-    private function mapFinalStatus(?string $status): string
-    {
-        return match ($status) {
-            'disetujui_ketua', 'aktif', 'paid' => 'APPROVED',
-            'pending_pengajuan'                => 'WAITING',
-            'postpone'                         => 'REVIEW',
-            'rejected'                         => 'REJECTED',
-            default                            => 'WAITING',
-        };
-    }
 }
