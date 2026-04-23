@@ -27,7 +27,6 @@ class UserResource extends JsonResource
                     'jenis_pinjaman' => (int) $loan->jenis_pinjaman,
                     'jumlah_pinjaman' => (float) $loan->jumlah_pinjaman,
                     'lama_pembayaran' => (int) $loan->lama_pembayaran,
-                    'bulan_potong_gaji' => $loan->bulan_potong_gaji,
                     'status_pengajuan' => $loan->status_pengajuan,
                     'tanggal_mulai_cicilan' => $loan->tanggal_mulai_cicilan?->toDateString(),
                     'tanggal_pengajuan' => $loan->tanggal_pengajuan,

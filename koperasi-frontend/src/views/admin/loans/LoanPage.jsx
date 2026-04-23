@@ -185,14 +185,7 @@ const LoanModeBadge = ({ mode }) => {
   );
 };
 
-const formatCurrency = (value) => `Rp ${new Intl.NumberFormat("id-ID").format(Number(value || 0))}`;
-
-const formatDate = (value) => {
-  if (!value) return "-";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "-";
-  return date.toLocaleDateString("id-ID", { day: "2-digit", month: "short", year: "numeric" });
-};
+import { formatCurrency, formatDate } from "../../../utils/format";
 
 const isCurrentMonth = (value) => {
   if (!value) return false;
@@ -460,6 +453,7 @@ const LoanPage = () => {
         installment: postponedInstallment?.cicilan,
         amount: postponedInstallment?.nominal,
         dueDate: postponedInstallment?.tanggal_pembayaran,
+        postponement_reason: postponedInstallment?.postponement_reason,
       },
     });
   };
@@ -623,10 +617,11 @@ const LoanPage = () => {
                               maxWidth: "200px",
                               whiteSpace: "nowrap",
                               overflow: "hidden",
-                              textOverflow: "ellipsis"
+                              textOverflow: "ellipsis",
+                              fontStyle: "italic"
                             }}
                           >
-                            {loan.reason || "-"}
+                            Alasan: {postponedInstallment?.postponement_reason || "-"}
                           </Typography>
                         </TableCell>
                         <TableCell>

@@ -10,41 +10,30 @@ class Loan extends Model
 {
     protected $table = 'loans';
 
+    public $timestamps = false;
+
     protected $fillable = [
         'user_id',
-        'loan_mode',
-        'refers_to_loan_id',
         'jenis_pinjaman',
+        'refers_to_loan_id',
         'jumlah_pinjaman',
         'lama_pembayaran',
-        'bulan_potong_gaji',
-        'file_path',
+        'tanggal_mulai_cicilan',
         'status_pengajuan',
-        'reason',
-        'admin_note',
         'postpone_cicilan_id',
         'postpone_decision',
-        'postpone_decision_note',
-        'postpone_decision_at',
-        'tanggal_mulai_cicilan',
+        'file_path',
+        'reason',
         'tanggal_pengajuan',
-        'tgl_acc_pj',
-        'pj_id',
-        'tgl_acc_ketua',
-        'ketua_id',
     ];
 
     protected $casts = [
-        'loan_mode' => 'string',
         'refers_to_loan_id' => 'integer',
         'jenis_pinjaman' => 'integer',
         'jumlah_pinjaman' => 'decimal:2',
         'lama_pembayaran' => 'integer',
         'tanggal_mulai_cicilan' => 'date',
         'tanggal_pengajuan' => 'datetime',
-        'postpone_decision_at' => 'datetime',
-        'tgl_acc_pj' => 'datetime',
-        'tgl_acc_ketua' => 'datetime',
     ];
 
     public function user(): BelongsTo
@@ -65,5 +54,10 @@ class Loan extends Model
     public function topupLoans(): HasMany
     {
         return $this->hasMany(self::class, 'refers_to_loan_id');
+    }
+
+    public function approvals(): HasMany
+    {
+        return $this->hasMany(LoanApproval::class, 'loan_id');
     }
 }

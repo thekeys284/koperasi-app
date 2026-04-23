@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { formatCurrency, formatDate } from "../../../utils/format";
 import { 
     Box, 
     Typography,
@@ -98,9 +99,6 @@ export default function LoanGenerateReport() {
             setLoading(false);
         }
     };
-
-    const formatCurrency = (value) => `Rp ${new Intl.NumberFormat("id-ID").format(Number(value || 0))}`;
-
 
     const handleExportExcel = () => {
         if (reportData.length === 0) return;

@@ -26,6 +26,8 @@ return new class extends Migration
     public function down()
     {
         DB::statement('SET FOREIGN_KEY_CHECKS=0');
+        DB::statement('DROP TABLE IF EXISTS loan_approvals');
+        DB::statement('DROP TABLE IF EXISTS loan_cicilan');
         DB::statement('DROP TABLE IF EXISTS loan_recap_items');
         DB::statement('DROP TABLE IF EXISTS loans');
         DB::statement('DROP TABLE IF EXISTS submissions');

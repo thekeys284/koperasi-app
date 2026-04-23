@@ -1,4 +1,5 @@
 import React from 'react';
+import { formatCurrency, formatDate } from "../../../utils/format";
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import api from "../../../api/axios";
 
@@ -144,13 +145,7 @@ const LeadLoanDetailPage = () => {
         });
     };
 
-    const formatCurrency = (value) => `Rp ${new Intl.NumberFormat("id-ID").format(Number(value || 0))}`;
-    const formatDate = (value) => {
-        if (!value) return "-";
-        const date = new Date(value);
-        if (Number.isNaN(date.getTime())) return "-";
-        return date.toLocaleDateString("id-ID", { day: "2-digit", month: "long", year: "numeric" });
-    };
+
 
     const getFullUrl = (path) => {
         if (!path) return "";
@@ -320,7 +315,7 @@ const LeadLoanDetailPage = () => {
                                 )}
                                 <Box sx={{ display: "flex", gap: 1 }}>
                                     <Typography variant="body1" sx={{ width: 140, color: "#64748B", fontWeight: 500 }}>Potong Gaji</Typography>
-                                    <Typography variant="body1" sx={{ fontWeight: 700 }}>: {formatMonthYear(loan?.bulan_potong_gaji)}</Typography>
+                                    <Typography variant="body1" sx={{ fontWeight: 700 }}>: {formatDate(loan?.tanggal_mulai_cicilan)}</Typography>
                                 </Box>
                                 {loan?.document_url && (
                                     <Box sx={{ display: "flex", gap: 1, mt: 1 }}>

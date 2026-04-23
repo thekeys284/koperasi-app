@@ -4,6 +4,7 @@ SET FOREIGN_KEY_CHECKS=0;
 -- 2. TRUNCATE TABLES SESUAI DEPENDENCY (anak dulu, baru induk)
 TRUNCATE TABLE activity_logs;
 TRUNCATE TABLE loan_cicilan;
+TRUNCATE TABLE loan_approvals;
 TRUNCATE TABLE loans;
 TRUNCATE TABLE submissions;
 TRUNCATE TABLE debt_payments;
@@ -35,6 +36,7 @@ ALTER TABLE debts AUTO_INCREMENT = 1;
 ALTER TABLE debt_payments AUTO_INCREMENT = 1;
 ALTER TABLE submissions AUTO_INCREMENT = 1;
 ALTER TABLE loans AUTO_INCREMENT = 1;
+ALTER TABLE loan_approvals AUTO_INCREMENT = 1;
 ALTER TABLE loan_cicilan AUTO_INCREMENT = 1;
 ALTER TABLE activity_logs AUTO_INCREMENT = 1;
 ALTER TABLE payment_methods AUTO_INCREMENT = 1;
@@ -113,56 +115,71 @@ INSERT INTO submissions (
   final_status, created_at, updated_at
 ) VALUES (
   5, 'Konsumtif', 1000000.00, 5,
-  '2026-04-01',
+  '2026-04-30',
   'Biaya perbaikan atap rumah', 'APPROVED', NOW(),
   'APPROVED', NOW(),
   'APPROVED', NOW(), NOW()
 );
 
 
-INSERT INTO loans (id, user_id, jenis_pinjaman, jumlah_pinjaman, lama_pembayaran, bulan_potong_gaji, file_path, status_pengajuan, reason, postpone_cicilan_id, tanggal_mulai_cicilan, tanggal_pengajuan, tgl_acc_pj, pj_id, tgl_acc_ketua, ketua_id) VALUES
-(1, 6, 0, 3000000.00, 6, 'Maret', NULL, 'disetujui_ketua', NULL, NULL, '2026-06-01', '2026-03-20', '2026-03-21 09:00:00', 3, '2026-03-22 10:00:00', 4),
-(2, 7, 1, 4500000.00, 12, 'April', NULL, 'disetujui_ketua', NULL, NULL, '2026-06-10', '2026-03-21', '2026-03-22 09:00:00', 3, '2026-03-23 10:00:00', 4),
-(3, 8, 0, 2500000.00, 5, 'April', NULL, 'pending_pengajuan', NULL, NULL, '2026-04-01', '2026-03-22', '2026-03-23 11:00:00', 3, NULL, NULL),
-(4, 9, 1, 4000000.00, 8, 'Mei', NULL, 'paid', NULL, NULL, '2026-05-01', '2026-03-23', '2026-03-24 08:30:00', 3, '2026-03-24 09:30:00', 4),
-(5, 5, 0, 1500000.00, 4, 'April', NULL, 'disetujui_ketua', NULL, NULL, '2026-04-15', '2026-03-24', '2026-03-25 09:00:00', 3, '2026-03-26 10:00:00', 4);
+INSERT INTO loans (
+  id, user_id, jenis_pinjaman, refers_to_loan_id, jumlah_pinjaman,
+  lama_pembayaran, tanggal_mulai_cicilan, status_pengajuan,
+  postpone_cicilan_id, postpone_decision, file_path, tanggal_pengajuan
+) VALUES
+(1, 6, 1, NULL, 3000000.00, 6, '2026-06-30', 'disetujui_ketua', NULL, NULL, NULL, '2026-03-20 00:00:00'),
+(2, 7, 0, NULL, 4500000.00, 12, '2026-06-30', 'disetujui_ketua', NULL, NULL, NULL, '2026-03-21 00:00:00'),
+(3, 8, 1, NULL, 2500000.00, 5, '2026-04-30', 'pending_pengajuan', NULL, NULL, NULL, '2026-03-22 00:00:00'),
+(4, 9, 0, NULL, 4000000.00, 8, '2026-05-31', 'paid', NULL, NULL, NULL, '2026-03-23 00:00:00'),
+(5, 5, 1, NULL, 1500000.00, 4, '2026-04-30', 'disetujui_ketua', NULL, NULL, NULL, '2026-03-24 00:00:00');
+
+INSERT INTO loan_approvals (loan_id, approver_id, role, decision, note, actioned_at) VALUES
+(1, 3, 'pj_toko', 'approved', NULL, '2026-03-21 09:00:00'),
+(1, 4, 'ketua', 'approved', NULL, '2026-03-22 10:00:00'),
+(2, 3, 'pj_toko', 'approved', NULL, '2026-03-22 09:00:00'),
+(2, 4, 'ketua', 'approved', NULL, '2026-03-23 10:00:00'),
+(3, 3, 'pj_toko', 'approved', NULL, '2026-03-23 11:00:00'),
+(4, 3, 'pj_toko', 'approved', NULL, '2026-03-24 08:30:00'),
+(4, 4, 'ketua', 'approved', NULL, '2026-03-24 09:30:00'),
+(5, 3, 'pj_toko', 'approved', NULL, '2026-03-25 09:00:00'),
+(5, 4, 'ketua', 'approved', NULL, '2026-03-26 10:00:00');
 
 INSERT INTO loan_cicilan (loans_id, tanggal_pembayaran, nominal, status_pembayaran, status_updated_at, cicilan, postponement_reason) VALUES
-(1, '2026-04-01', 500000.00, 'pending', NULL, 1, NULL),
-(1, '2026-05-01', 500000.00, 'pending', NULL, 2, NULL),
-(1, '2026-06-01', 500000.00, 'pending', NULL, 3, NULL),
-(1, '2026-07-01', 500000.00, 'pending', NULL, 4, NULL),
-(1, '2026-08-01', 500000.00, 'pending', NULL, 5, NULL),
-(1, '2026-09-01', 500000.00, 'pending', NULL, 6, NULL),
-(2, '2026-04-10', 375000.00, 'pending', NULL, 1, NULL),
-(2, '2026-05-10', 375000.00, 'pending', NULL, 2, NULL),
-(2, '2026-06-10', 375000.00, 'pending', NULL, 3, NULL),
-(2, '2026-07-10', 375000.00, 'pending', NULL, 4, NULL),
-(2, '2026-08-10', 375000.00, 'pending', NULL, 5, NULL),
-(2, '2026-09-10', 375000.00, 'pending', NULL, 6, NULL),
-(2, '2026-10-10', 375000.00, 'pending', NULL, 7, NULL),
-(2, '2026-11-10', 375000.00, 'pending', NULL, 8, NULL),
-(2, '2026-12-10', 375000.00, 'pending', NULL, 9, NULL),
-(2, '2027-01-10', 375000.00, 'pending', NULL, 10, NULL),
-(2, '2027-02-10', 375000.00, 'pending', NULL, 11, NULL),
-(2, '2027-03-10', 375000.00, 'pending', NULL, 12, NULL),
-(3, '2026-04-01', 500000.00, 'pending', NULL, 1, NULL),
-(3, '2026-05-01', 500000.00, 'postponed', '2026-05-01 10:00:00', 2, 'Masih ada kendala keuangan'),
-(3, '2026-06-01', 500000.00, 'pending', NULL, 3, NULL),
-(3, '2026-07-01', 500000.00, 'pending', NULL, 4, NULL),
-(3, '2026-08-01', 500000.00, 'pending', NULL, 5, NULL),
-(4, '2026-05-01', 500000.00, 'paid', '2026-05-01 08:00:00', 1, NULL),
-(4, '2026-06-01', 500000.00, 'paid', '2026-06-01 08:00:00', 2, NULL),
-(4, '2026-07-01', 500000.00, 'paid', '2026-07-01 08:00:00', 3, NULL),
-(4, '2026-08-01', 500000.00, 'paid', '2026-08-01 08:00:00', 4, NULL),
-(4, '2026-09-01', 500000.00, 'paid', '2026-09-01 08:00:00', 5, NULL),
-(4, '2026-10-01', 500000.00, 'paid', '2026-10-01 08:00:00', 6, NULL),
-(4, '2026-11-01', 500000.00, 'paid', '2026-11-01 08:00:00', 7, NULL),
-(4, '2026-12-01', 500000.00, 'paid', '2026-12-01 08:00:00', 8, NULL),
-(5, '2026-04-15', 375000.00, 'pending', NULL, 1, NULL),
-(5, '2026-05-15', 375000.00, 'pending', NULL, 2, NULL),
-(5, '2026-06-15', 375000.00, 'pending', NULL, 3, NULL),
-(5, '2026-07-15', 375000.00, 'pending', NULL, 4, NULL);
+(1, '2026-04-30', 500000.00, 'pending', NULL, 1, NULL),
+(1, '2026-05-31', 500000.00, 'pending', NULL, 2, NULL),
+(1, '2026-06-30', 500000.00, 'pending', NULL, 3, NULL),
+(1, '2026-07-31', 500000.00, 'pending', NULL, 4, NULL),
+(1, '2026-08-31', 500000.00, 'pending', NULL, 5, NULL),
+(1, '2026-09-30', 500000.00, 'pending', NULL, 6, NULL),
+(2, '2026-04-30', 375000.00, 'pending', NULL, 1, NULL),
+(2, '2026-05-31', 375000.00, 'pending', NULL, 2, NULL),
+(2, '2026-06-30', 375000.00, 'pending', NULL, 3, NULL),
+(2, '2026-07-31', 375000.00, 'pending', NULL, 4, NULL),
+(2, '2026-08-31', 375000.00, 'pending', NULL, 5, NULL),
+(2, '2026-09-30', 375000.00, 'pending', NULL, 6, NULL),
+(2, '2026-10-31', 375000.00, 'pending', NULL, 7, NULL),
+(2, '2026-11-30', 375000.00, 'pending', NULL, 8, NULL),
+(2, '2026-12-31', 375000.00, 'pending', NULL, 9, NULL),
+(2, '2027-01-31', 375000.00, 'pending', NULL, 10, NULL),
+(2, '2027-02-28', 375000.00, 'pending', NULL, 11, NULL),
+(2, '2027-03-31', 375000.00, 'pending', NULL, 12, NULL),
+(3, '2026-04-30', 500000.00, 'pending', NULL, 1, NULL),
+(3, '2026-05-31', 500000.00, 'postponed', '2026-05-31 10:00:00', 2, 'Masih ada kendala keuangan'),
+(3, '2026-06-30', 500000.00, 'pending', NULL, 3, NULL),
+(3, '2026-07-31', 500000.00, 'pending', NULL, 4, NULL),
+(3, '2026-08-31', 500000.00, 'pending', NULL, 5, NULL),
+(4, '2026-05-31', 500000.00, 'paid', '2026-05-31 08:00:00', 1, NULL),
+(4, '2026-06-30', 500000.00, 'paid', '2026-06-30 08:00:00', 2, NULL),
+(4, '2026-07-31', 500000.00, 'paid', '2026-07-31 08:00:00', 3, NULL),
+(4, '2026-08-31', 500000.00, 'paid', '2026-08-31 08:00:00', 4, NULL),
+(4, '2026-09-30', 500000.00, 'paid', '2026-09-30 08:00:00', 5, NULL),
+(4, '2026-10-31', 500000.00, 'paid', '2026-10-31 08:00:00', 6, NULL),
+(4, '2026-11-30', 500000.00, 'paid', '2026-11-30 08:00:00', 7, NULL),
+(4, '2026-12-31', 500000.00, 'paid', '2026-12-31 08:00:00', 8, NULL),
+(5, '2026-04-30', 375000.00, 'pending', NULL, 1, NULL),
+(5, '2026-05-31', 375000.00, 'pending', NULL, 2, NULL),
+(5, '2026-06-30', 375000.00, 'pending', NULL, 3, NULL),
+(5, '2026-07-31', 375000.00, 'pending', NULL, 4, NULL);
 
 -- 13. ACTIVITY LOGS
 INSERT INTO activity_logs (title, message, user_id, icon, status_color, created_at) VALUES

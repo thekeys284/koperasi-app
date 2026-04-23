@@ -202,51 +202,52 @@ CREATE TABLE IF NOT EXISTS `submissions` (
 -- loans (Pengajuan Pinjaman)
 CREATE TABLE IF NOT EXISTS loans (
   id BIGINT UNSIGNED PRIMARY KEY AUTO_INCREMENT,
-  user_id BIGINT UNSIGNED NOT NULL, -- Foreign Key ke tabel User
-  loan_mode ENUM('new', 'topup') DEFAULT 'new',
+  user_id BIGINT UNSIGNED NOT NULL,
+  jenis_pinjaman TINYINT(1) NOT NULL,
+  -- 0 = new produktif
+  -- 1 = new konsumtif
+  -- 2 = topup produktif
+  -- 3 = topup konsumtif
   refers_to_loan_id BIGINT UNSIGNED NULL,
-  jenis_pinjaman TINYINT(1) NOT NULL, -- 0 -> Konsumtif, 1 -> Produktif
-  jumlah_pinjaman DECIMAL(15,2) NOT NULL, -- Total uang yang dipinjam
-  lama_pembayaran INT NOT NULL, -- Tenor (misal: 6, 12, 24 bulan)
-  bulan_potong_gaji VARCHAR(255) NULL,
-  file_path VARCHAR(255) NULL,
+  jumlah_pinjaman DECIMAL(15,2) NOT NULL,
+  lama_pembayaran INT NOT NULL,
+  tanggal_mulai_cicilan DATE NOT NULL,
   status_pengajuan ENUM('pending', 'pending_pengajuan', 'disetujui_ketua', 'postpone', 'rejected', 'paid') DEFAULT 'pending',
-  reason TEXT NULL,
   postpone_cicilan_id BIGINT UNSIGNED NULL,
   postpone_decision ENUM('approved', 'rejected') NULL,
-  postpone_decision_note TEXT NULL,
-  postpone_decision_at TIMESTAMP NULL,
-  admin_note TEXT NULL,
-  rejection_reason TEXT NULL, -- Alasan penolakan pengajuan
-  pj_note TEXT NULL, -- Catatan dari PJ Toko
-  tanggal_mulai_cicilan DATE NOT NULL, -- Waktu yang ditentukan user untuk mulai periode pembayaran
-  tanggal_pengajuan TIMESTAMP DEFAULT CURRENT_TIMESTAMP, -- Kapan user klik tombol "ajukan"
-  tgl_acc_pj TIMESTAMP NULL, -- Waktu saat PJ Toko melakukan approval
-  pj_id BIGINT UNSIGNED NULL, -- User ID yang melakukan approval sebagai PJ Toko
-  tgl_acc_ketua TIMESTAMP NULL, -- Waktu saat Ketua melakukan approval
-  ketua_id BIGINT UNSIGNED NULL, -- User ID yang melakukan approval sebagai Ketua
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  file_path VARCHAR(255) NULL,
+  reason TEXT NULL,
+  tanggal_pengajuan TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (user_id) REFERENCES users(id),
-  FOREIGN KEY (refers_to_loan_id) REFERENCES loans(id) ON DELETE SET NULL,
-  FOREIGN KEY (pj_id) REFERENCES users(id) ON DELETE SET NULL,
-  FOREIGN KEY (ketua_id) REFERENCES users(id) ON DELETE SET NULL
+  FOREIGN KEY (refers_to_loan_id) REFERENCES loans(id) ON DELETE SET NULL
 ) ENGINE=InnoDB;
 
 CREATE INDEX idx_loans_refers_to_loan_id ON loans(refers_to_loan_id);
 
+-- loan_approvals (Riwayat Persetujuan Pinjaman)
+CREATE TABLE IF NOT EXISTS loan_approvals (
+  id BIGINT UNSIGNED PRIMARY KEY AUTO_INCREMENT,
+  loan_id BIGINT UNSIGNED NOT NULL,
+  approver_id BIGINT UNSIGNED NOT NULL,
+  role ENUM('pj_toko', 'ketua') NOT NULL,
+  decision ENUM('approved', 'rejected', 'postponed') NOT NULL,
+  note TEXT NULL,
+  actioned_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (loan_id) REFERENCES loans(id) ON DELETE CASCADE,
+  FOREIGN KEY (approver_id) REFERENCES users(id)
+) ENGINE=InnoDB;
+
 -- loan_cicilan (Cicilan)
 CREATE TABLE IF NOT EXISTS loan_cicilan (
   id BIGINT UNSIGNED PRIMARY KEY AUTO_INCREMENT,
-  loans_id BIGINT UNSIGNED NOT NULL, -- Foreign Key ke tabel loans
-  tanggal_pembayaran DATE NOT NULL, -- Tanggal untuk pemotongan tukin
-  nominal DECIMAL(15,2) NOT NULL, -- Jumlah Potongan
+  loans_id BIGINT UNSIGNED NOT NULL,
+  cicilan INT NOT NULL,
+  tanggal_pembayaran DATE NOT NULL,
+  nominal DECIMAL(15,2) NOT NULL,
   status_pembayaran ENUM('pending', 'paid', 'postponed') DEFAULT 'pending',
-  status_updated_at TIMESTAMP NULL, -- Tanggal perubahan status terakhir
-  cicilan INT NOT NULL, -- Cicilan keberapa (1, 2, 3...)
-  postponement_reason TEXT NULL, -- Alasan penundaan cicilan
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  status_updated_at TIMESTAMP NULL,
+  postponement_reason TEXT NULL,
+  admin_note TEXT NULL,
   FOREIGN KEY (loans_id) REFERENCES loans(id) ON DELETE CASCADE
 ) ENGINE=InnoDB;
 

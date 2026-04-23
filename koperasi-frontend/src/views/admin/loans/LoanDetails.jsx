@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { formatCurrency, formatDate } from "../../../utils/format";
 import { useNavigate, useLocation, useSearchParams } from "react-router-dom";
 import {
   Box,
@@ -200,14 +201,6 @@ export default function LoanDetails() {
   const progress = totalPokok > 0 ? Math.round((totalTerbayar / totalPokok) * 100) : 0;
   const sisaCicilan = cicilanList.filter((item) => item.status_pembayaran === "pending").length;
   const nominalPerBulan = cicilanList[0]?.nominal || 0;
-
-  const formatCurrency = (value) => `Rp ${new Intl.NumberFormat("id-ID").format(Number(value || 0))}`;
-  const formatDate = (value) => {
-    if (!value) return "-";
-    const date = new Date(value);
-    if (Number.isNaN(date.getTime())) return "-";
-    return date.toLocaleDateString("id-ID", { day: "2-digit", month: "short", year: "numeric" });
-  };
 
   const getStatusStyle = (item) => {
     // 1. Sudah Bayar
@@ -547,7 +540,7 @@ export default function LoanDetails() {
                 Tgl Potong
               </TableCell>
               <TableCell sx={{ color: "#64748B", borderBottom: "none", px: 3, py: 1.5 }}>
-                {loan?.bulan_potong_gaji || formatDate(loan?.tanggal_mulai_cicilan)}
+                {formatDate(loan?.tanggal_mulai_cicilan)}
               </TableCell>
             </TableRow>
             <TableRow>

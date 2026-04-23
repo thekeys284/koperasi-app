@@ -5,21 +5,19 @@ namespace App\Http\Controllers\Api;
 use App\Helpers\ActivityLogHelper;
 use App\Http\Controllers\Controller;
 use App\Models\Loan;
+use App\Models\LoanApproval;
 use App\Models\LoanCicilan;
 use App\Models\User;
+use App\Traits\LoanFormatting;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
-use App\Traits\LoanFormatting;
 
 class LoanApprovalController extends Controller
 {
     use LoanFormatting;
-    /**
-     * Approve a loan (Admin → Lead/Ketua).
-     * PATCH /api/loans/{id}/approve
-     */
+
     public function approve(Request $request, $id)
     {
         try {
@@ -36,40 +34,47 @@ class LoanApprovalController extends Controller
             }
 
             if ($loan->status_pengajuan === 'pending') {
-                $loan->update([
-                    'status_pengajuan' => 'pending_pengajuan',
-                    'tgl_acc_pj' => now(),
+                $loan->update(['status_pengajuan' => 'pending_pengajuan']);
+
+                LoanApproval::create([
+                    'loan_id' => $loan->id,
+                    'approver_id' => $user->id,
+                    'role' => 'pj_toko',
+                    'decision' => 'approved',
+                    'note' => $request->input('note'),
+                    'actioned_at' => now(),
                 ]);
 
-                try {
-                    ActivityLogHelper::create(
-                        $user->id,
-                        'Konfirmasi Admin Pengajuan Pinjaman',
-                        "Admin mengonfirmasi pengajuan pinjaman ID: {$loan->id}"
-                    );
-                } catch (\Exception $e) {
-                    Log::warning('Activity log failed: ' . $e->getMessage());
-                }
+                ActivityLogHelper::create(
+                    $user->id,
+                    'Konfirmasi PJ Pengajuan Pinjaman',
+                    'PJ toko mengonfirmasi pengajuan pinjaman ID: ' . $loan->id
+                );
 
                 return response()->json([
                     'success' => true,
-                    'message' => 'Pengajuan pinjaman berhasil dikonfirmasi admin. Menunggu konfirmasi lead.',
-                    'data' => $this->formatLoan($loan->fresh(['user', 'referredLoan']), false),
+                    'message' => 'Pengajuan pinjaman berhasil dikonfirmasi PJ. Menunggu konfirmasi ketua.',
+                    'data' => $this->formatLoan($loan->fresh(['user', 'referredLoan', 'approvals.approver']), false),
                 ]);
             }
 
             if ($loan->status_pengajuan === 'pending_pengajuan') {
-                $loan = DB::transaction(function () use ($loan) {
-                    $loan->update([
-                        'status_pengajuan' => 'disetujui_ketua',
-                        'tgl_acc_ketua' => now(),
+                $loan = DB::transaction(function () use ($loan, $request, $user) {
+                    $loan->update(['status_pengajuan' => 'disetujui_ketua']);
+
+                    LoanApproval::create([
+                        'loan_id' => $loan->id,
+                        'approver_id' => $user->id,
+                        'role' => 'ketua',
+                        'decision' => 'approved',
+                        'note' => $request->input('note'),
+                        'actioned_at' => now(),
                     ]);
 
-                    if (($loan->loan_mode ?? 'new') === 'topup' && $loan->refers_to_loan_id) {
+                    if (in_array((int) $loan->jenis_pinjaman, [2, 3], true) && $loan->refers_to_loan_id) {
                         $referredLoan = Loan::lockForUpdate()->find($loan->refers_to_loan_id);
 
                         if ($referredLoan) {
-                            // Fallback for legacy top-up rows that were saved as delta only.
                             if ((float) $loan->jumlah_pinjaman <= (float) $referredLoan->jumlah_pinjaman) {
                                 $loan->update([
                                     'jumlah_pinjaman' => (float) $referredLoan->jumlah_pinjaman + (float) $loan->jumlah_pinjaman,
@@ -78,31 +83,24 @@ class LoanApprovalController extends Controller
                                 $this->rebalanceInstallments($loan->fresh());
                             }
 
-                            // After top-up is approved, old loan should no longer appear as active.
                             if (!in_array($referredLoan->status_pengajuan, ['paid', 'rejected'], true)) {
-                                $referredLoan->update([
-                                    'status_pengajuan' => 'paid',
-                                ]);
+                                $referredLoan->update(['status_pengajuan' => 'paid']);
                             }
                         }
                     }
 
-                    return $loan->fresh(['user', 'referredLoan']);
+                    return $loan->fresh(['user', 'referredLoan', 'approvals.approver']);
                 });
 
-                try {
-                    ActivityLogHelper::create(
-                        $user->id,
-                        'Persetujuan Lead Pengajuan Pinjaman',
-                        "Lead menyetujui pengajuan pinjaman ID: {$loan->id}"
-                    );
-                } catch (\Exception $e) {
-                    Log::warning('Activity log failed: ' . $e->getMessage());
-                }
+                ActivityLogHelper::create(
+                    $user->id,
+                    'Persetujuan Ketua Pengajuan Pinjaman',
+                    'Ketua menyetujui pengajuan pinjaman ID: ' . $loan->id
+                );
 
                 return response()->json([
                     'success' => true,
-                    'message' => 'Pengajuan pinjaman berhasil disetujui lead.',
+                    'message' => 'Pengajuan pinjaman berhasil disetujui ketua.',
                     'data' => $this->formatLoan($loan, false),
                 ]);
             }
@@ -118,10 +116,6 @@ class LoanApprovalController extends Controller
         }
     }
 
-    /**
-     * Reject a loan.
-     * PATCH /api/loans/{id}/reject
-     */
     public function reject(Request $request, $id)
     {
         try {
@@ -139,25 +133,31 @@ class LoanApprovalController extends Controller
                 return response()->json(['success' => false, 'message' => 'Pinjaman tidak ditemukan.'], 404);
             }
 
-            $loan->update([
-                'status_pengajuan' => 'rejected',
-                'admin_note' => $validated['reason'],
-            ]);
+            $role = $loan->status_pengajuan === 'pending' ? 'pj_toko' : 'ketua';
 
-            try {
-                ActivityLogHelper::create(
-                    $user->id,
-                    'Penolakan Pinjaman',
-                    "Ketua menolak pengajuan pinjaman ID: {$loan->id}. Alasan: {$validated['reason']}"
-                );
-            } catch (\Exception $e) {
-                Log::warning('Activity log failed: ' . $e->getMessage());
-            }
+            DB::transaction(function () use ($loan, $validated, $role, $user) {
+                $loan->update(['status_pengajuan' => 'rejected']);
+
+                LoanApproval::create([
+                    'loan_id' => $loan->id,
+                    'approver_id' => $user->id,
+                    'role' => $role,
+                    'decision' => 'rejected',
+                    'note' => $validated['reason'],
+                    'actioned_at' => now(),
+                ]);
+            });
+
+            ActivityLogHelper::create(
+                $user->id,
+                'Penolakan Pinjaman',
+                'Pengajuan pinjaman ID: ' . $loan->id . ' ditolak. Alasan: ' . $validated['reason']
+            );
 
             return response()->json([
                 'success' => true,
                 'message' => 'Pinjaman berhasil ditolak.',
-                'data' => $this->formatLoan($loan->fresh(['user', 'referredLoan']), false),
+                'data' => $this->formatLoan($loan->fresh(['user', 'referredLoan', 'approvals.approver']), false),
             ]);
         } catch (ValidationException $e) {
             return response()->json(['success' => false, 'message' => 'Alasan penolakan wajib diisi.', 'errors' => $e->errors()], 422);
@@ -167,16 +167,10 @@ class LoanApprovalController extends Controller
         }
     }
 
-    // =========================================================================
-    // PRIVATE HELPERS
-    // =========================================================================
-
     private function resolveUser(Request $request): ?User
     {
         return auth()->user() ?: User::find($request->input('user_id', 1));
     }
-
-
 
     private function rebalanceInstallments(Loan $loan): void
     {

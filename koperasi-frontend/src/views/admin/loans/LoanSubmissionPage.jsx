@@ -1,4 +1,5 @@
 import React from "react";
+import { formatCurrency, formatDate } from "../../../utils/format";
 import { useNavigate } from "react-router-dom";
 import api from "../../../api/axios";
 
@@ -173,14 +174,7 @@ const LoanModeBadge = ({ mode }) => {
   );
 };
 
-const formatCurrency = (value) => `Rp ${new Intl.NumberFormat("id-ID").format(Number(value || 0))}`;
 
-const formatDate = (value) => {
-  if (!value) return "-";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "-";
-  return date.toLocaleDateString("id-ID", { day: "2-digit", month: "short", year: "numeric" });
-};
 
 const getFullUrl = (path) => {
   if (!path) return "";
@@ -378,7 +372,7 @@ const LoanSubmissionPage = () => {
                           Ref: #{loan.referred_loan.loan_number}
                         </Typography>
                       )}
-                      {loan.document_url && (
+                      {loan.document_url ? (
                         <Typography 
                           variant="caption" 
                           sx={{ 
@@ -395,6 +389,12 @@ const LoanSubmissionPage = () => {
                         >
                           [ Lihat Nota ]
                         </Typography>
+                      ) : (
+                        loan.type_slug === 'konsumtif' && (
+                          <Typography variant="caption" sx={{ color: "#dc2626", fontWeight: 700, mt: 0.5 }}>
+                            [ Belum ada nota ]
+                          </Typography>
+                        )
                       )}
                     </TableCell>
 

@@ -1,4 +1,5 @@
 import React from "react";
+import { formatCurrency, formatDate } from "../../../utils/format";
 import { useNavigate } from "react-router-dom";
 import api from "../../../api/axios";
 
@@ -172,14 +173,7 @@ const LoanModeBadge = ({ mode }) => {
   );
 };
 
-const formatCurrency = (value) => `Rp ${new Intl.NumberFormat("id-ID").format(Number(value || 0))}`;
 
-const formatDate = (value) => {
-  if (!value) return "-";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "-";
-  return date.toLocaleDateString("id-ID", { day: "2-digit", month: "short", year: "numeric" });
-};
 
 const LeadLoanPage = () => {
     const navigate = useNavigate();

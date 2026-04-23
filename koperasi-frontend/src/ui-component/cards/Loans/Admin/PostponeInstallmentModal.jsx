@@ -97,7 +97,7 @@ const PostponeInstallmentModal = ({
               fullWidth
               multiline
               rows={3}
-              value={loanData?.reason || "Tidak ada alasan yang disertakan."}
+              value={loanData?.postponement_reason || "Tidak ada alasan yang disertakan."}
               InputProps={{
                 readOnly: true,
               }}

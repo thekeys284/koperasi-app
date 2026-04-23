@@ -200,7 +200,7 @@ const LeadLoanCreatePage = () => {
             payload.append("type", tipePinjaman === "produktif" ? "Produktif" : "Konsumtif");
             payload.append("amount_requested", String(jumlah));
             payload.append("tenor_months", String(tenor));
-            payload.append("bulan_potong_gaji", bulanPotongGaji || "");
+            payload.append("start_date", bulanPotongGaji || "");
             payload.append("reason", keterangan || "");
             payload.append("loan_mode", isTopupPage ? "topup" : "new");
 

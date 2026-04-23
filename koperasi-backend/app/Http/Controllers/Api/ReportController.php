@@ -50,7 +50,14 @@ class ReportController extends Controller
         }
 
         if ($request->filled('jenis_pinjaman') && $request->jenis_pinjaman !== 'all') {
-            $query->where('jenis_pinjaman', $request->jenis_pinjaman === 'produktif' ? 1 : 0);
+            $requested = strtolower((string) $request->jenis_pinjaman);
+            if ($requested === 'produktif') {
+                $query->whereIn('jenis_pinjaman', [0, 2]);
+            } elseif ($requested === 'konsumtif') {
+                $query->whereIn('jenis_pinjaman', [1, 3]);
+            } elseif (in_array($requested, ['0', '1', '2', '3'], true)) {
+                $query->where('jenis_pinjaman', (int) $requested);
+            }
         }
 
         if ($request->filled('status') && $request->status !== 'all') {
@@ -101,20 +108,20 @@ class ReportController extends Controller
             return [
                 'id'               => $loan->id,
                 'user_name'        => $loan->user?->name,
-                'jenis_pinjaman'   => $loan->jenis_pinjaman == 1 ? 'Produktif' : 'Konsumtif',
+                'jenis_pinjaman'   => in_array((int) $loan->jenis_pinjaman, [0, 2], true) ? 'Produktif' : 'Konsumtif',
                 'jumlah_pinjaman'  => (float) $loan->jumlah_pinjaman,
                 'tenor'            => $loan->lama_pembayaran,
                 'cicilan_per_bulan' => $selectedInstallment?->nominal ?? ($loan->cicilan->first()?->nominal ?? 0),
                 'cicilan_ke'       => $selectedInstallment?->cicilan,
-                'tanggal_cicilan'  => $selectedInstallment?->tanggal_pembayaran instanceof Carbon 
-                                        ? $selectedInstallment->tanggal_pembayaran->toDateString() 
+                'tanggal_cicilan'  => $selectedInstallment?->tanggal_pembayaran instanceof Carbon
+                                        ? $selectedInstallment->tanggal_pembayaran->toDateString()
                                         : ($selectedInstallment?->tanggal_pembayaran ? Carbon::parse($selectedInstallment->tanggal_pembayaran)->toDateString() : null),
                 'status_cicilan_bulan' => $selectedInstallment?->status_pembayaran,
                 'status_cicilan_label' => $this->mapInstallmentStatusLabel($selectedInstallment?->status_pembayaran),
                 'total_terbayar'   => $totalTerbayar,
                 'sisa_pinjaman'    => $sisaPinjaman,
-                'loan_mode'        => $loan->loan_mode,
-                'loan_mode_label'  => strtolower($loan->loan_mode) === 'topup' ? 'Top-Up' : 'Baru',
+                'loan_mode'        => in_array((int) $loan->jenis_pinjaman, [2, 3], true) ? 'topup' : 'new',
+                'loan_mode_label'  => in_array((int) $loan->jenis_pinjaman, [2, 3], true) ? 'Top-Up' : 'Baru',
                 'status'           => $normalizedStatus,
                 'status_label'     => $statusLabel,
             ];

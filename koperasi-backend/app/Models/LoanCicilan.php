@@ -9,18 +9,24 @@ class LoanCicilan extends Model
 {
     protected $table = 'loan_cicilan';
 
+    public $timestamps = false;
+
     protected $fillable = [
         'loans_id',
+        'cicilan',
         'tanggal_pembayaran',
         'nominal',
         'status_pembayaran',
-        'cicilan',
+        'status_updated_at',
+        'postponement_reason',
+        'admin_note',
     ];
 
     protected $casts = [
         'tanggal_pembayaran' => 'date',
         'nominal' => 'decimal:2',
         'cicilan' => 'integer',
+        'status_updated_at' => 'datetime',
     ];
 
     public function loan(): BelongsTo

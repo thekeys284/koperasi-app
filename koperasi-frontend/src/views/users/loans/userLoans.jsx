@@ -1,4 +1,5 @@
 import React from "react";
+import { formatCurrency, formatDate } from "../../../utils/format";
 import { useNavigate } from "react-router-dom";
 import api from "../../../api/axios";
 
@@ -105,37 +106,7 @@ const StatusBadge = ({ loan }) => {
     );
 };
 
-const PostponeDecisionNote = ({ loan }) => {
-    if (!loan?.postpone_decision) return null;
 
-    const isApproved = loan.postpone_decision === "approved";
-    const label = isApproved ? "Penundaan Diterima" : "Penundaan Ditolak";
-    const note = loan.postpone_decision_note || "Tidak ada catatan admin.";
-
-    return (
-        <Box sx={{ mt: 0.5, maxWidth: 200 }}>
-            <Typography fontSize={11} color="#64748B" fontWeight={700} sx={{ lineHeight: 1.2 }}>
-                {label}
-            </Typography>
-            <Typography
-                fontSize={11}
-                color="#64748B"
-                fontWeight={500}
-                sx={{
-                    lineHeight: 1.4,
-                    fontStyle: "italic",
-                }}
-            >
-                Catatan: {note}
-            </Typography>
-        </Box>
-    );
-};
-
-const PostponeInstallmentRecord = ({ loan }) => {
-    // Component for postponement display in table (optional helper)
-    return <PostponeDecisionNote loan={loan} />;
-};
 
 const LoanTypeBadge = ({ type }) => {
     const config = {
@@ -178,14 +149,7 @@ const LoanModeBadge = ({ mode }) => {
     );
 };
 
-const formatCurrency = (value) => `Rp ${new Intl.NumberFormat("id-ID").format(Number(value || 0))}`;
 
-const formatDate = (value) => {
-    if (!value) return "-";
-    const date = new Date(value);
-    if (Number.isNaN(date.getTime())) return "-";
-    return date.toLocaleDateString("id-ID", { day: "2-digit", month: "short", year: "numeric" });
-};
 
 const RejectionNote = ({ loan }) => {
     const [expanded, setExpanded] = React.useState(false);
@@ -312,6 +276,7 @@ const UserLoans = () => {
     
     const selectedLoan = loans.find(l => !["paid", "rejected"].includes(l.status_pengajuan)) || loans[0] || null;
     const hasActiveLoan = loans.some(loan => !["paid", "rejected"].includes(loan.status_pengajuan));
+    const isPending = loans.some(l => ["pending", "pending_pengajuan"].includes(l.status_pengajuan));
     const hasApprovedLoan = activeLoans.length > 0;
 
     return (
@@ -490,6 +455,7 @@ const UserLoans = () => {
                                 <Button
                                     startIcon={<AddIcon />}
                                     variant="contained"
+                                    disabled={isPending}
                                     onClick={() => navigate(hasApprovedLoan ? "/user/loans/topup" : "/user/loans/add")}
                                     sx={{
                                         borderRadius: "10px",
@@ -500,6 +466,10 @@ const UserLoans = () => {
                                         backgroundColor: "#2563EB",
                                         "&:hover": {
                                             backgroundColor: "#1D4ED8",
+                                        },
+                                        "&.Mui-disabled": {
+                                            backgroundColor: "#F1F5F9",
+                                            color: "#94A3B8"
                                         }
                                     }}
                                 >
@@ -580,7 +550,6 @@ const UserLoans = () => {
 
                                                 <TableCell>
                                                     <StatusBadge loan={loan} />
-                                                    <PostponeDecisionNote loan={loan} />
                                                     <RejectionNote loan={loan} />
                                                 </TableCell>
 
@@ -589,12 +558,12 @@ const UserLoans = () => {
                                                         <Typography fontSize={12} color="#334155" fontWeight={700}>
                                                             ACC Admin: {loan.status_pengajuan === "rejected" && !loan.tgl_acc_admin ? (
                                                                 <Typography component="span" fontSize={11} color="error.main" fontWeight={800}>DITOLAK ADMIN</Typography>
-                                                            ) : formatDate(loan.tgl_acc_admin || loan.tgl_acc_ketua1)}
+                                                            ) : formatDate(loan.tgl_acc_admin)}
                                                         </Typography>
                                                         <Typography fontSize={12} color="#334155" fontWeight={700}>
                                                             ACC Ketua: {loan.status_pengajuan === "rejected" && loan.tgl_acc_admin && !loan.tgl_acc_ketua ? (
                                                                 <Typography component="span" fontSize={11} color="error.main" fontWeight={800}>DITOLAK KETUA</Typography>
-                                                            ) : formatDate(loan.tgl_acc_ketua || loan.tgl_acc_ketua2)}
+                                                            ) : formatDate(loan.tgl_acc_ketua)}
                                                         </Typography>
                                                     </Stack>
                                                 </TableCell>

@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Helpers\ActivityLogHelper;
 use App\Http\Controllers\Controller;
 use App\Models\Loan;
+use App\Models\LoanApproval;
 use App\Models\LoanCicilan;
 use App\Models\User;
 use Carbon\Carbon;
@@ -33,7 +34,7 @@ class CicilanController extends Controller
             $validated = $request->validate([
                 'tukin_status'  => 'required|in:sudah,postponed,pending,belum',
                 'note'          => 'nullable|string|max:500',
-                'admin_note'   => 'nullable|string|max:500',
+                'admin_note'    => 'nullable|string|max:500',
             ]);
 
             $query = Loan::with(['user', 'cicilan'])->where('id', $loanId);
@@ -67,7 +68,7 @@ class CicilanController extends Controller
                     $this->handleManualBelum($loan, $cicilan);
                 }
 
-                $this->updateLoanMeta($loan, $validated);
+                $this->updateLoanMeta($loan, $validated, $user);
 
                 try {
                     ActivityLogHelper::create(
@@ -124,7 +125,10 @@ class CicilanController extends Controller
      */
     private function markAsPaid(Loan $loan, LoanCicilan $cicilan): void
     {
-        $cicilan->update(['status_pembayaran' => 'paid']);
+        $cicilan->update([
+            'status_pembayaran' => 'paid',
+            'status_updated_at' => now(),
+        ]);
 
         $remaining = LoanCicilan::where('loans_id', $loan->id)
             ->where('status_pembayaran', '!=', 'paid')
@@ -145,7 +149,10 @@ class CicilanController extends Controller
             $this->shiftInstallmentsForwardFrom($loan->id, (int) $cicilan->cicilan);
         }
 
-        $cicilan->update(['status_pembayaran' => 'pending']);
+        $cicilan->update([
+            'status_pembayaran' => 'pending',
+            'status_updated_at' => now(),
+        ]);
     }
 
     /**
@@ -160,7 +167,7 @@ class CicilanController extends Controller
 
         if ($lastInstallment) {
             $lastDueDate = Carbon::parse($lastInstallment->tanggal_pembayaran);
-            $newDueDate = $lastDueDate->copy()->addMonthNoOverflow();
+            $newDueDate = $lastDueDate->copy()->addMonthNoOverflow()->endOfMonth();
 
             LoanCicilan::create([
                 'loans_id' => $loan->id,
@@ -170,21 +177,35 @@ class CicilanController extends Controller
                 'cicilan' => ($lastInstallment->cicilan ?? 0) + 1,
             ]);
 
-            $cicilan->update(['status_pembayaran' => 'postponed']);
+            $cicilan->update([
+                'status_pembayaran' => 'postponed',
+                'status_updated_at' => now(),
+            ]);
         }
     }
 
     /**
      * Update kolom-kolom metadata loan setelah update cicilan.
      */
-    private function updateLoanMeta(Loan $loan, array $validated): void
+    private function updateLoanMeta(Loan $loan, array $validated, User $user): void
     {
         $tukinStatus = $validated['tukin_status'];
         $isPostponeAction = in_array($tukinStatus, ['postponed', 'belum'], true);
         $isPostponeRequestActive = $loan->status_pengajuan === 'postpone';
+        $note = $validated['admin_note'] ?? $validated['note'] ?? null;
+
+        if ($isPostponeRequestActive && $isPostponeAction) {
+            LoanApproval::create([
+                'loan_id' => $loan->id,
+                'approver_id' => $user->id,
+                'role' => 'ketua',
+                'decision' => $tukinStatus === 'postponed' ? 'postponed' : 'rejected',
+                'note' => $note,
+                'actioned_at' => now(),
+            ]);
+        }
 
         $loan->update([
-            'admin_note' => $validated['admin_note'] ?? $validated['note'] ?? $loan->admin_note,
             'status_pengajuan' => ($tukinStatus === 'postponed' || $tukinStatus === 'belum')
                 ? 'disetujui_ketua'
                 : $loan->status_pengajuan,
@@ -198,12 +219,6 @@ class CicilanController extends Controller
             'postpone_decision' => ($isPostponeRequestActive && $tukinStatus === 'postponed')
                 ? 'approved'
                 : (($isPostponeRequestActive && $tukinStatus === 'belum') ? 'rejected' : $loan->postpone_decision),
-            'postpone_decision_note' => ($isPostponeRequestActive && $isPostponeAction)
-                ? ($validated['admin_note'] ?? $validated['note'] ?? $loan->postpone_decision_note)
-                : $loan->postpone_decision_note,
-            'postpone_decision_at' => ($isPostponeRequestActive && $isPostponeAction)
-                ? now()
-                : $loan->postpone_decision_at,
         ]);
     }
 
@@ -225,8 +240,10 @@ class CicilanController extends Controller
             $installment->update([
                 'tanggal_pembayaran' => Carbon::parse($installment->tanggal_pembayaran)
                     ->addMonthNoOverflow()
+                    ->endOfMonth()
                     ->toDateString(),
                 'status_pembayaran' => 'pending',
+                'status_updated_at' => now(),
             ]);
         }
     }

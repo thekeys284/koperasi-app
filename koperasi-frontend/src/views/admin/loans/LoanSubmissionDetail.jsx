@@ -1,4 +1,5 @@
 import React from "react";
+import { formatCurrency, formatDate } from "../../../utils/format";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import api from "../../../api/axios";
 
@@ -149,14 +150,7 @@ const LoanSubmissionDetailPage = () => {
     });
   };
 
-  const formatCurrency = (value) => `Rp ${new Intl.NumberFormat("id-ID").format(Number(value || 0))}`;
 
-  const formatDate = (value) => {
-    if (!value) return "-";
-    const date = new Date(value);
-    if (Number.isNaN(date.getTime())) return "-";
-    return date.toLocaleDateString("id-ID", { day: "2-digit", month: "long", year: "numeric" });
-  };
 
   const getFullUrl = (path) => {
     if (!path) return "";
@@ -357,16 +351,16 @@ const LoanSubmissionDetailPage = () => {
                 )}
                 <Box sx={{ display: "flex", gap: 1 }}>
                   <Typography variant="body1" sx={{ width: 140, color: "#64748B", fontWeight: 500 }}>Potong Gaji</Typography>
-                  <Typography variant="body1" sx={{ fontWeight: 700 }}>: {formatMonthYear(loan?.bulan_potong_gaji)}</Typography>
+                  <Typography variant="body1" sx={{ fontWeight: 700 }}>: {formatDate(loan?.tanggal_mulai_cicilan)}</Typography>
                 </Box>
-                {loan?.document_url ? (
+                {(loan?.document_url || loan?.bukti_nota_url) ? (
                     <Box sx={{ display: "flex", gap: 1, mt: 1 }}>
                         <Typography variant="body1" sx={{ width: 140, color: "#64748B", fontWeight: 500 }}>Bukti Nota</Typography>
                         <Box sx={{ display: "flex", flexDirection: "column", gap: 0.5 }}>
                             <Typography variant="body1" sx={{ fontWeight: 700, mb: 0.5 }}>: </Typography>
                             <Box 
                                 component="img" 
-                                src={getFullUrl(loan.document_url)} 
+                                src={getFullUrl(loan.document_url || loan.bukti_nota_url)} 
                                 alt="Bukti Nota"
                                 sx={{ 
                                     width: 120, 
@@ -378,9 +372,9 @@ const LoanSubmissionDetailPage = () => {
                                     ml: 1,
                                     '&:hover': { opacity: 0.8 }
                                 }} 
-                                onClick={() => window.open(getFullUrl(loan.document_url), '_blank')}
+                                onClick={() => window.open(getFullUrl(loan.document_url || loan.bukti_nota_url), '_blank')}
                             />
-                            <Typography variant="caption" sx={{ ml: 1, color: 'primary.main', cursor: 'pointer', fontWeight: 600 }} onClick={() => window.open(getFullUrl(loan.document_url), '_blank')}>
+                            <Typography variant="caption" sx={{ ml: 1, color: 'primary.main', cursor: 'pointer', fontWeight: 600 }} onClick={() => window.open(getFullUrl(loan.document_url || loan.bukti_nota_url), '_blank')}>
                                 Klik untuk memperbesar
                             </Typography>
                         </Box>
