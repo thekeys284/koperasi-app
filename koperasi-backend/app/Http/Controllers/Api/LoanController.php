@@ -513,6 +513,7 @@ class LoanController extends Controller
 
         $currentDueDate = $lastInstallmentDate->copy()->addMonthNoOverflow()->endOfMonth()->startOfDay();
 
+        $installments = [];
         for ($installmentNumber = 1; $installmentNumber <= $tenor; $installmentNumber++) {
             $nominal = $installmentNumber === $tenor
                 ? round($principal - $runningTotal, 2)
@@ -520,15 +521,19 @@ class LoanController extends Controller
 
             $runningTotal += $nominal;
 
-            LoanCicilan::create([
+            $installments[] = [
                 'loans_id' => $loan->id,
                 'tanggal_pembayaran' => $currentDueDate->toDateString(),
                 'nominal' => $nominal,
                 'status_pembayaran' => 'pending',
                 'cicilan' => $installmentNumber,
-            ]);
+            ];
 
             $currentDueDate = $currentDueDate->copy()->addMonthNoOverflow()->endOfMonth();
+        }
+
+        if (!empty($installments)) {
+            LoanCicilan::insert($installments);
         }
     }
 
@@ -542,6 +547,7 @@ class LoanController extends Controller
             ->startOfDay();
         $runningTotal = 0.0;
 
+        $installments = [];
         for ($installmentNumber = 1; $installmentNumber <= $tenor; $installmentNumber++) {
             $nominal = $installmentNumber === $tenor
                 ? round($principal - $runningTotal, 2)
@@ -549,15 +555,19 @@ class LoanController extends Controller
 
             $runningTotal += $nominal;
 
-            LoanCicilan::create([
+            $installments[] = [
                 'loans_id' => $loan->id,
                 'tanggal_pembayaran' => $currentDueDate->toDateString(),
                 'nominal' => $nominal,
                 'status_pembayaran' => 'pending',
                 'cicilan' => $installmentNumber,
-            ]);
+            ];
 
             $currentDueDate = $currentDueDate->copy()->addMonthNoOverflow()->endOfMonth();
+        }
+
+        if (!empty($installments)) {
+            LoanCicilan::insert($installments);
         }
     }
 

@@ -124,6 +124,10 @@ class ReportController extends Controller
                 'loan_mode_label'  => in_array((int) $loan->jenis_pinjaman, [2, 3], true) ? 'Top-Up' : 'Baru',
                 'status'           => $normalizedStatus,
                 'status_label'     => $statusLabel,
+                'tanggal_pengajuan' => $loan->tanggal_pengajuan ? Carbon::parse($loan->tanggal_pengajuan)->toDateString() : null,
+                'tanggal_mulai_cicilan' => $loan->tanggal_mulai_cicilan ? Carbon::parse($loan->tanggal_mulai_cicilan)->toDateString() : null,
+                'total_cicilan'    => $loan->cicilan->count(),
+                'sisa_cicilan'     => $loan->cicilan->where('status_pembayaran', '!=', 'paid')->count(),
             ];
         });
 

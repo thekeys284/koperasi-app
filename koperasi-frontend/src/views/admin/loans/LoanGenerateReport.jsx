@@ -104,18 +104,18 @@ export default function LoanGenerateReport() {
         if (reportData.length === 0) return;
         
         const worksheetData = reportData.map(item => ({
-            "Nama Anggota": item.user_name,
-            "Jenis Pinjaman": item.jenis_pinjaman,
-            "Jumlah Pinjaman": item.jumlah_pinjaman,
+            "Nama User": item.user_name,
+            "Tanggal Dimulai": item.tanggal_mulai_cicilan || "-",
+            "Mode": item.loan_mode_label,
+            "Jenis": item.jenis_pinjaman,
+            "Total Pinjaman": formatCurrency(item.jumlah_pinjaman),
             "Tenor": `${item.tenor} Bulan`,
-            "Cicilan Bulan Dipilih": item.cicilan_per_bulan,
-            "Cicilan Ke": item.cicilan_ke || "-",
-            "Tanggal Cicilan": item.tanggal_cicilan || "-",
-            "Status Cicilan": item.status_cicilan_label || "-",
-            "Mode Pengajuan": item.loan_mode_label,
-            "Total Terbayar": item.total_terbayar,
-            "Sisa Pinjaman": item.sisa_pinjaman,
-            "Status Pengajuan": item.status_label || item.status
+            "Cicilan/Bulan": formatCurrency(item.cicilan_per_bulan),
+            "Terbayar": formatCurrency(item.total_terbayar),
+            "Sisa Pinjaman": formatCurrency(item.sisa_pinjaman),
+            "Sisa Cicilan": item.sisa_cicilan,
+            "Total Cicilan": item.total_cicilan,
+            "Status": item.status_label || item.status
         }));
 
         const worksheet = XLSX.utils.json_to_sheet(worksheetData);
@@ -298,14 +298,15 @@ export default function LoanGenerateReport() {
                     <Table>
                         <TableHead sx={{ bgcolor: "#f8fafc" }}>
                             <TableRow>
-                                <TableCell sx={{ fontWeight: 700, color: "#64748b" }}>Nama Anggota</TableCell>
-                                <TableCell sx={{ fontWeight: 700, color: "#64748b" }}>Jenis</TableCell>
+                                <TableCell sx={{ fontWeight: 700, color: "#64748b" }}>Nama User</TableCell>
+                                <TableCell sx={{ fontWeight: 700, color: "#64748b" }}>Tanggal Dimulai</TableCell>
                                 <TableCell sx={{ fontWeight: 700, color: "#64748b" }}>Mode</TableCell>
-                                <TableCell sx={{ fontWeight: 700, color: "#64748b" }}>Jumlah</TableCell>
+                                <TableCell sx={{ fontWeight: 700, color: "#64748b" }}>Jenis</TableCell>
+                                <TableCell sx={{ fontWeight: 700, color: "#64748b" }}>Total Pinjaman</TableCell>
                                 <TableCell sx={{ fontWeight: 700, color: "#64748b" }}>Tenor</TableCell>
-                                <TableCell sx={{ fontWeight: 700, color: "#64748b" }}>Cicilan</TableCell>
+                                <TableCell sx={{ fontWeight: 700, color: "#64748b" }}>Cicilan/Bulan</TableCell>
                                 <TableCell sx={{ fontWeight: 700, color: "#64748b" }}>Terbayar</TableCell>
-                                <TableCell sx={{ fontWeight: 700, color: "#64748b" }}>Sisa</TableCell>
+                                <TableCell sx={{ fontWeight: 700, color: "#64748b" }}>Sisa Pinjaman</TableCell>
                                 <TableCell sx={{ fontWeight: 700, color: "#64748b" }}>Status</TableCell>
                             </TableRow>
                         </TableHead>
@@ -313,19 +314,7 @@ export default function LoanGenerateReport() {
                             {reportData.length > 0 ? reportData.map((row) => (
                                 <TableRow key={row.id} hover>
                                     <TableCell sx={{ fontWeight: 600 }}>{row.user_name}</TableCell>
-                                    <TableCell>
-                                        <Chip 
-                                            label={row.jenis_pinjaman} 
-                                            size="small" 
-                                            sx={{ 
-                                                bgcolor: row.jenis_pinjaman === 'Produktif' ? '#DBEAFE' : '#F3E8FF',
-                                                color: row.jenis_pinjaman === 'Produktif' ? '#2563EB' : '#9333EA',
-                                                fontWeight: 600,
-                                                fontSize: "12px",
-                                                textTransform: "uppercase"
-                                            }} 
-                                        />
-                                    </TableCell>
+                                    <TableCell>{formatDate(row.tanggal_mulai_cicilan)}</TableCell>
                                     <TableCell>
                                         <Chip 
                                             label={row.loan_mode_label} 
@@ -340,28 +329,31 @@ export default function LoanGenerateReport() {
                                             }} 
                                         />
                                     </TableCell>
+                                    <TableCell>
+                                        <Chip 
+                                            label={row.jenis_pinjaman} 
+                                            size="small" 
+                                            sx={{ 
+                                                bgcolor: row.jenis_pinjaman === 'Produktif' ? '#DBEAFE' : '#F3E8FF',
+                                                color: row.jenis_pinjaman === 'Produktif' ? '#2563EB' : '#9333EA',
+                                                fontWeight: 600,
+                                                fontSize: "12px",
+                                                textTransform: "uppercase"
+                                            }} 
+                                        />
+                                    </TableCell>
                                     <TableCell sx={{ fontWeight: 700 }}>{formatCurrency(row.jumlah_pinjaman)}</TableCell>
                                     <TableCell>{row.tenor} Bulan</TableCell>
-                                    <TableCell>
-                                        <Typography variant="body2" sx={{ fontWeight: 700 }}>
-                                            {formatCurrency(row.cicilan_per_bulan)}
-                                        </Typography>
-                                        <Typography variant="caption" color="text.secondary">
-                                            {row.cicilan_ke ? `Cicilan ke-${row.cicilan_ke}` : "Cicilan belum tersedia"}
-                                        </Typography>
-                                        {row.tanggal_cicilan && (
-                                            <Typography variant="caption" display="block" color="text.secondary">
-                                                Jatuh tempo: {row.tanggal_cicilan}
-                                            </Typography>
-                                        )}
-                                        {row.status_cicilan_label && (
-                                            <Typography variant="caption" display="block" sx={{ color: "#0f766e", fontWeight: 700 }}>
-                                                Status cicilan: {row.status_cicilan_label}
-                                            </Typography>
-                                        )}
-                                    </TableCell>
+                                    <TableCell>{formatCurrency(row.cicilan_per_bulan)}</TableCell>
                                     <TableCell sx={{ color: "success.main", fontWeight: 600 }}>{formatCurrency(row.total_terbayar)}</TableCell>
-                                    <TableCell sx={{ color: "error.main", fontWeight: 700 }}>{formatCurrency(row.sisa_pinjaman)}</TableCell>
+                                    <TableCell>
+                                        <Typography variant="body2" sx={{ color: "error.main", fontWeight: 700 }}>
+                                            {formatCurrency(row.sisa_pinjaman)}
+                                        </Typography>
+                                        <Typography variant="caption" color="text.secondary" sx={{ display: "block", fontSize: "10px" }}>
+                                            Sisa {row.sisa_cicilan} dari {row.total_cicilan} cicilan
+                                        </Typography>
+                                    </TableCell>
                                     <TableCell>
                                         <Chip 
                                             label={row.status_label || row.status} 
