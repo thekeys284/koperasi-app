@@ -3,7 +3,7 @@ import { formatCurrency, formatDate } from "../../../utils/format";
 import { useNavigate } from "react-router-dom";
 import api from "../../../api/axios";
 
-import StatCard from "../../../ui-component/cards/Loans/Admin/StatCard";
+import StatCard from "../../../ui-component/cards/Loans/Pjtoko/StatCard";
 import fileBlueIcon from "assets/images/lead/fileBlueIcon.png";
 import processOrangeIcon from "assets/images/lead/processOrangeIcon.png";
 import checkGreenIcon from "assets/images/lead/checkGreenIcon.png";
@@ -89,7 +89,7 @@ const StatusBadge = ({ loan }) => {
       label: "Ditolak",
       color: "#dc2626",
       bg: "#fee2e2",
-      reason: loan?.status_reason || loan?.admin_note || loan?.reason || "Alasan penolakan tidak tersedia."
+      reason: loan?.status_reason || loan?.pjtoko_note || loan?.reason || "Alasan penolakan tidak tersedia."
     };
   } else if (["pending_pengajuan"].includes(statusPengajuan)) {
     config = {
@@ -224,7 +224,7 @@ const LoanSubmissionPage = () => {
   }, []);
 
   const openLoanDetail = (loanId, userId) => {
-    navigate(`/admin/loans/pengajuan/details?loan_id=${loanId}&user_id=${userId}`);
+    navigate(`/pjtoko/loans/pengajuan/details?loan_id=${loanId}&user_id=${userId}`);
   };
 
   const handleTabChange = (event, newValue) => {
@@ -241,7 +241,7 @@ const LoanSubmissionPage = () => {
         <Link
           underline="hover"
           color="text.primary"
-          onClick={() => navigate("/admin/loans/pengajuan")}
+          onClick={() => navigate("/pjtoko/loans/pengajuan")}
           sx={{ cursor: "pointer", display: "flex", alignItems: "center" }}
         >
           Pengajuan Pinjaman

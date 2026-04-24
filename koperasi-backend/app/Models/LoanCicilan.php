@@ -19,7 +19,7 @@ class LoanCicilan extends Model
         'status_pembayaran',
         'status_updated_at',
         'postponement_reason',
-        'admin_note',
+        'pjtoko_note',
     ];
 
     protected $casts = [

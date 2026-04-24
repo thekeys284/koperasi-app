@@ -27,7 +27,7 @@ const PostponeInstallmentModal = ({
 
   React.useEffect(() => {
     if (open) {
-      setAdminNote(loanData?.admin_note || "");
+      setAdminNote(loanData?.pjtoko_note || "");
     }
   }, [open, loanData]);
 

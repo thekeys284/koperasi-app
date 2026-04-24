@@ -17,9 +17,7 @@ import {
     TableContainer,
     TableHead,
     TableRow,
-    Paper,
     CircularProgress,
-    Divider,
     Avatar,
     Chip,
 } from "@mui/material";
@@ -218,8 +216,8 @@ export default function LoanGenerateReport() {
                                     py: 1, 
                                     textTransform: "none", 
                                     fontWeight: 700,
-                                    bgcolor: "#2e7d32",
-                                    "&:hover": { bgcolor: "#1b5e20" }
+                                    bgcolor: "#2e5d7dff",
+                                    "&:hover": { bgcolor: "#363083ff" }
                                 }}
                             >
                                 {loading ? <CircularProgress size={24} color="inherit" /> : "Generate Laporan"}
@@ -285,10 +283,21 @@ export default function LoanGenerateReport() {
                     <Typography variant="h4" fontWeight={700}>Tabel Rincian</Typography>
                     <Stack direction="row" spacing={2}>
                         <Button 
-                            variant="outlined" color="success"
+                            variant="contained"
                             startIcon={<IconFileSpreadsheet size={18} />}
                             onClick={handleExportExcel}
-                            sx={{ borderRadius: "8px", textTransform: "none", fontWeight: 700 }}
+                            sx={{ 
+                                borderRadius: "8px", 
+                                textTransform: "none", 
+                                fontWeight: 700,
+                                bgcolor: "#16a34a",
+                                color: "#ffffff",
+                                boxShadow: "none",
+                                "&:hover": {
+                                    bgcolor: "#15803d",
+                                    boxShadow: "none"
+                                }
+                            }}
                         >
                             Export Excel
                         </Button>

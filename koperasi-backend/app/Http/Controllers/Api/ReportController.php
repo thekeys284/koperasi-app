@@ -163,7 +163,7 @@ class ReportController extends Controller
     {
         return match ($status) {
             'disetujui_ketua'  => 'Aktif (sudah di-ACC)',
-            'pending'          => 'Menunggu ACC Admin',
+            'pending'          => 'Menunggu ACC PJ Toko',
             'pending_pengajuan'=> 'Menunggu ACC Ketua',
             'postpone'         => 'Menunggu keputusan penundaan',
             'paid'             => 'Lunas',

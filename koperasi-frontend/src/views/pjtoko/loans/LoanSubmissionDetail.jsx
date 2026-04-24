@@ -40,7 +40,7 @@ import { Accordion, AccordionSummary, AccordionDetails } from "@mui/material";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 
 import LoanFeedbackSnackbar from "../../../ui-component/feedback/LoanFeedbackSnackbar";
-import TopupInfoCard from "../../../ui-component/cards/Loans/Admin/TopupInfoCard";
+import TopupInfoCard from "../../../ui-component/cards/Loans/Pjtoko/TopupInfoCard";
 
 const LoanSubmissionDetailPage = () => {
   const navigate = useNavigate();
@@ -106,7 +106,7 @@ const LoanSubmissionDetailPage = () => {
         window.dispatchEvent(new CustomEvent('refresh-menu-counts'));
 
         setTimeout(() => {
-          navigate("/admin/loans/pengajuan");
+          navigate("/pjtoko/loans/pengajuan");
         }, 1200);
       }
     } catch (err) {
@@ -132,7 +132,7 @@ const LoanSubmissionDetailPage = () => {
         window.dispatchEvent(new CustomEvent('refresh-menu-counts'));
 
         setTimeout(() => {
-          navigate("/admin/loans/pengajuan");
+          navigate("/pjtoko/loans/pengajuan");
         }, 1200);
       }
     } catch (err) {
@@ -186,7 +186,7 @@ const LoanSubmissionDetailPage = () => {
   return (
     <Box sx={{ p: 4, background: "#f5f7fb", minHeight: "100vh" }}>
       <Breadcrumbs separator={<NavigateNextIcon fontSize="small" />} sx={{ mb: 2 }}>
-        <Link underline="hover" color="inherit" onClick={() => navigate("/admin/loans/pengajuan")} sx={{ cursor: "pointer" }}>
+        <Link underline="hover" color="inherit" onClick={() => navigate("/pjtoko/loans/pengajuan")} sx={{ cursor: "pointer" }}>
           Pengajuan Pinjaman
         </Link>
         <Typography color="text.primary">Detail Pengajuan</Typography>
@@ -337,7 +337,7 @@ const LoanSubmissionDetailPage = () => {
                     <Typography variant="body1" sx={{ width: 140, color: "#64748B", fontWeight: 500 }}>Referensi Loan</Typography>
                     <Typography 
                       variant="body1" 
-                      onClick={() => navigate(`/admin/loans/pengajuan/details?loan_id=${loan.referred_loan.id}&user_id=${loan.user_id}`)}
+                      onClick={() => navigate(`/pjtoko/loans/pengajuan/details?loan_id=${loan.referred_loan.id}&user_id=${loan.user_id}`)}
                       sx={{ 
                         fontWeight: 700, 
                         color: "primary.main", 
@@ -475,7 +475,7 @@ const LoanSubmissionDetailPage = () => {
                   <Box>
                     <Typography variant="subtitle2" fontWeight={700}>Admin</Typography>
                     <Typography variant="caption" color="text.secondary">
-                      {loan?.status_pengajuan === "pending" ? "Menunggu Konfirmasi" : loan?.status_pengajuan === "rejected" && !loan?.tgl_acc_admin ? "Ditolak" : "Dikonfirmasi"}
+                      {loan?.status_pengajuan === "pending" ? "Menunggu Konfirmasi" : loan?.status_pengajuan === "rejected" && !loan?.tgl_acc_pjtoko ? "Ditolak" : "Dikonfirmasi"}
                     </Typography>
                   </Box>
                 </Stack>
@@ -498,7 +498,7 @@ const LoanSubmissionDetailPage = () => {
                         ? "Menunggu Admin"
                         : loan?.status_pengajuan === "pending_pengajuan"
                           ? "Menunggu Konfirmasi"
-                          : loan?.status_pengajuan === "rejected" && loan?.tgl_acc_admin
+                          : loan?.status_pengajuan === "rejected" && loan?.tgl_acc_pjtoko
                             ? "Ditolak"
                             : ["disetujui_ketua", "aktif", "paid"].includes(loan?.status_pengajuan)
                               ? "Disetujui"

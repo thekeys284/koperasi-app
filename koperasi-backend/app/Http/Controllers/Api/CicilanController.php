@@ -34,7 +34,7 @@ class CicilanController extends Controller
             $validated = $request->validate([
                 'tukin_status'  => 'required|in:sudah,postponed,pending,belum',
                 'note'          => 'nullable|string|max:500',
-                'admin_note'    => 'nullable|string|max:500',
+                'pjtoko_note'    => 'nullable|string|max:500',
             ]);
 
             $query = Loan::with(['user', 'cicilan'])->where('id', $loanId);
@@ -192,7 +192,7 @@ class CicilanController extends Controller
         $tukinStatus = $validated['tukin_status'];
         $isPostponeAction = in_array($tukinStatus, ['postponed', 'belum'], true);
         $isPostponeRequestActive = $loan->status_pengajuan === 'postpone';
-        $note = $validated['admin_note'] ?? $validated['note'] ?? null;
+        $note = $validated['pjtoko_note'] ?? $validated['note'] ?? null;
 
         if ($isPostponeRequestActive && $isPostponeAction) {
             LoanApproval::create([

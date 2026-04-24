@@ -53,7 +53,7 @@ const ProductPage = () => {
         setPage(0);
     };
     const handleAdd=()=>{
-        navigate('/admin/products/add');
+        navigate('/pjtoko/products/add');
     }
 
     return (
@@ -110,7 +110,7 @@ const ProductPage = () => {
                                             Rp {new Intl.NumberFormat('id-ID').format(row.current_selling_price)}
                                         </TableCell>
                                         <TableCell align='center'>
-                                            <Button size='small' onClick={()=>navigate(`/admin/products/edit/${row.id}`)}>
+                                            <Button size='small' onClick={()=>navigate(`/pjtoko/products/edit/${row.id}`)}>
                                                 <IconEdit size={16}/>
                                             </Button>
                                             <Button size='small' color='error'

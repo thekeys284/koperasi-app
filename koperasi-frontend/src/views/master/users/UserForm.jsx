@@ -139,7 +139,7 @@ const UserForm = () =>{
 
             // 2. Beri jeda 1.5 detik agar user bisa baca pesan suksesnya, baru pindah halaman
             setTimeout(() => {
-                navigate('/admin/users');
+                navigate('/pjtoko/users');
             }, 1500);
         } catch (error) {
             setSnackbar({
@@ -311,7 +311,7 @@ const UserForm = () =>{
                     <Grid size={{xs:12, sm:12}} sx={{ display: 'flex', justifyContent: 'flex-end', pt: 2 }}>
                         <Grid size={{ xs: 12, sm: 6 }} sx={{ display: 'flex', justifyContent: 'flex-end' }}></Grid>
                         <Box sx={{ display: 'flex', justifyContent: 'right', gap: 4, pt:4, flex: 8}}>
-                            <Button variant="outlined" onClick={() => navigate('/admin/users')} sx={{ flex: 4 }}>
+                            <Button variant="outlined" onClick={() => navigate('/pjtoko/users')} sx={{ flex: 4 }}>
                                 Batal
                             </Button>
                             <Button variant="contained" type="submit" color="primary" sx={{ flex: 4 }}>

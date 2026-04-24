@@ -247,7 +247,7 @@ CREATE TABLE IF NOT EXISTS loan_cicilan (
   status_pembayaran ENUM('pending', 'paid', 'postponed') DEFAULT 'pending',
   status_updated_at TIMESTAMP NULL,
   postponement_reason TEXT NULL,
-  admin_note TEXT NULL,
+  pjtoko_note TEXT NULL,
   FOREIGN KEY (loans_id) REFERENCES loans(id) ON DELETE CASCADE
 ) ENGINE=InnoDB;
 

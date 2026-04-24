@@ -60,7 +60,7 @@ const ProductForm = () =>{
             } else {
                 await api.post('/products', formData);
             } 
-            navigate('/admin/products');
+            navigate('/pjtoko/products');
         } catch(error){
             console.error("Gagal simpan produk:", error.response?.data || error.message);
             alert("Terjadi kesalahan saat menyimpan data.");
@@ -76,7 +76,7 @@ const ProductForm = () =>{
                 <Button
                     variant="text"
                     startIcon={<IconArrowLeft />}
-                    onClick={()=> navigate('/admin/product')}
+                    onClick={()=> navigate('/pjtoko/product')}
                 >
                     Kembali
                 </Button>
@@ -227,7 +227,7 @@ const ProductForm = () =>{
                         <Button
                             variant="outlined"
                             color="secondary"
-                            onClick={() => navigate('/admin/stock')}
+                            onClick={() => navigate('/pjtoko/stock')}
                         >
                             Batal
                         </Button>

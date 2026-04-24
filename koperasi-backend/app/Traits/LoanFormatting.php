@@ -132,7 +132,7 @@ trait LoanFormatting
             'created_at' => $loan->tanggal_pengajuan,
             'updated_at' => null,
             'tgl_acc_pj' => optional($latestPjApproval?->actioned_at)?->toDateTimeString(),
-            'tgl_acc_admin' => optional($latestPjApproval?->actioned_at)?->toDateTimeString(),
+            'tgl_acc_pjtoko' => optional($latestPjApproval?->actioned_at)?->toDateTimeString(),
             'tgl_acc_ketua' => optional($latestKetuaApproval?->actioned_at)?->toDateTimeString(),
             'approvals' => $loan->approvals
                 ?->sortBy('actioned_at')
@@ -165,7 +165,7 @@ trait LoanFormatting
                 'status_pembayaran' => $item->status_pembayaran,
                 'status_updated_at' => optional($item->status_updated_at)?->toDateTimeString(),
                 'postponement_reason' => $item->postponement_reason,
-                'admin_note' => $item->admin_note,
+                'pjtoko_note' => $item->pjtoko_note,
                 'tukin_status' => $item->status_pembayaran === 'paid'
                     ? 'sudah'
                     : ($item->status_pembayaran === 'postponed' ? 'postponed' : 'belum'),

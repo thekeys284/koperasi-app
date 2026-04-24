@@ -60,12 +60,12 @@ const UserPage = () => {
     };
 
     const handleAdd = () => {
-        navigate('/admin/users/add');
+        navigate('/pjtoko/users/add');
     };
 
     const handleEdit = (id) => {
         console.log("Edit user ID:", id);
-        navigate(`/admin/users/edit/${id}`);
+        navigate(`/pjtoko/users/edit/${id}`);
     };
 
     const handleDelete = async () => {

@@ -385,7 +385,7 @@ class LoanController extends Controller
                         $c->update([
                             'status_pembayaran' => 'postponed',
                             'status_updated_at' => now(),
-                            'admin_note' => $note,
+                            'pjtoko_note' => $note,
                         ]);
                     }
 

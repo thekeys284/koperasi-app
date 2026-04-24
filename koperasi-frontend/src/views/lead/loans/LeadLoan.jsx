@@ -3,24 +3,16 @@ import { formatCurrency, formatDate } from "../../../utils/format";
 import { useNavigate } from "react-router-dom";
 import api from "../../../api/axios";
 
-import StatCard from "../../../ui-component/cards/Loans/Admin/StatCard";
+import StatCard from "../../../ui-component/cards/Loans/Pjtoko/StatCard";
 // icons
 import fileBlueIcon from 'assets/images/lead/fileBlueIcon.png';
 import processOrangeIcon from 'assets/images/lead/processOrangeIcon.png';
 import checkGreenIcon from 'assets/images/lead/checkGreenIcon.png';
 
 import {
-    Accordion,
-    AccordionDetails,
-    AccordionSummary,
   Card,
   CardContent,
   Typography,
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableRow,
   Chip,
   Stack,
   CircularProgress,
@@ -36,6 +28,7 @@ import {
 import NavigateNextIcon from "@mui/icons-material/NavigateNext";
 import MoreVertIcon from "@mui/icons-material/MoreVert";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
+import LoanTable from "../../../ui-component/cards/Loans/LoanTable";
 
 const RejectionNote = ({ reason }) => {
     const [expanded, setExpanded] = React.useState(false);
@@ -90,7 +83,7 @@ const StatusBadge = ({ loan }) => {
             label: "Ditolak",
             color: "#dc2626",
             bg: "#fee2e2",
-            reason: loan?.status_reason || loan?.admin_note || loan?.reason || "Alasan penolakan tidak tersedia.",
+            reason: loan?.status_reason || loan?.pjtoko_note || loan?.reason || "Alasan penolakan tidak tersedia.",
         };
     } else if (statusPengajuan === "pending_pengajuan") {
         config = {
@@ -228,6 +221,85 @@ const LeadLoanPage = () => {
     const filteredLoans = tabValue === 0 
         ? loans.filter(l => l.status_pengajuan === 'pending_pengajuan')
         : loans.filter(l => l.status_pengajuan !== 'pending_pengajuan');
+    const leadColumns = [
+        {
+            header: "ID & TGL PENGAJUAN",
+            render: (loan) => (
+                <>
+                    <Typography color="primary" fontWeight={700}>
+                        #{loan.loan_number}
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary">
+                        {formatDate(loan.created_at)}
+                    </Typography>
+                </>
+            )
+        },
+        {
+            header: "ANGGOTA",
+            render: (loan) => (
+                <>
+                    <Typography fontWeight={700} color="#1E293B">{loan.user_name || "-"}</Typography>
+                    <Typography variant="caption" color="text.secondary">
+                        {loan.user_username || "-"}
+                    </Typography>
+                </>
+            )
+        },
+        {
+            header: "JENIS & JUMLAH",
+            render: (loan) => (
+                <>
+                    <Stack direction="row" spacing={1} sx={{ mb: 0.5 }}>
+                        <LoanTypeBadge type={loan.type_slug} />
+                        <LoanModeBadge mode={loan.loan_mode} />
+                    </Stack>
+                    <Typography fontWeight={800} sx={{ mt: 0.5 }}>{formatCurrency(loan.jumlah_pinjaman)}</Typography>
+                    {loan.referred_loan?.loan_number && (
+                        <Typography variant="caption" color="text.secondary" sx={{ display: "block" }}>
+                            Ref: #{loan.referred_loan.loan_number}
+                        </Typography>
+                    )}
+                    {loan.document_url && (
+                        <Typography 
+                            variant="caption" 
+                            sx={{ 
+                                color: "#2563eb", 
+                                fontWeight: 700, 
+                                mt: 0.5, 
+                                display: "flex", 
+                                alignItems: "center", 
+                                gap: 0.5,
+                                cursor: "pointer",
+                                "&:hover": { textDecoration: "underline" }
+                            }}
+                            onClick={(e) => { e.stopPropagation(); window.open(loan.document_url, '_blank'); }}
+                        >
+                            [ Lihat Nota ]
+                        </Typography>
+                    )}
+                </>
+            )
+        },
+        {
+            header: "TENOR",
+            render: (loan) => <span style={{ fontWeight: 600 }}>{loan.lama_pembayaran} Bulan</span>
+        },
+        {
+            header: "STATUS",
+            align: "center",
+            render: (loan) => <StatusBadge loan={loan} />
+        },
+        {
+            header: "AKSI",
+            align: "center",
+            render: (loan) => (
+                <IconButton onClick={() => openLoanDetail(loan.id, loan.user_id)}>
+                    <MoreVertIcon />
+                </IconButton>
+            )
+        }
+    ];
 
     return (
         <Box sx={{ p: 4, background: "#f5f7fb", minHeight: "100vh" }}>
@@ -302,119 +374,13 @@ const LeadLoanPage = () => {
                     </Tabs>
                 </Box>
                 <CardContent>
-                    <Box sx={{ overflowX: "auto" }}>
-                        <Table
-                            sx={{
-                                minWidth: 600,
-                                "& .MuiTableBody-root .MuiTableRow-root": {
-                                    transition: "background-color 0.2s",
-                                },
-                                "& .MuiTableBody-root .MuiTableRow-root:hover": {
-                                    backgroundColor: "#F8FAFC",
-                                },
-                                "& .MuiTableCell-root": {
-                                    borderBottom: "1px solid #F1F5F9",
-                                    py: 2,
-                                    px: 1,
-                                },
-                            }}
-                        >
-                            <TableHead>
-                                <TableRow
-                                    sx={{
-                                        backgroundColor: "#F8FAFC",
-                                        "& .MuiTableCell-head": {
-                                            fontWeight: 700,
-                                            fontSize: "12px",
-                                            color: "#475569",
-                                            letterSpacing: "0.5px",
-                                            textTransform: "uppercase",
-                                            borderBottom: "2px solid #E2E8F0",
-                                        },
-                                    }}
-                                >
-                                    <TableCell>ID & TGL PENGAJUAN</TableCell>
-                                    <TableCell>ANGGOTA</TableCell>
-                                    <TableCell>JENIS & JUMLAH</TableCell>
-                                    <TableCell>TENOR</TableCell>
-                                    <TableCell align="center">STATUS</TableCell>
-                                    <TableCell align="center">AKSI</TableCell>
-                                </TableRow>
-                            </TableHead>
-
-                            <TableBody>
-                                {filteredLoans.map((loan) => (
-                                    <TableRow key={loan.id}>
-                                        <TableCell>
-                                            <Typography color="primary" fontWeight={700}>
-                                                #{loan.loan_number}
-                                            </Typography>
-                                            <Typography variant="caption" color="text.secondary">
-                                                {formatDate(loan.created_at)}
-                                            </Typography>
-                                        </TableCell>
-
-                                        <TableCell>
-                                            <Typography fontWeight={700} color="#1E293B">{loan.user_name || "-"}</Typography>
-                                            <Typography variant="caption" color="text.secondary">
-                                                {loan.user_username || "-"}
-                                            </Typography>
-                                        </TableCell>
-
-                                        <TableCell>
-                                            <Stack direction="row" spacing={1} sx={{ mb: 0.5 }}>
-                                                <LoanTypeBadge type={loan.type_slug} />
-                                                <LoanModeBadge mode={loan.loan_mode} />
-                                            </Stack>
-                                            <Typography fontWeight={800} sx={{ mt: 0.5 }}>{formatCurrency(loan.jumlah_pinjaman)}</Typography>
-                                            {loan.referred_loan?.loan_number && (
-                                                <Typography variant="caption" color="text.secondary" sx={{ display: "block" }}>
-                                                    Ref: #{loan.referred_loan.loan_number}
-                                                </Typography>
-                                            )}
-                                            {loan.document_url && (
-                                                <Typography 
-                                                    variant="caption" 
-                                                    sx={{ 
-                                                        color: "#2563eb", 
-                                                        fontWeight: 700, 
-                                                        mt: 0.5, 
-                                                        display: "flex", 
-                                                        alignItems: "center", 
-                                                        gap: 0.5,
-                                                        cursor: "pointer",
-                                                        "&:hover": { textDecoration: "underline" }
-                                                    }}
-                                                    onClick={(e) => { e.stopPropagation(); window.open(loan.document_url, '_blank'); }}
-                                                >
-                                                    [ Lihat Nota ]
-                                                </Typography>
-                                            )}
-                                        </TableCell>
-
-                                        <TableCell sx={{ fontWeight: 600 }}>{loan.lama_pembayaran} Bulan</TableCell>
-
-                                        <TableCell align="center">
-                                            <StatusBadge loan={loan} />
-                                        </TableCell>
-
-                                        <TableCell align="center">
-                                            <IconButton onClick={() => openLoanDetail(loan.id, loan.user_id)}>
-                                                <MoreVertIcon />
-                                            </IconButton>
-                                        </TableCell>
-                                    </TableRow>
-                                ))}
-
-                                {!loading && filteredLoans.length === 0 && (
-                                    <TableRow>
-                                        <TableCell colSpan={6} align="center" sx={{ py: 4 }}>
-                                            <Typography color="text.secondary">Tidak ada data permohonan pinjaman pada kategori ini.</Typography>
-                                        </TableCell>
-                                    </TableRow>
-                                )}
-                            </TableBody>
-                        </Table>
+                    <Box sx={{ mx: -1 }}>
+                        <LoanTable 
+                            columns={leadColumns} 
+                            data={filteredLoans} 
+                            hideCard={true} 
+                            emptyMessage="Tidak ada data permohonan pinjaman pada kategori ini."
+                        />
                     </Box>
                 </CardContent>
             </Card>

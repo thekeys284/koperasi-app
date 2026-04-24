@@ -10,11 +10,11 @@ const DashboardDefault = Loadable(lazy(() => import('views/dashboard/Default')))
 // Master Data (Sesuaikan dengan folder views/master/...)
 const UserPage = Loadable(lazy(() => import('views/master/users/Index.jsx')));
 const UserForm = Loadable(lazy(() => import('views/master/users/UserForm.jsx')));
-const AdminLoanPage = Loadable(lazy(() => import('views/admin/loans/LoanPage.jsx')));
-const AdminLoanDetails = Loadable(lazy(() => import('views/admin/loans/LoanDetails.jsx')));
-const AdminLoanSubmissionPage = Loadable(lazy(() => import('views/admin/loans/LoanSubmissionPage.jsx')));
-const AdminLoanSubmissionDetail = Loadable(lazy(() => import('views/admin/loans/LoanSubmissionDetail.jsx')));
-const AdminLoanGenerateReport = Loadable(lazy(() => import('views/admin/loans/LoanGenerateReport.jsx')));
+const PjtokoLoanPage = Loadable(lazy(() => import('views/pjtoko/loans/LoanPage.jsx')));
+const PjtokoLoanDetails = Loadable(lazy(() => import('views/pjtoko/loans/LoanDetails.jsx')));
+const PjtokoLoanSubmissionPage = Loadable(lazy(() => import('views/pjtoko/loans/LoanSubmissionPage.jsx')));
+const PjtokoLoanSubmissionDetail = Loadable(lazy(() => import('views/pjtoko/loans/LoanSubmissionDetail.jsx')));
+const PjtokoLoanGenerateReport = Loadable(lazy(() => import('views/pjtoko/loans/LoanGenerateReport.jsx')));
 const UserLoanPage = Loadable(lazy(() => import('views/users/loans/userLoans.jsx')));
 const UserLoanCreatePage = Loadable(lazy(() => import('views/users/loans/userPengajuan.jsx')));
 const UserLoanCicilanPage = Loadable(lazy(() => import('views/users/loans/userCicilan.jsx')));
@@ -54,7 +54,7 @@ const MainRoutes = {
             ]
         },
         {
-            path: 'admin',
+            path: 'pjtoko',
             children: [
                 {
                     path: 'users',
@@ -70,18 +70,18 @@ const MainRoutes = {
                         {
                             path: 'pengajuan',
                             children: [
-                                { path: '', element: <AdminLoanSubmissionPage /> },
-                                { path: 'details', element: <AdminLoanSubmissionDetail /> }
+                                { path: '', element: <PjtokoLoanSubmissionPage /> },
+                                { path: 'details', element: <PjtokoLoanSubmissionDetail /> }
                             ]
                         },
-                        { path: 'daftar', element: <AdminLoanPage /> },
-                        { path: 'details', element: <AdminLoanDetails /> }
+                        { path: 'daftar', element: <PjtokoLoanPage /> },
+                        { path: 'details', element: <PjtokoLoanDetails /> }
                     ]
                 },
                 {
                     path: 'laporan',
                     children: [
-                        { path: 'peminjaman', element: <AdminLoanGenerateReport /> }
+                        { path: 'peminjaman', element: <PjtokoLoanGenerateReport /> }
                     ]
                 },
                 // {

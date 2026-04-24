@@ -32,7 +32,7 @@ import { IconArrowUpCircle } from "@tabler/icons-react";
 
 import PostponeInstallmentModal from "../../../ui-component/cards/Loans/User/userTundaCicilan";
 import LoanFeedbackSnackbar from "../../../ui-component/feedback/LoanFeedbackSnackbar";
-import TopupInfoCard from "../../../ui-component/cards/Loans/Admin/TopupInfoCard";
+import TopupInfoCard from "../../../ui-component/cards/Loans/Pjtoko/TopupInfoCard";
 import api from "../../../api/axios";
 
 const StatusChip = ({ status }) => {
@@ -365,7 +365,7 @@ const UserCicilan = () => {
                             Jadwal Pembayaran Cicilan
                         </Typography>
                         <Button
-                            variant="outlined"
+                            variant="contained"
                             size="small"
                             onClick={() => setPostponeModalOpen(true)}
                             disabled={[
@@ -376,7 +376,18 @@ const UserCicilan = () => {
                             sx={{
                                 borderRadius: "8px",
                                 textTransform: "none",
-                                fontWeight: 600,
+                                fontWeight: 700,
+                                bgcolor: "#2563EB",
+                                color: "#ffffff",
+                                boxShadow: "none",
+                                "&:hover": {
+                                    bgcolor: "#1D4ED8",
+                                    boxShadow: "none"
+                                },
+                                "&.Mui-disabled": {
+                                    bgcolor: "#F1F5F9",
+                                    color: "#94A3B8"
+                                }
                             }}
                         >
                             Ajukan Tunda Cicilan
@@ -446,7 +457,7 @@ const UserCicilan = () => {
                                                                 fontStyle: "italic",
                                                             }}
                                                         >
-                                                            Catatan: {item.admin_note || "Tidak ada catatan admin."}
+                                                            Catatan: {item.pjtoko_note || "Tidak ada catatan admin."}
                                                         </Typography>
                                                     </Box>
                                                 )}

@@ -10,11 +10,6 @@ import {
     Card,
     CardContent,
     Button,
-    Table,
-    TableHead,
-    TableRow,
-    TableCell,
-    TableBody,
     Chip,
     CircularProgress,
     IconButton,
@@ -34,6 +29,7 @@ import MoreVertIcon from "@mui/icons-material/MoreVert";
 import DeleteIcon from "@mui/icons-material/DeleteOutline";
 import { IconLock } from "@tabler/icons-react";
 import LoanFeedbackSnackbar from "../../../ui-component/feedback/LoanFeedbackSnackbar";
+import LoanTable from "../../../ui-component/cards/Loans/LoanTable";
 
 const StatusBadge = ({ loan }) => {
     const statusPengajuan = loan?.status_pengajuan;
@@ -279,6 +275,105 @@ const UserLoans = () => {
     const isPending = loans.some(l => ["pending", "pending_pengajuan"].includes(l.status_pengajuan));
     const hasApprovedLoan = activeLoans.length > 0;
 
+    const userColumns = [
+        {
+            header: "ID & TGL PENGAJUAN",
+            render: (loan) => (
+                <>
+                    <Typography fontWeight={700} color="#2563EB">
+                        #{loan.loan_number}
+                    </Typography>
+                    <Typography fontSize={12} color="#64748B">
+                        {formatDate(loan.created_at)}
+                    </Typography>
+                </>
+            )
+        },
+        {
+            header: "JENIS & JUMLAH",
+            render: (loan) => (
+                <>
+                    <Stack direction="row" spacing={1} sx={{ mb: 0.5 }}>
+                        <LoanTypeBadge type={loan.type_slug} />
+                        <LoanModeBadge mode={loan.loan_mode} />
+                    </Stack>
+                    <Typography fontWeight={800} sx={{ mt: 0.5 }}>
+                        {formatCurrency(loan.jumlah_pinjaman)}
+                    </Typography>
+                    {loan.referred_loan?.loan_number && (
+                        <Typography variant="caption" color="text.secondary">
+                            Ref: #{loan.referred_loan.loan_number}
+                        </Typography>
+                    )}
+                </>
+            )
+        },
+        {
+            header: "TENOR",
+            render: (loan) => (
+                <Typography sx={{ fontWeight: 600, color: '#475569' }}>
+                    {loan.lama_pembayaran} Bulan
+                </Typography>
+            )
+        },
+        {
+            header: "STATUS",
+            render: (loan) => (
+                <Stack spacing={0.5} alignItems="flex-start">
+                    <StatusBadge loan={loan} />
+                    <RejectionNote loan={loan} />
+                </Stack>
+            )
+        },
+        {
+            header: "PERSETUJUAN",
+            render: (loan) => (
+                <Stack spacing={0.4}>
+                    <Typography fontSize={12} color="#334155" fontWeight={700}>
+                        ACC PJ Toko: {loan.status_pengajuan === "rejected" && !loan.tgl_acc_pjtoko ? (
+                            <Typography component="span" fontSize={11} color="error.main" fontWeight={800}>DITOLAK PJToko</Typography>
+                        ) : formatDate(loan.tgl_acc_pjtoko)}
+                    </Typography>
+                    <Typography fontSize={12} color="#334155" fontWeight={700}>
+                        ACC Ketua: {loan.status_pengajuan === "rejected" && loan.tgl_acc_pjtoko && !loan.tgl_acc_ketua ? (
+                            <Typography component="span" fontSize={11} color="error.main" fontWeight={800}>DITOLAK KETUA</Typography>
+                        ) : formatDate(loan.tgl_acc_ketua)}
+                    </Typography>
+                </Stack>
+            )
+        },
+        {
+            header: "DETAIL",
+            align: "center",
+            render: (loan) => (
+                <Stack direction="row" spacing={0.5} justifyContent="center">
+                    <IconButton 
+                        onClick={() => navigate(`/user/loans/cicilan?loan_id=${loan.id}&user_id=10`)}
+                        size="small"
+                        disabled={loan.status_pengajuan === "rejected"}
+                        sx={{ 
+                            color: '#94A3B8', 
+                            '&:hover': { color: '#2563EB', background: '#EFF6FF' },
+                            '&.Mui-disabled': { color: '#E2E8F0' }
+                        }}
+                    >
+                        <MoreVertIcon fontSize="small" />
+                    </IconButton>
+                    
+                    {loan.status_pengajuan === "pending" && (
+                        <IconButton 
+                            onClick={() => handleDeleteClick(loan.id)}
+                            size="small"
+                            sx={{ color: '#94A3B8', '&:hover': { color: '#EF4444', background: '#FEF2F2' } }}
+                        >
+                            <DeleteIcon fontSize="small" />
+                        </IconButton>
+                    )}
+                </Stack>
+            )
+        }
+    ];
+
     return (
         <Box sx={{ p: 4, background: "#F5F7FB", minHeight: "100vh" }}>
 
@@ -478,126 +573,12 @@ const UserLoans = () => {
                             </Stack>
 
                             <Box sx={{ mx: -2 }}>
-                                <Table
-                                    sx={{
-                                        minWidth: 600,
-                                        "& .MuiTableBody-root .MuiTableRow-root": {
-                                            transition: "background-color 0.2s",
-                                        },
-                                        "& .MuiTableBody-root .MuiTableRow-root:hover": {
-                                            backgroundColor: "#F8FAFC",
-                                        },
-                                        "& .MuiTableCell-root": {
-                                            borderBottom: "1px solid #F1F5F9",
-                                            py: 2.5,
-                                            px: 3,
-                                        },
-                                    }}
-                                >
-                                    <TableHead>
-                                        <TableRow
-                                            sx={{
-                                                backgroundColor: "#F8FAFC",
-                                                "& .MuiTableCell-head": {
-                                                    fontWeight: 700,
-                                                    fontSize: "12px",
-                                                    color: "#64748B",
-                                                    letterSpacing: "0.5px",
-                                                    textTransform: "uppercase",
-                                                    borderBottom: "2px solid #E2E8F0",
-                                                }
-                                            }}
-                                        >
-                                            <TableCell>ID & TGL PENGAJUAN</TableCell>
-                                            <TableCell>JENIS & JUMLAH</TableCell>
-                                            <TableCell>TENOR</TableCell>
-                                            <TableCell>STATUS</TableCell>
-                                            <TableCell>PERSETUJUAN</TableCell>
-                                            <TableCell align="center">DETAIL</TableCell>
-                                        </TableRow>
-                                    </TableHead>
-
-                                    <TableBody>
-                                        {loans.map((loan) => (
-                                            <TableRow key={loan.id}>
-                                                <TableCell>
-                                                    <Typography fontWeight={700} color="#2563EB">
-                                                        #{loan.loan_number}
-                                                    </Typography>
-                                                    <Typography fontSize={12} color="#64748B">
-                                                        {formatDate(loan.created_at)}
-                                                    </Typography>
-                                                </TableCell>
-
-                                                <TableCell>
-                                                    <Stack direction="row" spacing={1} sx={{ mb: 0.5 }}>
-                                                        <LoanTypeBadge type={loan.type_slug} />
-                                                        <LoanModeBadge mode={loan.loan_mode} />
-                                                    </Stack>
-                                                    <Typography fontWeight={800} sx={{ mt: 0.5 }}>
-                                                        {formatCurrency(loan.jumlah_pinjaman)}
-                                                    </Typography>
-                                                    {loan.referred_loan?.loan_number && (
-                                                        <Typography variant="caption" color="text.secondary">
-                                                            Ref: #{loan.referred_loan.loan_number}
-                                                        </Typography>
-                                                    )}
-                                                </TableCell>
-
-                                                <TableCell sx={{ fontWeight: 600, color: '#475569' }}>
-                                                    {loan.lama_pembayaran} Bulan
-                                                </TableCell>
-
-                                                <TableCell>
-                                                    <StatusBadge loan={loan} />
-                                                    <RejectionNote loan={loan} />
-                                                </TableCell>
-
-                                                <TableCell>
-                                                    <Stack spacing={0.4}>
-                                                        <Typography fontSize={12} color="#334155" fontWeight={700}>
-                                                            ACC Admin: {loan.status_pengajuan === "rejected" && !loan.tgl_acc_admin ? (
-                                                                <Typography component="span" fontSize={11} color="error.main" fontWeight={800}>DITOLAK ADMIN</Typography>
-                                                            ) : formatDate(loan.tgl_acc_admin)}
-                                                        </Typography>
-                                                        <Typography fontSize={12} color="#334155" fontWeight={700}>
-                                                            ACC Ketua: {loan.status_pengajuan === "rejected" && loan.tgl_acc_admin && !loan.tgl_acc_ketua ? (
-                                                                <Typography component="span" fontSize={11} color="error.main" fontWeight={800}>DITOLAK KETUA</Typography>
-                                                            ) : formatDate(loan.tgl_acc_ketua)}
-                                                        </Typography>
-                                                    </Stack>
-                                                </TableCell>
-
-                                                <TableCell align="center">
-                                                    <Stack direction="row" spacing={0.5} justifyContent="center">
-                                                        <IconButton 
-                                                            onClick={() => navigate(`/user/loans/cicilan?loan_id=${loan.id}&user_id=10`)}
-                                                            size="small"
-                                                            disabled={loan.status_pengajuan === "rejected"}
-                                                            sx={{ 
-                                                                color: '#94A3B8', 
-                                                                '&:hover': { color: '#2563EB', background: '#EFF6FF' },
-                                                                '&.Mui-disabled': { color: '#E2E8F0' }
-                                                            }}
-                                                        >
-                                                            <MoreVertIcon fontSize="small" />
-                                                        </IconButton>
-                                                        
-                                                        {loan.status_pengajuan === "pending" && (
-                                                            <IconButton 
-                                                                onClick={() => handleDeleteClick(loan.id)}
-                                                                size="small"
-                                                                sx={{ color: '#94A3B8', '&:hover': { color: '#EF4444', background: '#FEF2F2' } }}
-                                                            >
-                                                                <DeleteIcon fontSize="small" />
-                                                            </IconButton>
-                                                        )}
-                                                    </Stack>
-                                                </TableCell>
-                                            </TableRow>
-                                        ))}
-                                    </TableBody>
-                                </Table>
+                                <LoanTable 
+                                    columns={userColumns} 
+                                    data={loans} 
+                                    hideCard={true} 
+                                    emptyMessage="Anda belum memiliki pengajuan pinjaman."
+                                />
                             </Box>
                         </CardContent>
                     </Card>

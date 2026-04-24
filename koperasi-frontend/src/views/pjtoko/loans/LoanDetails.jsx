@@ -29,9 +29,9 @@ import { Accordion, AccordionSummary, AccordionDetails } from "@mui/material";
 import { IconArrowUpCircle } from "@tabler/icons-react";
 
 
-import PostponeInstallmentModal from "../../../ui-component/cards/Loans/Admin/PostponeInstallmentModal";
+import PostponeInstallmentModal from "../../../ui-component/cards/Loans/Pjtoko/PostponeInstallmentModal";
 import LoanFeedbackSnackbar from "../../../ui-component/feedback/LoanFeedbackSnackbar";
-import TopupInfoCard from "../../../ui-component/cards/Loans/Admin/TopupInfoCard";
+import TopupInfoCard from "../../../ui-component/cards/Loans/Pjtoko/TopupInfoCard";
 import api from "../../../api/axios";
 
 export default function LoanDetails() {
@@ -184,7 +184,7 @@ export default function LoanDetails() {
   };
 
   const isAdmin = location.pathname.includes("/admin");
-  const basePath = isAdmin ? "/admin/loans/daftar" : "/user/loans";
+  const basePath = isAdmin ? "/pjtoko/loans/daftar" : "/user/loans";
   const loanId = searchParams.get("loan_id");
   const userId = searchParams.get("user_id") || "1";
 
@@ -250,7 +250,7 @@ export default function LoanDetails() {
       ...installment,
       loan_number: loan?.loan_number,
       reason: loan?.reason,
-      admin_note: loan?.admin_note
+      pjtoko_note: loan?.pjtoko_note
     });
     setPostponeModalOpen(true);
   };
@@ -269,7 +269,7 @@ export default function LoanDetails() {
       await api.patch(`/loans/${loan.id}/cicilan/${selectedInstallment.id}`, {
         tukin_status: "postponed",
         status_pembayaran: "postponed",
-        admin_note: note,
+        pjtoko_note: note,
       });
       await fetchLoanDetail();
       setFeedback({
@@ -300,7 +300,7 @@ export default function LoanDetails() {
       await api.patch(`/loans/${loan.id}/cicilan/${selectedInstallment.id}`, {
         tukin_status: "pending",
         status_pembayaran: "pending",
-        admin_note: note,
+        pjtoko_note: note,
       });
       await fetchLoanDetail();
       setFeedback({

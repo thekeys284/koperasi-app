@@ -25,7 +25,7 @@ import {
 } from '@mui/material';
 
 import LoanFeedbackSnackbar from "../../../ui-component/feedback/LoanFeedbackSnackbar";
-import TopupInfoCard from "../../../ui-component/cards/Loans/Admin/TopupInfoCard";
+import TopupInfoCard from "../../../ui-component/cards/Loans/Pjtoko/TopupInfoCard";
 
 import NavigateNextIcon from "@mui/icons-material/NavigateNext";
 import {
@@ -433,7 +433,7 @@ const LeadLoanDetailPage = () => {
                                     <Box>
                                         <Typography variant="subtitle2" fontWeight={700}>Admin</Typography>
                                         <Typography variant="caption" color="text.secondary">
-                                            {loan?.status_pengajuan === "pending" ? "Menunggu Konfirmasi" : (loan?.status_pengajuan === "rejected" && !loan?.tgl_acc_admin ? "Ditolak" : `Dikonfirmasi`)}
+                                            {loan?.status_pengajuan === "pending" ? "Menunggu Konfirmasi" : (loan?.status_pengajuan === "rejected" && !loan?.tgl_acc_pjtoko ? "Ditolak" : `Dikonfirmasi`)}
                                         </Typography>
                                     </Box>
                                 </Stack>
@@ -452,7 +452,7 @@ const LeadLoanDetailPage = () => {
                                     <Box>
                                         <Typography variant="subtitle2" fontWeight={700}>Lead</Typography>
                                         <Typography variant="caption" color="text.secondary">
-                                            {loan?.status_pengajuan === "pending" ? "Menunggu Admin" : (loan?.status_pengajuan === "pending_pengajuan" ? "Menunggu Konfirmasi" : (loan?.status_pengajuan === "rejected" && loan?.tgl_acc_admin ? "Ditolak" : (['disetujui_ketua', 'aktif', 'paid'].includes(loan?.status_pengajuan) ? "Disetujui" : "-")))}
+                                            {loan?.status_pengajuan === "pending" ? "Menunggu Admin" : (loan?.status_pengajuan === "pending_pengajuan" ? "Menunggu Konfirmasi" : (loan?.status_pengajuan === "rejected" && loan?.tgl_acc_pjtoko ? "Ditolak" : (['disetujui_ketua', 'aktif', 'paid'].includes(loan?.status_pengajuan) ? "Disetujui" : "-")))}
                                         </Typography>
                                     </Box>
                                 </Stack>
