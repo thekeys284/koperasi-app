@@ -18,8 +18,6 @@ import {
     Breadcrumbs,
     Link,
     IconButton,
-    CircularProgress,
-    Alert,
     Accordion,
     AccordionSummary,
     AccordionDetails,
@@ -33,43 +31,9 @@ import { IconArrowUpCircle } from "@tabler/icons-react";
 import PostponeInstallmentModal from "../../../ui-component/cards/Loans/User/userTundaCicilan";
 import LoanFeedbackSnackbar from "../../../ui-component/feedback/LoanFeedbackSnackbar";
 import TopupInfoCard from "../../../ui-component/cards/Loans/Pjtoko/TopupInfoCard";
+import LoanProofModal from "../../../ui-component/cards/Loans/LoanProofModal";
 import api from "../../../api/axios";
-
-const StatusChip = ({ status }) => {
-    const config = {
-        paid: {
-            label: "Sudah Bayar",
-            sx: { bgcolor: "success.main", color: "#fff", fontWeight: 600 }
-        },
-        unpaid: {
-            label: "Belum Bayar",
-            sx: { bgcolor: "warning.main", color: "#fff", fontWeight: 600 }
-        },
-        locked: {
-            label: "Terkunci",
-            sx: { bgcolor: "#E2E8F0", color: "#64748B", fontWeight: 600 }
-        },
-        postponed: {
-            label: "Ditunda",
-            sx: { bgcolor: "info.main", color: "#fff", fontWeight: 600 }
-        },
-        waiting_postpone: {
-            label: "Menunggu Tunda",
-            sx: { bgcolor: "#CBD5E1", color: "#475569", fontWeight: 600 }
-        },
-    };
-
-    const item = config[status] || config.unpaid;
-
-    return (
-        <Chip
-            label={item.label}
-            size="small"
-            sx={item.sx}
-        />
-    );
-};
-
+import { InstallmentStatusBadge, LoanStatusBadge, LoanTypeBadge } from "../../../ui-component/cards/Loans/LoanBadges";
 const UserCicilan = () => {
     const navigate = useNavigate();
     const [searchParams] = useSearchParams();
@@ -77,6 +41,7 @@ const UserCicilan = () => {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
     const [loan, setLoan] = useState(null);
+    const [previewOpen, setPreviewOpen] = useState(false);
     const [feedback, setFeedback] = useState({
         open: false,
         message: "",
@@ -170,16 +135,9 @@ const UserCicilan = () => {
             </Breadcrumbs>
 
             {/* LABEL */}
-            <Chip
-                label="Pinjaman Aktif"
-                sx={{
-                    background: "#DBEAFE",
-                    color: "#2563EB",
-                    fontWeight: 600,
-                    mb: 1,
-                }}
-                size="small"
-            />
+            <Box mb={1}>
+                <LoanStatusBadge status={loan?.status_pengajuan} showReason={false} />
+            </Box>
 
             {/* HEADER */}
             <Stack
@@ -295,15 +253,7 @@ const UserCicilan = () => {
                 >
                     <Typography fontWeight={700} color="#1E293B">Informasi Pinjaman</Typography>
 
-                    <Chip
-                        label={String(loan?.type || "Konsumtif").toUpperCase()}
-                        size="small"
-                        sx={{
-                            background: "#F3E8FF",
-                            color: "#9333EA",
-                            fontWeight: 700,
-                        }}
-                    />
+                    <LoanTypeBadge type={loan?.type} />
                 </Stack>
 
                 <Table>
@@ -348,6 +298,40 @@ const UserCicilan = () => {
                                 {formatDate(loan?.created_at)}
                             </TableCell>
                         </TableRow>
+
+                        {loan?.bukti_nota_url && (
+                            <TableRow>
+                                <TableCell sx={{ width: "40%", color: "#334155", fontWeight: 600, borderBottom: "none", px: 3, py: 1.5 }}>
+                                    Bukti Nota
+                                </TableCell>
+                                <TableCell sx={{ color: "#64748B", borderBottom: "none", px: 3, py: 1.5 }}>
+                                    <Box
+                                        component="img"
+                                        src={loan.bukti_nota_url}
+                                        alt="Bukti Nota"
+                                        sx={{
+                                            width: 80,
+                                            height: 80,
+                                            borderRadius: "12px",
+                                            objectFit: "cover",
+                                            border: "1px solid #E2E8F0",
+                                            cursor: "pointer",
+                                            display: "block",
+                                            "&:hover": { opacity: 0.8 }
+                                        }}
+                                        onClick={() => setPreviewOpen(true)}
+                                    />
+                                    <Typography
+                                        variant="caption"
+                                        color="primary"
+                                        sx={{ cursor: "pointer", mt: 0.5, display: "block", fontWeight: 600 }}
+                                        onClick={() => setPreviewOpen(true)}
+                                    >
+                                        Klik untuk memperbesar
+                                    </Typography>
+                                </TableCell>
+                            </TableRow>
+                        )}
                     </TableBody>
                 </Table>
             </Card>
@@ -372,6 +356,8 @@ const UserCicilan = () => {
                                 "pending",
                                 "pending_pengajuan",
                                 "postpone",
+                                "paid",
+                                "rejected",
                             ].includes(loan?.status_pengajuan) || sisaCicilan === 0}
                             sx={{
                                 borderRadius: "8px",
@@ -442,7 +428,7 @@ const UserCicilan = () => {
                                         <TableCell>{formatCurrency(item.nominal)}</TableCell>
                                         <TableCell>
                                             <Stack spacing={0.5} alignItems="flex-start">
-                                                <StatusChip status={mapCicilanStatus(item)} />
+                                                <InstallmentStatusBadge status={mapCicilanStatus(item)} />
                                                 {item.status_pembayaran === "postponed" && (
                                                     <Box sx={{ mt: 0.5, maxWidth: 180 }}>
                                                         <Typography fontSize={11} color="info.main" fontWeight={700} sx={{ lineHeight: 1.2 }}>
@@ -510,6 +496,13 @@ const UserCicilan = () => {
                 message={feedback.message}
                 severity={feedback.severity}
                 onClose={handleCloseFeedback}
+            />
+
+            <LoanProofModal
+                open={previewOpen}
+                onClose={() => setPreviewOpen(false)}
+                imageUrl={loan?.bukti_nota_url}
+                title="Preview Bukti Nota"
             />
         </Box>
     );

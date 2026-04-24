@@ -22,10 +22,6 @@ import {
   Tabs,
   Tab,
   Checkbox,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
 } from "@mui/material";
 
 import NavigateNextIcon from "@mui/icons-material/NavigateNext";
@@ -36,151 +32,9 @@ import LoanFeedbackSnackbar from "../../../ui-component/feedback/LoanFeedbackSna
 import PostponeInstallmentModal from "../../../ui-component/cards/Loans/Pjtoko/PostponeInstallmentModal";
 import LoanTable from "../../../ui-component/cards/Loans/LoanTable";
 import InstallmentBulkConfirmationModal from "../../../ui-component/cards/Loans/Pjtoko/InstallmentBulkConfirmationModal";
+import { LoanStatusBadge, LoanTypeBadge, LoanModeBadge } from "../../../ui-component/cards/Loans/LoanBadges";
 
-const getLoanStatusMeta = (loan) => {
-  const statusPengajuan = loan?.status_pengajuan;
 
-  if (statusPengajuan === "rejected") {
-    return {
-      label: "Ditolak",
-      color: "#dc2626",
-      bg: "#fee2e2",
-      reason: loan?.status_reason || loan?.pjtoko_note || loan?.reason || "Alasan penolakan tidak tersedia.",
-    };
-  }
-
-  if (statusPengajuan === "paid") {
-    return {
-      label: "Lunas",
-      color: "#2563eb",
-      bg: "#dbeafe",
-      reason: null,
-    };
-  }
-
-  if (["disetujui_ketua", "pending_pengajuan", "aktif"].includes(statusPengajuan)) {
-    return {
-      label: "Aktif",
-      color: "#16a34a",
-      bg: "#dcfce7",
-      reason: null,
-    };
-  }
-
-  if (["pending", "postpone"].includes(statusPengajuan)) {
-    return {
-      label: "Pending",
-      color: "#f59e0b",
-      bg: "#fef3c7",
-      reason: null,
-    };
-  }
-
-  return {
-    label: "Pending",
-    color: "#f59e0b",
-    bg: "#fef3c7",
-    reason: null,
-  };
-};
-
-const RejectionNote = ({ reason }) => {
-  const [expanded, setExpanded] = React.useState(false);
-  if (!reason) return null;
-
-  const isLong = reason.length > 50;
-  const displayText = expanded || !isLong ? reason : `${reason.substring(0, 50)}...`;
-
-  return (
-    <Box
-      sx={{
-        mt: 0.5,
-        maxWidth: 180,
-        cursor: isLong ? "pointer" : "default"
-      }}
-      onClick={() => isLong && setExpanded(!expanded)}
-    >
-      <Typography
-        fontSize={11}
-        color="#64748B"
-        fontWeight={500}
-        sx={{
-          lineHeight: 1.4,
-          fontStyle: "italic",
-          textDecoration: isLong && !expanded ? 'underline' : 'none',
-          textDecorationStyle: 'dotted'
-        }}
-      >
-        Alasan: {displayText}
-        {isLong && !expanded && (
-          <Typography component="span" fontSize={10} sx={{ ml: 0.5, fontWeight: 700 }}>
-            (Lihat)
-          </Typography>
-        )}
-      </Typography>
-    </Box>
-  );
-};
-
-const StatusBadge = ({ loan }) => {
-  const meta = getLoanStatusMeta(loan);
-
-  return (
-    <Stack spacing={0.5} alignItems="flex-start">
-      <Chip
-        label={meta.label}
-        size="small"
-        sx={{
-          background: meta.bg,
-          color: meta.color,
-          fontWeight: 600,
-        }}
-      />
-      <RejectionNote reason={meta.reason} />
-    </Stack>
-  );
-};
-
-const LoanTypeBadge = ({ type }) => {
-  const config = {
-    konsumtif: { bg: "#F3E8FF", color: "#9333EA" },
-    produktif: { bg: "#DBEAFE", color: "#2563EB" },
-  };
-
-  const safeType = String(type || "konsumtif").toLowerCase();
-  const badge = config[safeType] || config.konsumtif;
-
-  return (
-    <Chip
-      label={safeType}
-      size="small"
-      sx={{
-        background: badge.bg,
-        color: badge.color,
-        fontWeight: 600,
-        textTransform: "uppercase",
-      }}
-    />
-  );
-};
-
-const LoanModeBadge = ({ mode }) => {
-  const normalized = String(mode || "new").toLowerCase();
-  const isTopup = normalized === "topup";
-
-  return (
-    <Chip
-      label={isTopup ? "TOP-UP" : "BARU"}
-      size="small"
-      sx={{
-        background: isTopup ? "#FEE2E2" : "#E0F2FE",
-        color: isTopup ? "#B91C1C" : "#075985",
-        fontWeight: 700,
-        textTransform: "uppercase",
-      }}
-    />
-  );
-};
 
 import { formatCurrency, formatDate } from "../../../utils/format";
 
@@ -649,7 +503,12 @@ const LoanPage = () => {
     },
     {
       header: "STATUS",
-      render: (loan) => <StatusBadge loan={loan} />
+      render: (loan) => (
+        <LoanStatusBadge 
+          status={loan.status_pengajuan} 
+          reason={loan?.status_reason || loan?.pjtoko_note || loan?.reason} 
+        />
+      )
     },
     {
       header: "DETAIL",
@@ -744,7 +603,12 @@ const LoanPage = () => {
     {
       header: "STATUS",
       sx: { width: "150px" },
-      render: (loan) => <StatusBadge loan={loan} />
+      render: (loan) => (
+        <LoanStatusBadge 
+          status={loan.status_pengajuan} 
+          reason={loan?.status_reason || loan?.pjtoko_note || loan?.reason} 
+        />
+      )
     },
     {
       header: "DETAIL",

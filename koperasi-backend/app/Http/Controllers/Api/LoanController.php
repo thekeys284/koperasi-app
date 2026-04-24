@@ -623,15 +623,21 @@ class LoanController extends Controller
 
     private function resolveTopupStartDate(Loan $referredLoan): string
     {
-        $lastInstallment = $referredLoan->cicilan
+        $lastPaidInstallment = $referredLoan->cicilan
+            ->where('status_pembayaran', 'paid')
             ->sortByDesc('cicilan')
             ->first();
 
-        $baseDate = $lastInstallment?->tanggal_pembayaran
-            ? Carbon::parse($lastInstallment->tanggal_pembayaran)
-            : Carbon::parse($referredLoan->tanggal_mulai_cicilan ?? now());
+        if ($lastPaidInstallment) {
+            return Carbon::parse($lastPaidInstallment->tanggal_pembayaran)
+                ->addMonthNoOverflow()
+                ->endOfMonth()
+                ->toDateString();
+        }
 
-        return $baseDate->addMonthNoOverflow()->endOfMonth()->toDateString();
+        return Carbon::parse($referredLoan->tanggal_mulai_cicilan ?? now())
+            ->endOfMonth()
+            ->toDateString();
     }
 
     private function resolveLatestApprovedLoanForTopup(int $userId): ?Loan
@@ -647,6 +653,7 @@ class LoanController extends Controller
             ->whereHas('approvals', function ($query) {
                 $query->where('role', 'ketua')->where('decision', 'approved');
             })
+            ->orderByRaw("CASE WHEN status_pengajuan = 'disetujui_ketua' THEN 0 ELSE 1 END")
             ->orderByDesc('ketua_approved_at')
             ->orderByDesc('tanggal_pengajuan')
             ->orderByDesc('id')

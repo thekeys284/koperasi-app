@@ -19,8 +19,8 @@ import {
     TableRow,
     CircularProgress,
     Avatar,
-    Chip,
 } from "@mui/material";
+import { LoanStatusBadge, LoanTypeBadge, LoanModeBadge } from "../../../ui-component/cards/Loans/LoanBadges";
 
 import NavigateNextIcon from "@mui/icons-material/NavigateNext";
 import { 
@@ -325,31 +325,10 @@ export default function LoanGenerateReport() {
                                     <TableCell sx={{ fontWeight: 600 }}>{row.user_name}</TableCell>
                                     <TableCell>{formatDate(row.tanggal_mulai_cicilan)}</TableCell>
                                     <TableCell>
-                                        <Chip 
-                                            label={row.loan_mode_label} 
-                                            size="small" 
-                                            variant="outlined"
-                                            sx={{ 
-                                                bgcolor: row.loan_mode === 'topup' ? '#FEE2E2' : '#E0F2FE',
-                                                color: row.loan_mode === 'topup' ? '#B91C1C' : '#075985',
-                                                fontWeight: 700,
-                                                fontSize: "11px",
-                                                textTransform: "uppercase"
-                                            }} 
-                                        />
+                                        <LoanModeBadge mode={row.loan_mode} />
                                     </TableCell>
                                     <TableCell>
-                                        <Chip 
-                                            label={row.jenis_pinjaman} 
-                                            size="small" 
-                                            sx={{ 
-                                                bgcolor: row.jenis_pinjaman === 'Produktif' ? '#DBEAFE' : '#F3E8FF',
-                                                color: row.jenis_pinjaman === 'Produktif' ? '#2563EB' : '#9333EA',
-                                                fontWeight: 600,
-                                                fontSize: "12px",
-                                                textTransform: "uppercase"
-                                            }} 
-                                        />
+                                        <LoanTypeBadge type={row.jenis_pinjaman} />
                                     </TableCell>
                                     <TableCell sx={{ fontWeight: 700 }}>{formatCurrency(row.jumlah_pinjaman)}</TableCell>
                                     <TableCell>{row.tenor} Bulan</TableCell>
@@ -364,31 +343,7 @@ export default function LoanGenerateReport() {
                                         </Typography>
                                     </TableCell>
                                     <TableCell>
-                                        <Chip 
-                                            label={row.status_label || row.status} 
-                                            size="small" 
-                                            sx={{ 
-                                                bgcolor:
-                                                    row.status === 'aktif'
-                                                        ? '#dcfce7'
-                                                        : row.status === 'lunas'
-                                                            ? '#eff6ff'
-                                                            : row.status === 'rejected'
-                                                                ? '#fee2e2'
-                                                                : '#fef3c7',
-                                                color:
-                                                    row.status === 'aktif'
-                                                        ? '#16a34a'
-                                                        : row.status === 'lunas'
-                                                            ? '#2563eb'
-                                                            : row.status === 'rejected'
-                                                                ? '#b91c1c'
-                                                                : '#d97706',
-                                                fontWeight: 800,
-                                                fontSize: "10px",
-                                                textTransform: "none"
-                                            }} 
-                                        />
+                                        <LoanStatusBadge status={row.status} showReason={false} />
                                     </TableCell>
                                 </TableRow>
                             )) : (

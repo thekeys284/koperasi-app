@@ -41,6 +41,7 @@ import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 
 import LoanFeedbackSnackbar from "../../../ui-component/feedback/LoanFeedbackSnackbar";
 import TopupInfoCard from "../../../ui-component/cards/Loans/Pjtoko/TopupInfoCard";
+import { LoanTypeBadge, LoanModeBadge } from "../../../ui-component/cards/Loans/LoanBadges";
 
 const LoanSubmissionDetailPage = () => {
   const navigate = useNavigate();
@@ -296,28 +297,14 @@ const LoanSubmissionDetailPage = () => {
                   <Typography variant="body1" sx={{ width: 140, color: "#64748B", fontWeight: 500 }}>Jenis Pinjaman</Typography>
                   <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
                     <Typography variant="body1" sx={{ fontWeight: 700 }}>: </Typography>
-                    <Chip
-                      label={String(loan?.type || "Produktif").toUpperCase()}
-                      size="small"
-                      sx={{ bgcolor: "#F3E8FF", color: "#9333EA", fontWeight: 700, px: 1, height: 24 }}
-                    />
+                    <LoanTypeBadge type={loan?.type} />
                   </Box>
                 </Box>
                 <Box sx={{ display: "flex", gap: 1 }}>
                   <Typography variant="body1" sx={{ width: 140, color: "#64748B", fontWeight: 500 }}>Mode Pengajuan</Typography>
                   <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
                     <Typography variant="body1" sx={{ fontWeight: 700 }}>: </Typography>
-                    <Chip
-                      label={String(loan?.loan_mode_label || "Baru").toUpperCase()}
-                      size="small"
-                      sx={{
-                        bgcolor: loan?.loan_mode === "topup" ? "#FEE2E2" : "#DBEAFE",
-                        color: loan?.loan_mode === "topup" ? "#B91C1C" : "#1D4ED8",
-                        fontWeight: 700,
-                        px: 1,
-                        height: 24
-                      }}
-                    />
+                    <LoanModeBadge mode={loan?.loan_mode} />
                   </Box>
                 </Box>
                 <Box sx={{ display: "flex", gap: 1 }}>

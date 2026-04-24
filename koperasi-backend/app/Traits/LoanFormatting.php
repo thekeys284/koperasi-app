@@ -53,7 +53,7 @@ trait LoanFormatting
 
         $loanNextTopupMonth = $loanLastPaidInstallment?->tanggal_pembayaran
             ? Carbon::parse($loanLastPaidInstallment->tanggal_pembayaran)->addMonthNoOverflow()->format('Y-m')
-            : null;
+            : ($loan->tanggal_mulai_cicilan ? Carbon::parse($loan->tanggal_mulai_cicilan)->format('Y-m') : null);
 
         $referredLoanLastPaidInstallment = null;
         $nextTopupMonth = null;
@@ -67,7 +67,7 @@ trait LoanFormatting
 
             $nextTopupMonth = $referredLoanLastPaidInstallment?->tanggal_pembayaran
                 ? Carbon::parse($referredLoanLastPaidInstallment->tanggal_pembayaran)->addMonthNoOverflow()->format('Y-m')
-                : null;
+                : ($referredLoan->tanggal_mulai_cicilan ? Carbon::parse($referredLoan->tanggal_mulai_cicilan)->format('Y-m') : null);
 
             $sisaPinjamanLama = (float) $referredLoan->cicilan->where('status_pembayaran', 'pending')->sum('nominal');
         }

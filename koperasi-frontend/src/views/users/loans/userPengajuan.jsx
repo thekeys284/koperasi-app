@@ -14,13 +14,11 @@ import {
     Breadcrumbs,
     Link,
     Alert,
-    Dialog,
-    DialogTitle,
-    DialogContent,
     IconButton,
 } from "@mui/material";
 import api from "../../../api/axios";
 import LoanFeedbackSnackbar from "../../../ui-component/feedback/LoanFeedbackSnackbar";
+import LoanProofModal from "../../../ui-component/cards/Loans/LoanProofModal";
 
 import {
     IconFileDescription,
@@ -28,7 +26,6 @@ import {
     IconChevronDown,
     IconLock,
     IconInfoCircle,
-    IconCircleX
 } from "@tabler/icons-react";
 
 import NavigateNextIcon from "@mui/icons-material/NavigateNext";
@@ -52,7 +49,7 @@ const LeadLoanCreatePage = () => {
     const location = useLocation();
     const navigate = useNavigate();
     const currentUserId = "10";
-    const isTopupPage = location.pathname === "/user/loans/topup";
+    const isTopupPage = location.pathname.includes("/user/loans/topup");
     const [tipePinjaman, setTipePinjaman] = React.useState("konsumtif");
     const [topupReferenceLoan, setTopupReferenceLoan] = React.useState(null);
     const [referenceLoading, setReferenceLoading] = React.useState(false);
@@ -115,6 +112,11 @@ const LeadLoanCreatePage = () => {
                     return ["disetujui_ketua", "aktif", "paid"].includes(status);
                 })
                 .sort((a, b) => {
+                    // Prioritize 'disetujui_ketua' over 'paid'
+                    const statusA = a?.status_pengajuan === "disetujui_ketua" ? 0 : 1;
+                    const statusB = b?.status_pengajuan === "disetujui_ketua" ? 0 : 1;
+                    if (statusA !== statusB) return statusA - statusB;
+
                     const aDate = new Date(a?.tgl_acc_ketua || a?.created_at || 0).getTime();
                     const bDate = new Date(b?.tgl_acc_ketua || b?.created_at || 0).getTime();
                     return bDate - aDate;
@@ -142,12 +144,11 @@ const LeadLoanCreatePage = () => {
     }, [currentUserId, isTopupPage]);
 
     React.useEffect(() => {
-        if (!isTopupPage) {
-            return;
-        }
-
-        if (topupReferenceLoan?.next_topup_month) {
-            setBulanPotongGaji(topupReferenceLoan.next_topup_month);
+        if (isTopupPage && topupReferenceLoan) {
+            // Gunakan next_topup_month dari backend, atau fallback ke tanggal mulai pinjaman lama
+            const autoDate = topupReferenceLoan.next_topup_month || 
+                           (topupReferenceLoan.tanggal_mulai_cicilan ? topupReferenceLoan.tanggal_mulai_cicilan.substring(0, 7) : "");
+            setBulanPotongGaji(autoDate);
         }
     }, [isTopupPage, topupReferenceLoan]);
 
@@ -454,12 +455,18 @@ const LeadLoanCreatePage = () => {
                                             value={bulanPotongGaji}
                                             onChange={(e) => setBulanPotongGaji(e.target.value)}
                                             placeholder="mm/yyyy"
+                                            disabled={isTopupPage}
                                             InputLabelProps={{ shrink: true }}
-                                            InputProps={{ sx: { borderRadius: "12px" } }}
+                                            InputProps={{ 
+                                                sx: { 
+                                                    borderRadius: "12px",
+                                                    bgcolor: isTopupPage ? "#F1F5F9" : "transparent"
+                                                } 
+                                            }}
                                         />
-                                        {isTopupPage && topupReferenceLoan?.next_topup_month && (
-                                            <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: "block" }}>
-                                                Saran dari referensi: {topupReferenceLoan.next_topup_month}
+                                        {isTopupPage && (
+                                            <Typography variant="caption" color="primary" sx={{ mt: 0.5, display: "block", fontWeight: 400 }}>
+                                                Bulan potong gaji otomatis mengikuti pinjaman sebelumnya
                                             </Typography>
                                         )}
                                     </Grid>
@@ -584,27 +591,12 @@ const LeadLoanCreatePage = () => {
                 autoHideDuration={2000}
             />
 
-            {/* MODAL PREVIEW FIGMA-STYLE */}
-            <Dialog 
-                open={previewOpen} 
-                onClose={() => setPreviewOpen(false)} 
-                maxWidth="md" 
-                PaperProps={{ sx: { borderRadius: '16px', overflow: 'hidden' } }}
-            >
-                <DialogTitle sx={{ m: 0, p: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <Typography variant="h5" fontWeight={700}>Preview Bukti Nota</Typography>
-                    <IconButton size="small" onClick={() => setPreviewOpen(false)}>
-                        <IconCircleX size={20} />
-                    </IconButton>
-                </DialogTitle>
-                <DialogContent sx={{ p: 0, bgcolor: '#f8fafc' }}>
-                    <Box 
-                        component="img" 
-                        src={previewUrl} 
-                        sx={{ width: '100%', maxHeight: '70vh', objectFit: 'contain', display: 'block' }} 
-                    />
-                </DialogContent>
-            </Dialog>
+            <LoanProofModal
+                open={previewOpen}
+                onClose={() => setPreviewOpen(false)}
+                imageUrl={previewUrl}
+                title="Preview Bukti Nota"
+            />
         </Box>
     );
 };
