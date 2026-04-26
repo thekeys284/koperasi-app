@@ -104,7 +104,7 @@ export default function LoanGenerateReport() {
         const worksheetData = reportData.map(item => ({
             "Nama User": item.user_name,
             "Tanggal Dimulai": item.tanggal_mulai_cicilan || "-",
-            "Mode": item.loan_mode_label,
+            "Mode": item.loan_mode === "topup" ? "Top-Up" : "Baru",
             "Jenis": item.jenis_pinjaman,
             "Total Pinjaman": formatCurrency(item.jumlah_pinjaman),
             "Tenor": `${item.tenor} Bulan`,

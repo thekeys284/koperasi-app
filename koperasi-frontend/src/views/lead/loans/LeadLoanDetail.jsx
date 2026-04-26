@@ -231,7 +231,7 @@ const LeadLoanDetailPage = () => {
                                 </Stack>
                             </AccordionSummary>
                             <AccordionDetails sx={{ p: 0 }}>
-                                <TopupInfoCard referredLoan={loan.referred_loan} currentAmount={loan.amount_requested} isInsideAccordion />
+                                <TopupInfoCard referredLoan={loan.referred_loan} totalAmount={loan.jumlah_pinjaman} isInsideAccordion />
                             </AccordionDetails>
                         </Accordion>
                     )}
@@ -272,7 +272,7 @@ const LeadLoanDetailPage = () => {
                                     <Typography variant="body1" sx={{ width: 140, color: "#64748B", fontWeight: 500 }}>Jenis Pinjaman</Typography>
                                     <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
                                         <Typography variant="body1" sx={{ fontWeight: 700 }}>:</Typography>
-                                        <LoanTypeBadge type={loan?.type} />
+                                        <LoanTypeBadge type={loan?.type_slug} />
                                     </Box>
                                 </Box>
                                 <Box sx={{ display: "flex", gap: 1 }}>

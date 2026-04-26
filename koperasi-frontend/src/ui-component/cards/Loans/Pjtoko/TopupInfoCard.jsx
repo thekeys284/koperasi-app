@@ -39,12 +39,12 @@ const InfoBox = ({ icon: Icon, title, subtitle, amount, color }) => (
   </Box>
 );
 
-const TopupInfoCard = ({ referredLoan, currentAmount, isInsideAccordion }) => {
+const TopupInfoCard = ({ referredLoan, totalAmount, isInsideAccordion }) => {
   if (!referredLoan) return null;
 
   const sisaLama = Number(referredLoan.sisa_pinjaman || 0);
-  const baru = Number(currentAmount || 0);
-  const total = sisaLama + baru;
+  const total = Number(totalAmount || 0);
+  const baru = Math.max(0, total - sisaLama);
 
   return (
     <Card sx={{ 

@@ -29,7 +29,8 @@ import {
   Link,
   Alert,
   Tabs,
-  Tab
+  Tab,
+  TablePagination
 } from "@mui/material";
 
 import NavigateNextIcon from "@mui/icons-material/NavigateNext";
@@ -194,6 +195,19 @@ const LoanSubmissionPage = () => {
     confirmed: 0
   });
   const [tabValue, setTabValue] = React.useState(0);
+  
+  // Pagination states
+  const [page, setPage] = React.useState(0);
+  const [rowsPerPage, setRowsPerPage] = React.useState(10);
+
+  const handleChangePage = (event, newPage) => {
+    setPage(newPage);
+  };
+
+  const handleChangeRowsPerPage = (event) => {
+    setRowsPerPage(parseInt(event.target.value, 10));
+    setPage(0);
+  };
 
   const fetchLoans = async () => {
     try {
@@ -229,11 +243,14 @@ const LoanSubmissionPage = () => {
 
   const handleTabChange = (event, newValue) => {
     setTabValue(newValue);
+    setPage(0); // Reset page on tab change
   };
 
   const filteredLoans = tabValue === 0
     ? loans.filter((l) => l.status_pengajuan === "pending")
     : loans.filter((l) => l.status_pengajuan !== "pending");
+
+  const paginatedLoans = filteredLoans.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
 
   return (
     <Box sx={{ p: 4, background: "#f5f7fb", minHeight: "100vh" }}>
@@ -343,7 +360,7 @@ const LoanSubmissionPage = () => {
               </TableHead>
 
               <TableBody>
-                {filteredLoans.map((loan) => (
+                {paginatedLoans.map((loan) => (
                   <TableRow key={loan.id}>
                     <TableCell>
                       <Typography color="primary" fontWeight={700}>
@@ -422,6 +439,18 @@ const LoanSubmissionPage = () => {
               </TableBody>
             </Table>
           </Box>
+          {filteredLoans.length > 0 && (
+            <TablePagination
+              rowsPerPageOptions={[5, 10, 25]}
+              component="div"
+              count={filteredLoans.length}
+              rowsPerPage={rowsPerPage}
+              page={page}
+              onPageChange={handleChangePage}
+              onRowsPerPageChange={handleChangeRowsPerPage}
+              labelRowsPerPage="Baris per halaman:"
+            />
+          )}
         </CardContent>
       </Card>
     </Box>

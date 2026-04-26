@@ -18,6 +18,9 @@ class LoanApprovalController extends Controller
 {
     use LoanFormatting;
 
+    /**
+     * Memproses persetujuan pengajuan pinjaman (oleh PJ Toko maupun Ketua).
+     */
     public function approve(Request $request, $id)
     {
         try {
@@ -116,6 +119,9 @@ class LoanApprovalController extends Controller
         }
     }
 
+    /**
+     * Memproses penolakan pengajuan pinjaman dengan menyertakan alasan.
+     */
     public function reject(Request $request, $id)
     {
         try {
@@ -167,11 +173,9 @@ class LoanApprovalController extends Controller
         }
     }
 
-    private function resolveUser(Request $request): ?User
-    {
-        return auth()->user() ?: User::find($request->input('user_id', 1));
-    }
-
+    /**
+     * Menyesuaikan ulang nominal cicilan, biasanya digunakan setelah nilai pinjaman bertambah (top-up).
+     */
     private function rebalanceInstallments(Loan $loan): void
     {
         $tenor = max(1, (int) $loan->lama_pembayaran);

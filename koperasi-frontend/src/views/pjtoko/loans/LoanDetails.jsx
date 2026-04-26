@@ -463,7 +463,7 @@ export default function LoanDetails() {
           <AccordionDetails sx={{ p: 0 }}>
             <TopupInfoCard 
               referredLoan={loan.referred_loan} 
-              currentAmount={loan.amount_requested || loan.jumlah_pinjaman} 
+              totalAmount={loan.jumlah_pinjaman} 
               isInsideAccordion 
             />
           </AccordionDetails>
@@ -481,7 +481,7 @@ export default function LoanDetails() {
           <Typography fontWeight={700} color="#1E293B">Informasi Pinjaman</Typography>
 
           <Chip
-            label={String(loan?.type || "Konsumtif").toUpperCase()}
+            label={String(loan?.type_slug || "konsumtif").toUpperCase()}
             size="small"
             sx={{
               background: "#F3E8FF",
@@ -498,7 +498,7 @@ export default function LoanDetails() {
                 Jenis Pinjaman
               </TableCell>
               <TableCell sx={{ color: "#64748B", borderBottom: "none", borderTop: "1px solid #E5E7EB", px: 3, py: 1.5 }}>
-                {loan?.type || "-"}
+                {loan?.type_slug || "-"}
               </TableCell>
             </TableRow>
             <TableRow>
@@ -507,7 +507,7 @@ export default function LoanDetails() {
               </TableCell>
               <TableCell sx={{ color: "#64748B", borderBottom: "none", px: 3, py: 1.5 }}>
                 <Chip
-                  label={String(loan?.loan_mode_label || (loan?.loan_mode === 'topup' ? "Top-Up" : "Baru")).toUpperCase()}
+                  label={String(loan?.loan_mode === 'topup' ? "Top-Up" : "Baru").toUpperCase()}
                   size="small"
                   sx={{
                     bgcolor: loan?.loan_mode === "topup" ? "#FEE2E2" : "#DBEAFE",
@@ -578,7 +578,7 @@ export default function LoanDetails() {
                 </TableCell>
               </TableRow>
             ) : (
-                loan?.type?.toLowerCase() === 'konsumtif' && (
+                loan?.type_slug?.toLowerCase() === 'konsumtif' && (
                   <TableRow>
                     <TableCell sx={{ width: "30%", color: "#334155", fontWeight: 600, borderBottom: "none", px: 3, py: 1.5 }}>
                       Bukti Nota

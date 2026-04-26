@@ -19,6 +19,9 @@ class LoanController extends Controller
 {
     use LoanFormatting;
 
+    /**
+     * Mengambil daftar pinjaman beserta ringkasan (summary) dengan dukungan pagination.
+     */
     public function index(Request $request)
     {
         try {
@@ -28,13 +31,7 @@ class LoanController extends Controller
                 return response()->json(['success' => false, 'message' => 'User tidak ditemukan.'], 404);
             }
 
-            $query = Loan::with([
-                'user',
-                'cicilan',
-                'approvals.approver',
-                'referredLoan.cicilan',
-                'referredLoan.approvals.approver',
-            ])
+            $query = Loan::with($this->loanRelations())
                 ->orderByDesc('tanggal_pengajuan')
                 ->orderByDesc('id');
 
@@ -42,11 +39,46 @@ class LoanController extends Controller
                 $query->where('user_id', $user->id);
             }
 
+            // Optional status filtering
+            if ($request->has('status_pengajuan')) {
+                $statuses = explode(',', $request->input('status_pengajuan'));
+                $query->whereIn('status_pengajuan', $statuses);
+            }
+            if ($request->has('exclude_status')) {
+                $excludeStatuses = explode(',', $request->input('exclude_status'));
+                $query->whereNotIn('status_pengajuan', $excludeStatuses);
+            }
+
+            // Get summary before pagination and filtering
+            $summaryQuery = Loan::query();
+            if (!$this->shouldShowAllLoans($request, $user)) {
+                $summaryQuery->where('user_id', $user->id);
+            }
+            $allLoansForSummary = clone $summaryQuery;
+            $summary = $this->buildSummary($allLoansForSummary->get());
+
+            if ($request->has('page')) {
+                $limit = $request->input('limit', 10);
+                $loansPaginated = $query->paginate($limit);
+
+                return response()->json([
+                    'success' => true,
+                    'summary' => $summary,
+                    'data' => collect($loansPaginated->items())->map(fn(Loan $loan) => $this->formatLoan($loan, true)),
+                    'pagination' => [
+                        'current_page' => $loansPaginated->currentPage(),
+                        'last_page' => $loansPaginated->lastPage(),
+                        'per_page' => $loansPaginated->perPage(),
+                        'total' => $loansPaginated->total()
+                    ]
+                ]);
+            }
+
             $loans = $query->get();
 
             return response()->json([
                 'success' => true,
-                'summary' => $this->buildSummary($loans),
+                'summary' => $summary,
                 'data' => $loans->map(fn(Loan $loan) => $this->formatLoan($loan, true)),
             ]);
         } catch (\Exception $e) {
@@ -55,6 +87,9 @@ class LoanController extends Controller
         }
     }
 
+    /**
+     * Menyimpan data pengajuan pinjaman baru atau top-up.
+     */
     public function store(Request $request)
     {
         try {
@@ -65,39 +100,21 @@ class LoanController extends Controller
             }
 
             $validated = $request->validate([
-                'type' => 'nullable',
-                'jenis_pinjaman' => 'nullable',
-                'amount_requested' => 'nullable|numeric|min:0',
-                'jumlah_pinjaman' => 'nullable|numeric|min:0',
-                'tenor_months' => 'nullable|integer|min:1|max:60',
-                'lama_pembayaran' => 'nullable|integer|min:1|max:60',
-                'start_date' => 'nullable|string',
+                'jenis_pinjaman' => 'required',
+                'jumlah_pinjaman' => 'required|numeric|min:0',
+                'lama_pembayaran' => 'required|integer|min:1|max:60',
                 'tanggal_mulai_cicilan' => 'nullable|string',
                 'document' => 'nullable|file|mimes:pdf,jpg,jpeg,png|max:5120',
                 'loan_mode' => 'nullable|string|in:new,topup',
                 'refers_to_loan_id' => 'nullable|integer|exists:loans,id',
-                'reason' => 'nullable|string|max:1000',
             ]);
 
-            $typeInput = $validated['type'] ?? $validated['jenis_pinjaman'] ?? null;
-            $amountRequested = $validated['amount_requested'] ?? $validated['jumlah_pinjaman'] ?? null;
-            $tenorMonths = $validated['tenor_months'] ?? $validated['lama_pembayaran'] ?? null;
-            $startDate = $validated['start_date'] ?? null;
+            $typeInput = $validated['jenis_pinjaman'];
+            $amountRequested = (float) $validated['jumlah_pinjaman'];
+            $tenorMonths = (int) $validated['lama_pembayaran'];
             $tanggalMulai = $validated['tanggal_mulai_cicilan'] ?? null;
             $loanModeInput = isset($validated['loan_mode']) ? strtolower((string) $validated['loan_mode']) : null;
             $refersToLoanId = isset($validated['refers_to_loan_id']) ? (int) $validated['refers_to_loan_id'] : null;
-
-            if ($typeInput === null) {
-                return response()->json(['success' => false, 'message' => 'Jenis pinjaman wajib diisi.'], 422);
-            }
-
-            if ($amountRequested === null) {
-                return response()->json(['success' => false, 'message' => 'Jumlah pinjaman wajib diisi.'], 422);
-            }
-
-            if ($tenorMonths === null) {
-                return response()->json(['success' => false, 'message' => 'Tenor pinjaman wajib diisi.'], 422);
-            }
 
             $loanType = $this->normalizeLoanType($typeInput, $loanModeInput);
 
@@ -129,8 +146,8 @@ class LoanController extends Controller
                     ->where('status_pembayaran', 'pending')
                     ->sum('nominal');
 
-                $finalRequestedAmount = $sisaPinjamanLama + (float) $amountRequested;
-            } elseif ($startDate === null && $tanggalMulai === null) {
+                $finalRequestedAmount = $sisaPinjamanLama + $amountRequested;
+            } elseif ($tanggalMulai === null) {
                 return response()->json(['success' => false, 'message' => 'Tanggal mulai cicilan wajib diisi.'], 422);
             }
 
@@ -143,7 +160,7 @@ class LoanController extends Controller
 
             $resolvedStartDate = $loanType['is_topup'] && $referredLoan
                 ? $this->resolveTopupStartDate($referredLoan)
-                : $this->resolveStartDate($startDate, $tanggalMulai);
+                : $this->resolveStartDate($tanggalMulai);
 
             $loanData = [
                 'user_id' => $user->id,
@@ -155,7 +172,6 @@ class LoanController extends Controller
                 'status_pengajuan' => 'pending',
                 'postpone_cicilan_id' => null,
                 'postpone_decision' => null,
-                'reason' => $validated['reason'] ?? null,
                 'tanggal_pengajuan' => now(),
             ];
 
@@ -167,13 +183,7 @@ class LoanController extends Controller
             $loan = DB::transaction(function () use ($loanData, $user, $loanType) {
                 $loan = Loan::create($loanData);
                 $this->generateLoanCicilan($loan);
-                $loan->load([
-                    'user',
-                    'cicilan',
-                    'approvals.approver',
-                    'referredLoan.cicilan',
-                    'referredLoan.approvals.approver',
-                ]);
+                $loan->load($this->loanRelations());
 
                 $modeLabel = $loanType['is_topup'] ? 'Top-up' : 'Baru';
                 ActivityLogHelper::create(
@@ -202,6 +212,9 @@ class LoanController extends Controller
         }
     }
 
+    /**
+     * Menampilkan detail pengajuan pinjaman berdasarkan ID.
+     */
     public function show(Request $request, $id)
     {
         try {
@@ -211,13 +224,7 @@ class LoanController extends Controller
                 return response()->json(['success' => false, 'message' => 'User tidak ditemukan.'], 404);
             }
 
-            $query = Loan::with([
-                'user',
-                'cicilan',
-                'approvals.approver',
-                'referredLoan.cicilan',
-                'referredLoan.approvals.approver',
-            ])->where('id', $id);
+            $query = Loan::with($this->loanRelations())->where('id', $id);
 
             if (!$this->shouldShowAllLoans($request, $user)) {
                 $query->where('user_id', $user->id);
@@ -236,6 +243,9 @@ class LoanController extends Controller
         }
     }
 
+    /**
+     * Menghapus pengajuan pinjaman jika belum disetujui.
+     */
     public function destroy(Request $request, $id)
     {
         try {
@@ -277,6 +287,9 @@ class LoanController extends Controller
         }
     }
 
+    /**
+     * Mengambil daftar user (anggota) untuk opsi filter dropdown.
+     */
     public function getFilterMembers(Request $request)
     {
         try {
@@ -294,6 +307,9 @@ class LoanController extends Controller
         }
     }
 
+    /**
+     * Mengajukan permintaan penundaan pembayaran cicilan (postpone).
+     */
     public function postponeRequest(Request $request, $id)
     {
         try {
@@ -348,6 +364,9 @@ class LoanController extends Controller
         }
     }
 
+    /**
+     * Menyetujui pengajuan penundaan cicilan dan menyesuaikan jadwal cicilan berikutnya.
+     */
     public function postponeApprove(Request $request, $id)
     {
         try {
@@ -378,25 +397,60 @@ class LoanController extends Controller
                 $postponedCicilanId = $loan->postpone_cicilan_id;
                 $cicilanList = $loan->cicilan->sortBy('cicilan');
 
-                $found = false;
-                foreach ($cicilanList as $c) {
-                    if ((int) $c->id === (int) $postponedCicilanId) {
-                        $found = true;
-                        $c->update([
-                            'status_pembayaran' => 'postponed',
-                            'status_updated_at' => now(),
-                            'pjtoko_note' => $note,
-                        ]);
-                    }
+                // Mark postponed cicilan
+                LoanCicilan::where('id', $postponedCicilanId)->update([
+                    'status_pembayaran' => 'postponed',
+                    'status_updated_at' => now(),
+                    'pjtoko_note' => $note,
+                ]);
 
-                    if ($found) {
-                        $newDate = Carbon::parse($c->tanggal_pembayaran)->addMonthNoOverflow()->endOfMonth();
-                        $c->update(['tanggal_pembayaran' => $newDate->toDateString()]);
+                // Shift all cicilan after postponed cicilan forward using bulk update
+                $postponedCicilan = $cicilanList->firstWhere('id', $postponedCicilanId);
+                if ($postponedCicilan) {
+                    $ciclianNumberToShift = $postponedCicilan->cicilan;
+                    $installmentsToShift = $cicilanList->filter(fn($c) => $c->cicilan >= $ciclianNumberToShift);
+
+                    if ($installmentsToShift->count() > 1) {
+                        // Skip the postponed one, shift the rest
+                        $caseWhenClauses = [];
+                        $bindings = [];
+                        $idList = [];
+
+                        foreach ($installmentsToShift as $c) {
+                            if ((int) $c->id === (int) $postponedCicilanId) {
+                                continue; // Don't shift the postponed one itself
+                            }
+
+                            if (!$c->tanggal_pembayaran) {
+                                continue;
+                            }
+
+                            $newDate = Carbon::parse($c->tanggal_pembayaran)
+                                ->addMonthNoOverflow()
+                                ->endOfMonth()
+                                ->toDateString();
+
+                            $caseWhenClauses[] = 'WHEN ? THEN ?';
+                            $bindings[] = $c->id;
+                            $bindings[] = $newDate;
+                            $idList[] = $c->id;
+                        }
+
+                        if (!empty($caseWhenClauses)) {
+                            $caseStatement = 'CASE id ' . implode(' ', $caseWhenClauses) . ' END';
+                            $idPlaceholders = implode(',', array_fill(0, count($idList), '?'));
+
+                            DB::update(
+                                "UPDATE loan_cicilan SET tanggal_pembayaran = {$caseStatement} WHERE id IN ({$idPlaceholders})",
+                                array_merge($bindings, [...$idList])
+                            );
+                        }
                     }
                 }
 
+                // Add new cicilan at the end
                 $lastCicilan = $cicilanList->last();
-                LoanCicilan::create([
+                LoanCicilan::insert([[
                     'loans_id' => $loan->id,
                     'cicilan' => ((int) ($lastCicilan?->cicilan ?? 0)) + 1,
                     'nominal' => (float) ($lastCicilan?->nominal ?? 0),
@@ -405,7 +459,7 @@ class LoanController extends Controller
                         ->endOfMonth()
                         ->toDateString(),
                     'status_pembayaran' => 'pending',
-                ]);
+                ]]);
 
                 ActivityLogHelper::create(
                     $user->id,
@@ -425,6 +479,9 @@ class LoanController extends Controller
         }
     }
 
+    /**
+     * Menolak pengajuan penundaan pembayaran cicilan.
+     */
     public function postponeReject(Request $request, $id)
     {
         try {
@@ -476,6 +533,9 @@ class LoanController extends Controller
         }
     }
 
+    /**
+     * Membuat jadwal cicilan berdasarkan tipe pinjaman (baru/top-up).
+     */
     private function generateLoanCicilan(Loan $loan): void
     {
         if ($this->isTopupJenisPinjaman((int) $loan->jenis_pinjaman) && $loan->refers_to_loan_id) {
@@ -486,6 +546,9 @@ class LoanController extends Controller
         $this->generateLoanCicilanFallback($loan);
     }
 
+    /**
+     * Membuat jadwal cicilan khusus untuk pinjaman top-up.
+     */
     private function generateTopupCicilan(Loan $loan): void
     {
         $referredLoan = $loan->relationLoaded('referredLoan')
@@ -511,32 +574,21 @@ class LoanController extends Controller
             ? Carbon::parse($lastPaidInstallment->tanggal_pembayaran)
             : Carbon::parse($referredLoan->tanggal_mulai_cicilan ?? now());
 
-        $currentDueDate = $lastInstallmentDate->copy()->addMonthNoOverflow()->endOfMonth()->startOfDay();
+        $currentDueDate = $lastInstallmentDate->copy()
+            ->addMonthNoOverflow()
+            ->endOfMonth()
+            ->startOfDay();
 
-        $installments = [];
-        for ($installmentNumber = 1; $installmentNumber <= $tenor; $installmentNumber++) {
-            $nominal = $installmentNumber === $tenor
-                ? round($principal - $runningTotal, 2)
-                : $baseInstallment;
-
-            $runningTotal += $nominal;
-
-            $installments[] = [
-                'loans_id' => $loan->id,
-                'tanggal_pembayaran' => $currentDueDate->toDateString(),
-                'nominal' => $nominal,
-                'status_pembayaran' => 'pending',
-                'cicilan' => $installmentNumber,
-            ];
-
-            $currentDueDate = $currentDueDate->copy()->addMonthNoOverflow()->endOfMonth();
-        }
+        $installments = $this->buildInstallmentRows($loan, $tenor, $principal, $baseInstallment, $runningTotal, $currentDueDate);
 
         if (!empty($installments)) {
             LoanCicilan::insert($installments);
         }
     }
 
+    /**
+     * Membuat jadwal cicilan untuk pinjaman baru (reguler).
+     */
     private function generateLoanCicilanFallback(Loan $loan): void
     {
         $tenor = max(1, (int) $loan->lama_pembayaran);
@@ -547,7 +599,26 @@ class LoanController extends Controller
             ->startOfDay();
         $runningTotal = 0.0;
 
+        $installments = $this->buildInstallmentRows($loan, $tenor, $principal, $baseInstallment, $runningTotal, $currentDueDate);
+
+        if (!empty($installments)) {
+            LoanCicilan::insert($installments);
+        }
+    }
+
+    /**
+     * Menyusun data array baris cicilan untuk disimpan ke database.
+     */
+    private function buildInstallmentRows(
+        Loan $loan,
+        int $tenor,
+        float $principal,
+        float $baseInstallment,
+        float $runningTotal,
+        Carbon $currentDueDate
+    ): array {
         $installments = [];
+
         for ($installmentNumber = 1; $installmentNumber <= $tenor; $installmentNumber++) {
             $nominal = $installmentNumber === $tenor
                 ? round($principal - $runningTotal, 2)
@@ -566,11 +637,12 @@ class LoanController extends Controller
             $currentDueDate = $currentDueDate->copy()->addMonthNoOverflow()->endOfMonth();
         }
 
-        if (!empty($installments)) {
-            LoanCicilan::insert($installments);
-        }
+        return $installments;
     }
 
+    /**
+     * Menentukan kode dan tipe pinjaman berdasarkan input (produktif/konsumtif, baru/topup).
+     */
     private function normalizeLoanType(mixed $typeInput, ?string $loanModeInput = null): array
     {
         $labels = [
@@ -607,20 +679,21 @@ class LoanController extends Controller
         return ['value' => $value] + $labels[$value];
     }
 
-    private function resolveStartDate(?string $startDate, ?string $tanggalMulaiCicilan): string
+    /**
+     * Menentukan tanggal mulai pembayaran cicilan pertama.
+     */
+    private function resolveStartDate(?string $tanggalMulaiCicilan): string
     {
         if ($tanggalMulaiCicilan) {
             return Carbon::parse(substr($tanggalMulaiCicilan, 0, 10))->endOfMonth()->toDateString();
         }
 
-        if ($startDate) {
-            $parsedStartDate = strlen($startDate) === 7 ? $startDate . '-01' : substr($startDate, 0, 10);
-            return Carbon::parse($parsedStartDate)->endOfMonth()->toDateString();
-        }
-
         return now()->endOfMonth()->toDateString();
     }
 
+    /**
+     * Menentukan tanggal mulai pembayaran cicilan khusus untuk top-up.
+     */
     private function resolveTopupStartDate(Loan $referredLoan): string
     {
         $lastPaidInstallment = $referredLoan->cicilan
@@ -640,6 +713,9 @@ class LoanController extends Controller
             ->toDateString();
     }
 
+    /**
+     * Mencari pinjaman terakhir yang disetujui sebagai referensi dasar untuk top-up.
+     */
     private function resolveLatestApprovedLoanForTopup(int $userId): ?Loan
     {
         return Loan::with('cicilan')
@@ -660,25 +736,31 @@ class LoanController extends Controller
             ->first();
     }
 
+    /**
+     * Mengecek apakah jenis pinjaman merupakan pinjaman top-up.
+     */
     private function isTopupJenisPinjaman(int $jenisPinjaman): bool
     {
         return in_array($jenisPinjaman, [2, 3], true);
     }
 
-    private function resolveUser(Request $request): ?User
+    /**
+     * Mengembalikan daftar relasi tabel yang perlu di-load bersama pinjaman.
+     */
+    private function loanRelations(): array
     {
-        return auth()->user() ?: User::find($request->input('user_id', 1));
+        return [
+            'user',
+            'cicilan',
+            'approvals.approver',
+            'referredLoan.cicilan',
+            'referredLoan.approvals.approver',
+        ];
     }
 
-    private function shouldShowAllLoans(Request $request, ?User $user = null): bool
-    {
-        if ($request->boolean('all')) {
-            return true;
-        }
-
-        return $user && in_array($user->role, ['admin', 'operator', 'pj_pinjaman', 'ketua'], true);
-    }
-
+    /**
+     * Membuat ringkasan (summary) statistik dari koleksi pengajuan pinjaman.
+     */
     private function buildSummary(iterable $loans): array
     {
         $collection = collect($loans);

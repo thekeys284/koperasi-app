@@ -21,6 +21,7 @@ class CicilanController extends Controller
     /**
      * Update status cicilan.
      * PATCH /api/loans/{loan}/cicilan/{cicilan}
+     * Memperbarui status pembayaran suatu cicilan (contoh: sudah bayar, ditunda, pending).
      */
     public function update(Request $request, $loanId, $cicilanId)
     {
@@ -103,22 +104,6 @@ class CicilanController extends Controller
     // PRIVATE HELPERS
     // =========================================================================
 
-    private function resolveUser(Request $request): ?User
-    {
-        return auth()->user() ?: User::find($request->input('user_id', 1));
-    }
-
-    private function shouldShowAllLoans(Request $request, ?User $user = null): bool
-    {
-        if ($request->boolean('all')) {
-            return true;
-        }
-
-        return $user && in_array($user->role, ['admin', 'operator', 'pj_pinjaman', 'ketua'], true);
-    }
-
-
-
     /**
      * Tandai cicilan sebagai sudah dibayar.
      * Jika semua cicilan lunas → update status loan ke 'paid'.
@@ -169,13 +154,14 @@ class CicilanController extends Controller
             $lastDueDate = Carbon::parse($lastInstallment->tanggal_pembayaran);
             $newDueDate = $lastDueDate->copy()->addMonthNoOverflow()->endOfMonth();
 
-            LoanCicilan::create([
+            // Use insert array for consistency with bulk operations
+            LoanCicilan::insert([[
                 'loans_id' => $loan->id,
                 'tanggal_pembayaran' => $newDueDate->toDateString(),
                 'nominal' => $cicilan->nominal,
                 'status_pembayaran' => 'pending',
                 'cicilan' => ($lastInstallment->cicilan ?? 0) + 1,
-            ]);
+            ]]);
 
             $cicilan->update([
                 'status_pembayaran' => 'postponed',
@@ -229,22 +215,39 @@ class CicilanController extends Controller
     {
         $installments = LoanCicilan::where('loans_id', $loanId)
             ->where('cicilan', '>=', $startingInstallmentNo)
+            ->whereNotNull('tanggal_pembayaran')
             ->orderBy('cicilan')
             ->get();
 
-        foreach ($installments as $installment) {
-            if (!$installment->tanggal_pembayaran) {
-                continue;
-            }
+        if ($installments->isEmpty()) {
+            return;
+        }
 
-            $installment->update([
-                'tanggal_pembayaran' => Carbon::parse($installment->tanggal_pembayaran)
-                    ->addMonthNoOverflow()
-                    ->endOfMonth()
-                    ->toDateString(),
-                'status_pembayaran' => 'pending',
-                'status_updated_at' => now(),
-            ]);
+        // Build CASE statement untuk batch update (1 query instead of N queries)
+        $caseWhenClauses = [];
+        $bindings = [];
+        $idList = [];
+
+        foreach ($installments as $installment) {
+            $newDate = Carbon::parse($installment->tanggal_pembayaran)
+                ->addMonthNoOverflow()
+                ->endOfMonth()
+                ->toDateString();
+
+            $caseWhenClauses[] = 'WHEN ? THEN ?';
+            $bindings[] = $installment->id;
+            $bindings[] = $newDate;
+            $idList[] = $installment->id;
+        }
+
+        if (!empty($caseWhenClauses)) {
+            $caseStatement = 'CASE id ' . implode(' ', $caseWhenClauses) . ' END';
+            $idPlaceholders = implode(',', array_fill(0, count($idList), '?'));
+
+            DB::update(
+                "UPDATE loan_cicilan SET tanggal_pembayaran = {$caseStatement}, status_pembayaran = ?, status_updated_at = ? WHERE id IN ({$idPlaceholders})",
+                array_merge($bindings, ['pending', now(), ...$idList])
+            );
         }
     }
 }

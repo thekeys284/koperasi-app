@@ -238,7 +238,7 @@ const UserCicilan = () => {
                         </Stack>
                     </AccordionSummary>
                     <AccordionDetails sx={{ p: 0 }}>
-                        <TopupInfoCard referredLoan={loan.referred_loan} currentAmount={loan.amount_requested} isInsideAccordion />
+                        <TopupInfoCard referredLoan={loan.referred_loan} totalAmount={loan.jumlah_pinjaman} isInsideAccordion />
                     </AccordionDetails>
                 </Accordion>
             )}
@@ -253,7 +253,7 @@ const UserCicilan = () => {
                 >
                     <Typography fontWeight={700} color="#1E293B">Informasi Pinjaman</Typography>
 
-                    <LoanTypeBadge type={loan?.type} />
+                    <LoanTypeBadge type={loan?.type_slug} />
                 </Stack>
 
                 <Table>
@@ -263,7 +263,7 @@ const UserCicilan = () => {
                                 Jenis Pinjaman
                             </TableCell>
                             <TableCell sx={{ color: "#64748B", borderBottom: "none", borderTop: "1px solid #E5E7EB", px: 3, py: 1.5 }}>
-                                {loan?.type || "-"}
+                                {loan?.type_slug || "-"}
                             </TableCell>
                         </TableRow>
                         <TableRow>
@@ -299,7 +299,7 @@ const UserCicilan = () => {
                             </TableCell>
                         </TableRow>
 
-                        {loan?.bukti_nota_url && (
+                        {loan?.document_url && (
                             <TableRow>
                                 <TableCell sx={{ width: "40%", color: "#334155", fontWeight: 600, borderBottom: "none", px: 3, py: 1.5 }}>
                                     Bukti Nota
@@ -307,7 +307,7 @@ const UserCicilan = () => {
                                 <TableCell sx={{ color: "#64748B", borderBottom: "none", px: 3, py: 1.5 }}>
                                     <Box
                                         component="img"
-                                        src={loan.bukti_nota_url}
+                                        src={loan.document_url}
                                         alt="Bukti Nota"
                                         sx={{
                                             width: 80,
@@ -501,7 +501,7 @@ const UserCicilan = () => {
             <LoanProofModal
                 open={previewOpen}
                 onClose={() => setPreviewOpen(false)}
-                imageUrl={loan?.bukti_nota_url}
+                imageUrl={loan?.document_url}
                 title="Preview Bukti Nota"
             />
         </Box>

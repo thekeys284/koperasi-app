@@ -52,44 +52,273 @@ const hasCurrentMonthUnpaidInstallment = (loan) => {
   );
 };
 
-const getCurrentMonthUnpaidInstallmentNo = (loan) => {
-  if (!Array.isArray(loan.cicilan)) return Number.MAX_SAFE_INTEGER;
-
-  const currentMonthInstallment = loan.cicilan.find(
-    (item) => item.tukin_status !== "sudah" && isCurrentMonth(item.tanggal_pembayaran)
-  );
-
-  return currentMonthInstallment?.cicilan ?? Number.MAX_SAFE_INTEGER;
-};
-
-const getRunningLoanPriority = (loan) => {
-  return loan.status_pengajuan === "postpone" ? 0 : 1;
-};
-
 // Categorize loans for new layout
 const categorizeLoansByStatus = (loans) => {
-  const postponementRequests = loans.filter((loan) => loan.status_pengajuan === "postpone");
+  return loans.reduce(
+    (acc, loan) => {
+      if (loan.status_pengajuan === "postpone") {
+        acc.postponementRequests.push(loan);
+      }
 
-  const paymentConfirmationLoans = loans.filter((loan) =>
-    (loan.status_pengajuan === "disetujui_ketua") &&
-    hasCurrentMonthUnpaidInstallment(loan) &&
-    loan.status_pengajuan !== "postpone"
+      if (loan.status_pengajuan === "disetujui_ketua") {
+        if (hasCurrentMonthUnpaidInstallment(loan)) {
+          acc.paymentConfirmationLoans.push(loan);
+        } else {
+          acc.activeLoansPaidThisMonth.push(loan);
+        }
+      }
+
+      if (loan.status_pengajuan === "paid") {
+        acc.paidOffLoans.push(loan);
+      }
+
+      if (loan.user_role === "user") {
+        if (loan.status_pengajuan === "disetujui_ketua") {
+          acc.totalApprovedLoans += 1;
+        }
+
+        if (["pending", "postpone"].includes(loan.status_pengajuan)) {
+          acc.totalPendingLoans += 1;
+        }
+
+        if (loan.status_pengajuan === "paid") {
+          acc.totalPaidLoans += 1;
+        }
+      }
+
+      return acc;
+    },
+    {
+      postponementRequests: [],
+      paymentConfirmationLoans: [],
+      activeLoansPaidThisMonth: [],
+      paidOffLoans: [],
+      totalApprovedLoans: 0,
+      totalPendingLoans: 0,
+      totalPaidLoans: 0,
+    }
   );
-
-  const activeLoansPaidThisMonth = loans.filter((loan) =>
-    loan.status_pengajuan === "disetujui_ketua" &&
-    !hasCurrentMonthUnpaidInstallment(loan)
-  );
-
-  const paidOffLoans = loans.filter((loan) => loan.status_pengajuan === "paid");
-
-  return {
-    postponementRequests,
-    paymentConfirmationLoans,
-    activeLoansPaidThisMonth,
-    paidOffLoans
-  };
 };
+
+const getCurrentInstallment = (loan) => loan.cicilan?.find((item) => isCurrentMonth(item.tanggal_pembayaran));
+
+const renderLoanIdAndDate = (loan) => (
+  <>
+    <Typography color="primary" fontWeight={600} sx={{ fontSize: "14px" }}>
+      #{loan.loan_number}
+    </Typography>
+    <Typography variant="caption" color="text.secondary">
+      {formatDate(loan.created_at)}
+    </Typography>
+  </>
+);
+
+const renderLoanMember = (loan) => (
+  <>
+    <Typography fontWeight={600}>{loan.user_name || "-"}</Typography>
+    <Typography variant="caption" color="text.secondary">
+      {loan.user_username || "-"}
+    </Typography>
+  </>
+);
+
+const renderLoanTypeAmount = (loan) => (
+  <>
+    <Stack direction="row" spacing={1} sx={{ mb: 0.5 }}>
+      <LoanTypeBadge type={loan.type_slug} />
+      <LoanModeBadge mode={loan.loan_mode} />
+    </Stack>
+    <Typography fontWeight={700}>{formatCurrency(loan.jumlah_pinjaman)}</Typography>
+    {loan.referred_loan?.loan_number && (
+      <Typography variant="caption" color="text.secondary" sx={{ display: "block" }}>
+        Ref: #{loan.referred_loan.loan_number}
+      </Typography>
+    )}
+    {loan.document_url && (
+      <Typography
+        variant="caption"
+        sx={{
+          color: "#2563eb",
+          fontWeight: 700,
+          mt: 0.5,
+          display: "flex",
+          alignItems: "center",
+          gap: 0.5,
+          cursor: "pointer",
+          "&:hover": { textDecoration: "underline" },
+        }}
+        onClick={(e) => {
+          e.stopPropagation();
+          window.open(loan.document_url, "_blank");
+        }}
+      >
+        [ Lihat Nota ]
+      </Typography>
+    )}
+  </>
+);
+
+const renderLoanStatusBadge = (loan) => (
+  <LoanStatusBadge
+    status={loan.status_pengajuan}
+    reason={loan?.status_reason || loan?.pjtoko_note || loan?.reason}
+  />
+);
+
+const renderLoanDetailButton = (loan, openLoanDetail) => (
+  <IconButton
+    onClick={(event) => {
+      event.stopPropagation();
+      openLoanDetail(loan.id);
+    }}
+    size="small"
+  >
+    <MoreVertIcon fontSize="small" />
+  </IconButton>
+);
+
+const renderLoanInstallmentSummary = (loan) => {
+  const currentInstallment = getCurrentInstallment(loan);
+  if (!currentInstallment) return "-";
+
+  return (
+    <Box>
+      <Typography fontWeight={700} fontSize="13px">
+        {formatCurrency(currentInstallment.nominal)}
+      </Typography>
+      <Typography variant="caption" color="text.secondary" sx={{ display: "block" }}>
+        Cicilan ke-{currentInstallment.cicilan}
+      </Typography>
+      <Typography variant="caption" color="primary.main" fontWeight={600}>
+        Tgl: {formatDate(currentInstallment.tanggal_pembayaran)}
+      </Typography>
+    </Box>
+  );
+};
+
+const renderPaymentConfirmationCell = (
+  loan,
+  openLoanDetail,
+  selectInstallment,
+  isInstallmentSelected,
+  updatingInstallmentIds
+) => {
+  const currentInstallment = getCurrentInstallment(loan);
+  const isSelected = currentInstallment ? isInstallmentSelected(currentInstallment.id) : false;
+
+  return (
+    <Stack direction="row" spacing={1} alignItems="center">
+      {currentInstallment && (
+        <Checkbox
+          size="small"
+          checked={isSelected}
+          onClick={(event) => event.stopPropagation()}
+          onChange={() => selectInstallment(loan, currentInstallment)}
+          disabled={updatingInstallmentIds.includes(currentInstallment.id)}
+          sx={{ p: 0.5 }}
+        />
+      )}
+      <IconButton
+        onClick={(event) => {
+          event.stopPropagation();
+          openLoanDetail(loan.id);
+        }}
+        size="small"
+      >
+        <MoreVertIcon fontSize="small" />
+      </IconButton>
+    </Stack>
+  );
+};
+
+const createPostponementColumns = (openPostponeModal, openLoanDetail) => [
+  { header: "ID PENGAJUAN", render: renderLoanIdAndDate },
+  { header: "ANGGOTA", render: renderLoanMember },
+  { header: "JENIS PINJAMAN", render: renderLoanTypeAmount },
+  {
+    header: "CICILAN KE",
+    render: (loan) => {
+      const postponedInstallment = loan.cicilan?.find(c => c.id === loan.postpone_cicilan_id);
+      const installmentNo = postponedInstallment ? postponedInstallment.cicilan : "-";
+      return (
+        <>
+          <Typography fontWeight={600} sx={{ fontSize: "14px" }}>
+            {installmentNo}
+          </Typography>
+          <Typography
+            variant="caption"
+            color="text.secondary"
+            sx={{ display: "block", maxWidth: "200px", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", fontStyle: "italic" }}
+          >
+            Alasan: {postponedInstallment?.postponement_reason || "-"}
+          </Typography>
+        </>
+      );
+    },
+  },
+  {
+    header: "STATUS",
+    render: () => (
+      <Chip
+        label="PENDING"
+        size="small"
+        sx={{ bgcolor: "#fef3c7", color: "#d97706", fontWeight: 700, fontSize: "10px", borderRadius: "6px" }}
+      />
+    ),
+  },
+  {
+    header: "AKSI",
+    align: "center",
+    render: (loan) => (
+      <Stack direction="row" spacing={1} justifyContent="center" alignItems="center">
+        <Button
+          variant="contained"
+          size="small"
+          onClick={() => openPostponeModal(loan)}
+          endIcon={<NavigateNextIcon />}
+          sx={{ textTransform: "none", fontWeight: 600, borderRadius: "8px", bgcolor: "#eff6ff", color: "#1e40af", boxShadow: "none", border: "1px solid #dbeafe", "&:hover": { bgcolor: "#dbeafe", boxShadow: "none", border: "1px solid #bfdbfe" } }}
+        >
+          Review
+        </Button>
+        <IconButton
+          size="small"
+          onClick={() => openLoanDetail(loan.id)}
+          sx={{ bgcolor: "#f1f5f9", color: "#64748b", "&:hover": { bgcolor: "#e2e8f0" } }}
+        >
+          <MoreVertIcon fontSize="small" />
+        </IconButton>
+      </Stack>
+    ),
+  },
+];
+
+const createSharedColumns = (openLoanDetail) => [
+  { header: "ID & TGL PENGAJUAN", render: renderLoanIdAndDate },
+  { header: "ANGGOTA", render: renderLoanMember },
+  { header: "JENIS & JUMLAH", render: renderLoanTypeAmount },
+  { header: "TENOR", render: (loan) => `${loan.lama_pembayaran} Bulan` },
+  { header: "STATUS", sx: { width: "150px" }, render: renderLoanStatusBadge },
+  { header: "DETAIL", sx: { width: "110px" }, render: (loan) => renderLoanDetailButton(loan, openLoanDetail) },
+];
+
+const createPaymentConfirmationColumns = (
+  openLoanDetail,
+  selectInstallment,
+  isInstallmentSelected,
+  updatingInstallmentIds
+) => [
+  { header: "ID & TGL PENGAJUAN", render: renderLoanIdAndDate },
+  { header: "ANGGOTA", render: renderLoanMember },
+  { header: "JENIS & JUMLAH", render: renderLoanTypeAmount },
+  { header: "TENOR", render: (loan) => `${loan.lama_pembayaran} Bulan` },
+  { header: "RINCIAN CICILAN", render: renderLoanInstallmentSummary },
+  { header: "STATUS", sx: { width: "150px" }, render: renderLoanStatusBadge },
+  {
+    header: "DETAIL",
+    sx: { width: "110px" },
+    render: (loan) => renderPaymentConfirmationCell(loan, openLoanDetail, selectInstallment, isInstallmentSelected, updatingInstallmentIds),
+  },
+];
 
 const LoanPage = () => {
   const navigate = useNavigate();
@@ -259,36 +488,15 @@ const LoanPage = () => {
     fetchLoans();
   }, []);
 
-  const runningLoans = loans.filter((item) => (
-    item.status_pengajuan === "disetujui_ketua" || item.status_pengajuan === "postpone"
-  ));
-  const { postponementRequests, paymentConfirmationLoans, activeLoansPaidThisMonth, paidOffLoans } = categorizeLoansByStatus(loans);
-
-  const pendingConfirmationLoans = runningLoans
-    .filter((item) => hasCurrentMonthUnpaidInstallment(item) || item.status_pengajuan === "postpone")
-    .sort((a, b) => {
-      const priorityDiff = getRunningLoanPriority(a) - getRunningLoanPriority(b);
-      if (priorityDiff !== 0) return priorityDiff;
-
-      return getCurrentMonthUnpaidInstallmentNo(a) - getCurrentMonthUnpaidInstallmentNo(b);
-    });
-  const paidLoans = loans
-    .filter((item) => (
-      item.status_pengajuan === "paid" ||
-      ((item.status_pengajuan === "disetujui_ketua" || item.status_pengajuan === "postpone") && !hasCurrentMonthUnpaidInstallment(item))
-    ))
-    .sort((a, b) => {
-      // Priority: Active loans first, then Paid (Lunas) loans
-      if (a.status_pengajuan !== "paid" && b.status_pengajuan === "paid") return -1;
-      if (a.status_pengajuan === "paid" && b.status_pengajuan !== "paid") return 1;
-      return 0;
-    });
-  const userLoans = loans.filter((item) => item.user_role === "user");
-  const totalApprovedLoans = userLoans.filter((item) => (
-    item.status_pengajuan === "disetujui_ketua"
-  )).length;
-  const totalPendingLoans = userLoans.filter((item) => ["pending", "postpone"].includes(item.status_pengajuan)).length;
-  const totalPaidLoans = userLoans.filter((item) => item.status_pengajuan === "paid").length;
+  const {
+    postponementRequests,
+    paymentConfirmationLoans,
+    activeLoansPaidThisMonth,
+    paidOffLoans,
+    totalApprovedLoans,
+    totalPendingLoans,
+    totalPaidLoans,
+  } = categorizeLoansByStatus(loans);
 
   const openLoanDetail = (loanId) => {
     navigate(`/pjtoko/loans/details?loan_id=${loanId}&user_id=1`);
@@ -341,309 +549,16 @@ const LoanPage = () => {
     }
   };
 
-  const postponementColumns = [
-    {
-      header: "ID PENGAJUAN",
-      render: (loan) => (
-        <>
-          <Typography color="primary" fontWeight={600} sx={{ fontSize: "14px" }}>
-            #{loan.loan_number}
-          </Typography>
-          <Typography variant="caption" color="text.secondary">
-            {formatDate(loan.created_at)}
-          </Typography>
-        </>
-      )
-    },
-    {
-      header: "ANGGOTA",
-      render: (loan) => (
-        <>
-          <Typography fontWeight={600}>{loan.user_name || "-"}</Typography>
-          <Typography variant="caption" color="text.secondary">
-            {loan.user_username || "-"}
-          </Typography>
-        </>
-      )
-    },
-    {
-      header: "JENIS PINJAMAN",
-      render: (loan) => (
-        <>
-          <Stack direction="row" spacing={1} sx={{ mb: 0.5 }}>
-            <LoanTypeBadge type={loan.type_slug} />
-            <LoanModeBadge mode={loan.loan_mode} />
-          </Stack>
-          <Typography fontWeight={700} sx={{ fontSize: "14px" }}>
-            {formatCurrency(loan.jumlah_pinjaman)}
-          </Typography>
-        </>
-      )
-    },
-    {
-      header: "CICILAN KE",
-      render: (loan) => {
-        const postponedInstallment = loan.cicilan?.find(c => c.id === loan.postpone_cicilan_id);
-        const installmentNo = postponedInstallment ? postponedInstallment.cicilan : "-";
-        return (
-          <>
-            <Typography fontWeight={600} sx={{ fontSize: "14px" }}>
-              {installmentNo}
-            </Typography>
-            <Typography 
-              variant="caption" 
-              color="text.secondary" 
-              sx={{ display: "block", maxWidth: "200px", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", fontStyle: "italic" }}
-            >
-              Alasan: {postponedInstallment?.postponement_reason || "-"}
-            </Typography>
-          </>
-        )
-      }
-    },
-    {
-      header: "STATUS",
-      render: () => (
-        <Chip 
-          label="PENDING" 
-          size="small" 
-          sx={{ bgcolor: "#fef3c7", color: "#d97706", fontWeight: 700, fontSize: "10px", borderRadius: "6px" }} 
-        />
-      )
-    },
-    {
-      header: "AKSI",
-      align: "center",
-      render: (loan) => (
-        <Stack direction="row" spacing={1} justifyContent="center" alignItems="center">
-          <Button 
-            variant="contained" 
-            size="small"
-            onClick={() => openPostponeModal(loan)}
-            endIcon={<NavigateNextIcon />}
-            sx={{ textTransform: "none", fontWeight: 600, borderRadius: "8px", bgcolor: "#eff6ff", color: "#1e40af", boxShadow: "none", border: "1px solid #dbeafe", "&:hover": { bgcolor: "#dbeafe", boxShadow: "none", border: "1px solid #bfdbfe" } }}
-          >
-            Review
-          </Button>
-          <IconButton 
-            size="small" 
-            onClick={() => openLoanDetail(loan.id)}
-            sx={{ bgcolor: "#f1f5f9", color: "#64748b", "&:hover": { bgcolor: "#e2e8f0" } }}
-          >
-            <MoreVertIcon fontSize="small" />
-          </IconButton>
-        </Stack>
-      )
-    }
-  ];
+  const postponementColumns = createPostponementColumns(openPostponeModal, openLoanDetail);
 
-  const sharedColumns = [
-    {
-      header: "ID & TGL PENGAJUAN",
-      render: (loan) => (
-        <>
-          <Typography color="primary" fontWeight={600}>
-            #{loan.loan_number}
-          </Typography>
-          <Typography variant="caption" color="text.secondary">
-            {formatDate(loan.created_at)}
-          </Typography>
-        </>
-      )
-    },
-    {
-      header: "ANGGOTA",
-      render: (loan) => (
-        <>
-          <Typography fontWeight={600}>{loan.user_name || "-"}</Typography>
-          <Typography variant="caption" color="text.secondary">
-            {loan.user_username || "-"}
-          </Typography>
-        </>
-      )
-    },
-    {
-      header: "JENIS & JUMLAH",
-      render: (loan) => (
-        <>
-          <Stack direction="row" spacing={1} sx={{ mb: 0.5 }}>
-            <LoanTypeBadge type={loan.type_slug} />
-            <LoanModeBadge mode={loan.loan_mode} />
-          </Stack>
-          <Typography fontWeight={700}>{formatCurrency(loan.jumlah_pinjaman)}</Typography>
-          {loan.referred_loan?.loan_number && (
-            <Typography variant="caption" color="text.secondary" sx={{ display: "block" }}>
-              Ref: #{loan.referred_loan.loan_number}
-            </Typography>
-          )}
-          {loan.document_url && (
-              <Typography 
-                  variant="caption" 
-                  sx={{ 
-                      color: "#2563eb", 
-                      fontWeight: 700, 
-                      mt: 0.5, 
-                      display: "flex", 
-                      alignItems: "center", 
-                      gap: 0.5,
-                      cursor: "pointer",
-                      "&:hover": { textDecoration: "underline" }
-                  }}
-                  onClick={(e) => { e.stopPropagation(); window.open(loan.document_url, '_blank'); }}
-              >
-                  [ Lihat Nota ]
-              </Typography>
-          )}
-        </>
-      )
-    },
-    {
-      header: "TENOR",
-      render: (loan) => <span style={{ fontSize: "14px" }}>{loan.lama_pembayaran} Bulan</span>
-    },
-    {
-      header: "STATUS",
-      render: (loan) => (
-        <LoanStatusBadge 
-          status={loan.status_pengajuan} 
-          reason={loan?.status_reason || loan?.pjtoko_note || loan?.reason} 
-        />
-      )
-    },
-    {
-      header: "DETAIL",
-      render: (loan) => (
-        <IconButton onClick={() => openLoanDetail(loan.id)}>
-          <MoreVertIcon />
-        </IconButton>
-      )
-    }
-  ];
+  const sharedColumns = createSharedColumns(openLoanDetail);
 
-  const paymentConfirmationColumns = [
-    {
-      header: "ID & TGL PENGAJUAN",
-      render: (loan) => (
-        <>
-          <Typography color="primary" fontWeight={600}>#{loan.loan_number}</Typography>
-          <Typography variant="caption" color="text.secondary">{formatDate(loan.created_at)}</Typography>
-        </>
-      )
-    },
-    {
-      header: "ANGGOTA",
-      render: (loan) => (
-        <>
-          <Typography fontWeight={600}>{loan.user_name || "-"}</Typography>
-          <Typography variant="caption" color="text.secondary">{loan.user_username || "-"}</Typography>
-        </>
-      )
-    },
-    {
-      header: "JENIS & JUMLAH",
-      render: (loan) => (
-        <>
-          <Stack direction="row" spacing={1} sx={{ mb: 0.5 }}>
-            <LoanTypeBadge type={loan.type_slug} />
-            <LoanModeBadge mode={loan.loan_mode} />
-          </Stack>
-          <Typography fontWeight={700}>{formatCurrency(loan.jumlah_pinjaman)}</Typography>
-          {loan.referred_loan?.loan_number && (
-            <Typography variant="caption" color="text.secondary" sx={{ display: "block" }}>
-              Ref: #{loan.referred_loan.loan_number}
-            </Typography>
-          )}
-          {loan.document_url && (
-              <Typography 
-                variant="caption" 
-                sx={{ 
-                    color: "#2563eb", 
-                    fontWeight: 700, 
-                    mt: 0.5, 
-                    display: "flex", 
-                    alignItems: "center", 
-                    gap: 0.5,
-                    cursor: "pointer",
-                    "&:hover": { textDecoration: "underline" }
-                }}
-                onClick={(e) => { e.stopPropagation(); window.open(loan.document_url, '_blank'); }}
-              >
-                [ Lihat Nota ]
-              </Typography>
-          )}
-        </>
-      )
-    },
-    {
-      header: "TENOR",
-      render: (loan) => `${loan.lama_pembayaran} Bulan`
-    },
-    {
-      header: "RINCIAN CICILAN",
-      render: (loan) => {
-        const currentInstallment = loan.cicilan?.find(
-          (item) => isCurrentMonth(item.tanggal_pembayaran)
-        );
-        if (!currentInstallment) return "-";
-        return (
-          <Box>
-            <Typography fontWeight={700} fontSize="13px">
-              {formatCurrency(currentInstallment.nominal)}
-            </Typography>
-            <Typography variant="caption" color="text.secondary" sx={{ display: "block" }}>
-              Cicilan ke-{currentInstallment.cicilan}
-            </Typography>
-            <Typography variant="caption" color="primary.main" fontWeight={600}>
-              Tgl: {formatDate(currentInstallment.tanggal_pembayaran)}
-            </Typography>
-          </Box>
-        );
-      }
-    },
-    {
-      header: "STATUS",
-      sx: { width: "150px" },
-      render: (loan) => (
-        <LoanStatusBadge 
-          status={loan.status_pengajuan} 
-          reason={loan?.status_reason || loan?.pjtoko_note || loan?.reason} 
-        />
-      )
-    },
-    {
-      header: "DETAIL",
-      sx: { width: "110px" },
-      render: (loan) => {
-        const currentInstallment = loan.cicilan?.find(
-          (item) => isCurrentMonth(item.tanggal_pembayaran)
-        );
-        const isSelected = !!currentInstallment && isInstallmentSelected(currentInstallment.id);
-        return (
-          <Stack direction="row" spacing={1} alignItems="center">
-            {currentInstallment && (
-              <Checkbox
-                size="small"
-                checked={isSelected}
-                onClick={(event) => event.stopPropagation()}
-                onChange={() => selectInstallment(loan, currentInstallment)}
-                disabled={updatingInstallmentIds.includes(currentInstallment.id)}
-                sx={{ p: 0.5 }}
-              />
-            )}
-            <IconButton
-              onClick={(event) => {
-                event.stopPropagation();
-                openLoanDetail(loan.id);
-              }}
-              size="small"
-            >
-              <MoreVertIcon fontSize="small" />
-            </IconButton>
-          </Stack>
-        );
-      }
-    }
-  ];
+  const paymentConfirmationColumns = createPaymentConfirmationColumns(
+    openLoanDetail,
+    selectInstallment,
+    isInstallmentSelected,
+    updatingInstallmentIds
+  );
 
   return (
     <Box sx={{ p: 4, background: "#f5f7fb", minHeight: "100vh" }}>

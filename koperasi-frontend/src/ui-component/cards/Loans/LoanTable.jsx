@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   Card,
   CardContent,
@@ -9,9 +9,24 @@ import {
   TableCell,
   TableHead,
   TableRow,
+  TablePagination
 } from '@mui/material';
 
 const LoanTable = ({ title, columns, data, emptyMessage = "Tidak ada data.", hideCard = false, onRowClick, isRowSelected }) => {
+  const [page, setPage] = useState(0);
+  const [rowsPerPage, setRowsPerPage] = useState(10);
+
+  const handleChangePage = (event, newPage) => {
+    setPage(newPage);
+  };
+
+  const handleChangeRowsPerPage = (event) => {
+    setRowsPerPage(parseInt(event.target.value, 10));
+    setPage(0);
+  };
+
+  const paginatedData = data ? data.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage) : [];
+
   const content = (
     <React.Fragment>
       {title && (
@@ -31,8 +46,8 @@ const LoanTable = ({ title, columns, data, emptyMessage = "Tidak ada data.", hid
             </TableRow>
           </TableHead>
           <TableBody>
-            {data && data.length > 0 ? (
-              data.map((row, rowIndex) => (
+            {paginatedData && paginatedData.length > 0 ? (
+              paginatedData.map((row, rowIndex) => (
                 <TableRow 
                   key={rowIndex} 
                   hover
@@ -65,6 +80,18 @@ const LoanTable = ({ title, columns, data, emptyMessage = "Tidak ada data.", hid
           </TableBody>
         </Table>
       </Box>
+      {data && data.length > 0 && (
+        <TablePagination
+          rowsPerPageOptions={[5, 10, 25]}
+          component="div"
+          count={data.length}
+          rowsPerPage={rowsPerPage}
+          page={page}
+          onPageChange={handleChangePage}
+          onRowsPerPageChange={handleChangeRowsPerPage}
+          labelRowsPerPage="Baris per halaman:"
+        />
+      )}
     </React.Fragment>
   );
 

@@ -47,17 +47,20 @@ Route::prefix('loans')->group(function () {
     Route::get('/report/data', [ReportController::class, 'loanReport']);
     Route::get('/filter-members', [LoanController::class, 'getFilterMembers']);
 
-    // Basic CRUD - LoanController
+    // LoanController
+    // Operasi CRUD Dasar untuk Pengajuan Pinjaman
     Route::get('/', [LoanController::class, 'index']);
     Route::post('/', [LoanController::class, 'store']);
     Route::get('/{id}', [LoanController::class, 'show']);
     Route::delete('/{id}', [LoanController::class, 'destroy']);
 
-    // Approval & Rejection - LoanApprovalController
+    // LoanApprovalController
+    // Persetujuan & Penolakan Pengajuan Pinjaman
     Route::patch('/{id}/approve', [LoanApprovalController::class, 'approve']);
     Route::patch('/{id}/reject', [LoanApprovalController::class, 'reject']);
 
-    // Cicilan & Postponement - must come before generic {id} routes
+    // CicilanController - must come before generic {id} routes
+    // Pembaruan Cicilan & Proses Penundaan (Postpone)
     Route::patch('/{loan}/cicilan/{cicilan}', [CicilanController::class, 'update']);
     Route::patch('/{id}/postpone-request', [LoanController::class, 'postponeRequest']);
     Route::patch('/{id}/postpone-approve', [LoanController::class, 'postponeApprove']);

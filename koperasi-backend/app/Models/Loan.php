@@ -23,7 +23,6 @@ class Loan extends Model
         'postpone_cicilan_id',
         'postpone_decision',
         'file_path',
-        'reason',
         'tanggal_pengajuan',
     ];
 

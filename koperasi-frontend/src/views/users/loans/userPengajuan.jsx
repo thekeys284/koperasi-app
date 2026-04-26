@@ -198,11 +198,10 @@ const LeadLoanCreatePage = () => {
 
             const payload = new FormData();
             payload.append("user_id", currentUserId);
-            payload.append("type", tipePinjaman === "produktif" ? "Produktif" : "Konsumtif");
-            payload.append("amount_requested", String(jumlah));
-            payload.append("tenor_months", String(tenor));
-            payload.append("start_date", bulanPotongGaji || "");
-            payload.append("reason", keterangan || "");
+            payload.append("jenis_pinjaman", tipePinjaman === "produktif" ? "produktif" : "konsumtif");
+            payload.append("jumlah_pinjaman", String(jumlah));
+            payload.append("lama_pembayaran", String(tenor));
+            payload.append("tanggal_mulai_cicilan", bulanPotongGaji || "");
             payload.append("loan_mode", isTopupPage ? "topup" : "new");
 
             if (isTopupPage && topupReferenceLoan?.id) {
