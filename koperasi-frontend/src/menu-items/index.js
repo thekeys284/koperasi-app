@@ -6,7 +6,7 @@ import operasional from './operasional';
 // ==============================|| MENU ITEMS ||============================== //
 
 const menuItems = {
-  items: [dashboard, master, operasional]
+  items: [dashboard, operasional, master]
 };
 
 export default menuItems;

@@ -1,24 +1,18 @@
-// {
-//   "compilerOptions": {
-//     "composite": true,
-//     "module": "ESNext",
-//     "moduleResolution": "Node",
-//     "allowSyntheticDefaultImports": true
-//   },
-//   "include": ["vite.config.mjs"]
-// }
 {
   "compilerOptions": {
-    "target": "ESNext",
+    "composite": true,
     "module": "ESNext",
-    "moduleResolution": "Node",
+    "moduleResolution": "bundler",
     "allowSyntheticDefaultImports": true,
-    "allowJs": true,
-    "outDir": "./dist",
-    "baseUrl": "./",
-    "paths": {
-      "@/*": ["src/*"]
-    }
+    "skipLibCheck": true,
+    "noEmit": false
   },
-  "include": ["src", "vite.config.mjs"]
+  "include": [
+    "vite.config.mjs",
+    "eslint.config.js" 
+  ],
+  "exclude": [
+    "node_modules",
+    "dist"
+  ]
 }

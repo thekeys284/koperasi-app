@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use App\Models\User;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Cache;
 use App\Http\Resources\Api\UserResource;
 
 class UserController extends Controller
@@ -97,6 +98,7 @@ class UserController extends Controller
 
         $user->save();
 
+        Cache::forget('user_role_' . $user->id);
         return response()->json([
             'status' => 'success',
             'message' => 'Data anggota berhasil diperbarui',

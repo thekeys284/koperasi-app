@@ -12,7 +12,7 @@ import AuthCardWrapper from './AuthCardWrapper';
 
 import Logo from 'ui-component/Logo';
 import AuthFooter from 'ui-component/cards/AuthFooter';
-import AuthLogin from '../auth-forms/AuthLogin';
+import AuthLogin from '../AuthLogin';
 
 // ================================|| AUTH3 - LOGIN ||================================ //
 

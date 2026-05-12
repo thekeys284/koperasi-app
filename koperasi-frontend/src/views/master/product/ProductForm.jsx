@@ -1,11 +1,11 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { Button, TextField, Grid, MenuItem, Box, Typography, Autocomplete, FormControlLabel, Switch} from "@mui/material";
+import { Button, TextField, Grid, MenuItem, Box, Typography, Autocomplete, FormControlLabel, Switch,
+     Snackbar, Alert, InputAdornment, IconButton, CircularProgress
+} from "@mui/material";
 import MainCard from '../../../components/cards/MainCard.jsx';
 import api from "@/api/axios.js";
-import { InputAdornment, IconButton} from "@mui/material";
 import { IconArrowLeft, IconBarcode, IconDeviceFloppy } from '@tabler/icons-react';
-import { Visibility, VisibilityOff } from "@mui/icons-material";
 
 const ProductForm = () =>{
     const {id} = useParams();
@@ -13,41 +13,48 @@ const ProductForm = () =>{
     const isEdit = Boolean(id);
     const [loading, setLoading]=useState(false);
     const [categories, setCategories]=useState([]);
+    const [fetching, setFetching] = useState(false);
 
     const [formData, setFormData] = useState({
         category_id:'',
         barcode:'',
-        product_name:'',
-        product_detail:'',
-        current_selling_price:'',
+        name:'',
+        detail:'',
+        price:'',
         min_stock:'',
-        is_active:'true'
+        is_active:true
     });
+    const [snackbar, setSnackbar] = useState({
+        open: false,
+        message: '',
+        severity: 'success' // bisa 'success', 'error', 'info', atau 'warning'
+    });
+    const handleCloseSnackbar = (event, reason) => {
+        if (reason === 'clickaway') return;
+        setSnackbar({ ...snackbar, open: false });
+    };
 
     useEffect(()=>{
-        const fetchInitialData = async()=>{
-            try{
-                const resCat = await api.get('/categories');
-                setCategories(resCat.data);
-                if(isEdit){
-                    const resProd = await api.get(`/products/${id}`);
-                    const prod = resProd.data;
-                    setFormData({
-                        category_id: prod.category_id || '',
-                        barcode : prod.barcode || '',
-                        product_name : prod.product_name || '',
-                        product_detail : prod.product_detail || '',
-                        current_selling_price : prod.current_selling_price || '',
-                        min_stock : prod.min_stock || '5',
-                        is_active : prod.is_active === 1 || prod.is_active === true
-                    });
-                }
-            } catch (error){
-                console.error("Gagal memuat data:", error);
-            }
-        };
-
-        fetchInitialData();
+        api.get('/categories').then(res => setCategories(res.data.data || []));
+        if (isEdit) { 
+            setFetching(true);
+            api.get(`/products/${id}`)
+                .then((res) => {
+                    if (res.data && res.data.data) {
+                        const product = res.data.data;
+                        setFormData({
+                            category_id: product.category_id || '',
+                            barcode : product.barcode || '',
+                            name : product.name || '',
+                            detail : product.detail || '',
+                            price : product.price || '',
+                            min_stock : product.min_stock || '5',
+                            is_active : product.is_active === 1 || product.is_active === true
+                        });
+                    }
+                })
+                .finally(() => setFetching(false));
+        }
     }, [id, isEdit]);
 
     const handleSubmit = async (e) => {
@@ -60,28 +67,29 @@ const ProductForm = () =>{
             } else {
                 await api.post('/products', formData);
             } 
-            navigate('/admin/products');
+            setSnackbar({
+                open: true,
+                message: isEdit ? 'Data produk berhasil diperbarui!' : 'Produk baru berhasil ditambahkan!',
+                severity: 'success'
+            });
+            setTimeout(() => {
+                navigate('/admin/products');
+            }, 1500);
         } catch(error){
-            console.error("Gagal simpan produk:", error.response?.data || error.message);
-            alert("Terjadi kesalahan saat menyimpan data.");
+            setSnackbar({
+                open: true,
+                message: error.response?.data?.message || 'Terjadi kesalahan saat menyimpan data.',
+                severity: 'error'
+            });
         } finally {
             setLoading(false);
         }
     };
+    
+    if (fetching) return <Box sx={{ p: 5, textAlign: 'center' }}><CircularProgress /></Box>;
 
     return (
-        <MainCard
-            title={isEdit? "Edit Informasi Barang" : "Tambah Barang Baru"}
-            secondary={
-                <Button
-                    variant="text"
-                    startIcon={<IconArrowLeft />}
-                    onClick={()=> navigate('/admin/product')}
-                >
-                    Kembali
-                </Button>
-            }
-        >
+        <MainCard title={isEdit ? "Edit Product" : "Tambah Product Baru"}>
             <form onSubmit={handleSubmit}>
                 <Grid  container spacing={3}>
                     <Grid size={{ xs: 12, sm: 2 }}
@@ -122,7 +130,7 @@ const ProductForm = () =>{
                     <Grid size={{xs:12, sm:4}}>
                         <Autocomplete
                             options={categories}
-                            getOptionLabel={(option) => option.category_name || ''}
+                            getOptionLabel={(option) => option.name || ''}
                             value={categories.find((c)=> c.id === formData.category_id) || null}
                             onChange={(event, newValue)=>{
                                 setFormData({...formData, category_id:newValue?.id || ''});
@@ -144,8 +152,8 @@ const ProductForm = () =>{
                             fullWidth
                             label="Nama Produk"
                             required
-                            value={formData.product_name}
-                            onChange={(e)=> setFormData({...formData, product_name:e.target.value})}
+                            value={formData.name}
+                            onChange={(e)=> setFormData({...formData, name:e.target.value})}
                         />
                     </Grid>
                     <Grid size={{ xs: 12, sm: 2 }}
@@ -164,8 +172,8 @@ const ProductForm = () =>{
                             multiline
                             rows={2}
                             placeholder="Contoh: Ukuran 500ml, Rasa Cokelat, dsb."
-                            value={formData.product_detail}
-                            onChange={(e)=>setFormData({...formData, product_detail:e.target.value})}
+                            value={formData.detail}
+                            onChange={(e)=>setFormData({...formData, detail:e.target.value})}
                         />
                     </Grid>
                     <Grid size={{ xs: 12, sm: 2 }}
@@ -186,8 +194,8 @@ const ProductForm = () =>{
                             InputProps={{
                                 startAdornment:<InputAdornment position="start">Rp</InputAdornment>,
                             }}
-                            value={formData.current_selling_price}
-                            onChange={(e)=>setFormData({...formData, current_selling_price:e.target.value})}
+                            value={formData.price}
+                            onChange={(e)=>setFormData({...formData, price:e.target.value})}
                         />
                     </Grid>
                     <Grid size={{ xs: 12, sm: 2 }}
@@ -227,7 +235,7 @@ const ProductForm = () =>{
                         <Button
                             variant="outlined"
                             color="secondary"
-                            onClick={() => navigate('/admin/stock')}
+                            onClick={() => navigate('/admin/products')}
                         >
                             Batal
                         </Button>
@@ -244,6 +252,21 @@ const ProductForm = () =>{
                     </Grid>
                 </Grid>
             </form>
+            <Snackbar 
+                open={snackbar.open} 
+                autoHideDuration={3000} 
+                onClose={handleCloseSnackbar}
+                anchorOrigin={{ vertical: 'top', horizontal: 'right' }} // Muncul di pojok kanan bawah
+            >
+                <Alert 
+                    onClose={handleCloseSnackbar} 
+                    severity={snackbar.severity} 
+                    variant="filled" // Agar warnanya solid khas Material UI modern
+                    sx={{ width: '100%', borderRadius: '8px' }}
+                >
+                    {snackbar.message}
+                </Alert>
+            </Snackbar>
         </MainCard>
 
     );

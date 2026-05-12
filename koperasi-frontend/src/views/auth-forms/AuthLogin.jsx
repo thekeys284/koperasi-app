@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
+import api from '@/api/axios.js';
 
 // material-ui
 import Button from '@mui/material/Button';
@@ -12,6 +13,7 @@ import InputLabel from '@mui/material/InputLabel';
 import OutlinedInput from '@mui/material/OutlinedInput';
 import Typography from '@mui/material/Typography';
 import Box from '@mui/material/Box';
+import Alert from '@mui/material/Alert';
 
 // project imports
 import AnimateButton from 'ui-component/extended/AnimateButton';
@@ -24,9 +26,15 @@ import VisibilityOff from '@mui/icons-material/VisibilityOff';
 // ===============================|| JWT - LOGIN ||=============================== //
 
 export default function AuthLogin() {
+  const navigate = useNavigate();
   const [checked, setChecked] = useState(true);
 
   const [showPassword, setShowPassword] = useState(false);
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
+  
   const handleClickShowPassword = () => {
     setShowPassword(!showPassword);
   };
@@ -35,11 +43,54 @@ export default function AuthLogin() {
     event.preventDefault();
   };
 
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setError('');
+    setLoading(true);
+
+    try {
+      const response = await api.post('/login', {
+        email: email, 
+        password: password,
+      });
+
+      // Sesuaikan struktur ini jika backend Laravel mengembalikan response berbeda
+      const token = response.data?.token || response.data?.data?.token;
+      const user = response.data?.user || response.data?.data?.user;
+
+      if (token) {
+        localStorage.setItem('token', token);
+        if (user) localStorage.setItem('user', JSON.stringify(user));
+        
+        // Redirect ke halaman dashboard atau admin setelah sukses
+        navigate('/admin/dashboard'); 
+      } else {
+        setError('Token tidak ditemukan dari server.');
+      }
+    } catch (err) {
+      setError(err.response?.data?.message || 'Login gagal. Periksa kembali Email/Username dan Password Anda.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
-    <>
+    <form noValidate onSubmit={handleSubmit}>
+      {error && (
+        <Box sx={{ mb: 2 }}>
+          <Alert severity="error">{error}</Alert>
+        </Box>
+      )}
+
       <CustomFormControl fullWidth>
         <InputLabel htmlFor="outlined-adornment-email-login">Email Address / Username</InputLabel>
-        <OutlinedInput id="outlined-adornment-email-login" type="email" value="info@codedthemes.com" name="email" />
+        <OutlinedInput 
+          id="outlined-adornment-email-login" 
+          type="text" 
+          value={email} 
+          onChange={(e) => setEmail(e.target.value)} 
+          name="email" 
+        />
       </CustomFormControl>
 
       <CustomFormControl fullWidth>
@@ -47,7 +98,8 @@ export default function AuthLogin() {
         <OutlinedInput
           id="outlined-adornment-password-login"
           type={showPassword ? 'text' : 'password'}
-          value="123456"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
           name="password"
           endAdornment={
             <InputAdornment position="end">
@@ -81,11 +133,11 @@ export default function AuthLogin() {
       </Grid>
       <Box sx={{ mt: 2 }}>
         <AnimateButton>
-          <Button color="secondary" fullWidth size="large" type="submit" variant="contained">
-            Sign In
+          <Button color="secondary" fullWidth size="large" type="submit" variant="contained" disabled={loading}>
+            {loading ? 'Signing in...' : 'Sign In'}
           </Button>
         </AnimateButton>
       </Box>
-    </>
+    </form>
   );
 }

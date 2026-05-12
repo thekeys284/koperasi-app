@@ -5,40 +5,43 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use App\Models\Category;
+use App\Http\Resources\Api\CategoryResource;
 
 class CategoryController extends Controller
 {
     public function index()
     {
-        $categories=Category::select('id','category_name')->get();
-        return response()->json([
-            'status'=> 'success',
-            'data'=>$categories
-        ],200);
+        $categories=Category::latest()->get();
+        return CategoryResource::collection($categories);
     }
 
 
     public function store(Request $request)
     {
         $validated=$request->validate([
-            'category_name'=>'required|string|unique:categories, category_name'
+            'name'=>'required|string|unique:categories,name',
+            'description'=>'nullable|string'
         ]);
         $category=Category::create($validated);
         return response()->json([
-            'status'=>'success',
-            'data'=>$category,
-            'message'=>"Kategori berhasil dibuat"
+            'message' => 'Kategori berhasil dibuat',
+            'category' => $category
         ],201);
     }
 
 
     public function show($id)
     {
-        $category=Category::findOrFail($id);
-        return response()->json([
-            'status'=>'success',
-            'data'=>$category
-        ],200);
+        try {
+        $category = Category::findOrFail($id);
+
+        return new CategoryResource($category);
+        } catch (\Exception $e) {
+            return response()->json([
+                'message' => 'Terjadi kesalahan di server',
+                'error' => $e->getMessage() 
+            ], 500);
+        }
     }
 
 
@@ -46,29 +49,32 @@ class CategoryController extends Controller
     {
         $category=Category::findOrFail($id);
         $validated=$request->validate([
-            'category_name'=>'required|string|unique:categories, category_name,'.$id
+            'name'=>'required|string|unique:categories,name,'.$id,
+            'description'=>'nullable|string'
         ]);
         $category->update($validated);
         return response()->json([
-            'status'=>'success',
-            'data'=>$category,
-            'message'=>'Kategori berhasil diperbarui'
+            'status' => 'success',
+            'message' => 'Data Category berhasil diperbarui',
+            'data' => new  CategoryResource($category)
         ],200);
     }
 
     public function destroy($id)
     {
         $category=Category::findOrFail($id);
-        if($category->products()->count()>0){
+        if ($category->products()->count() > 0) {
             return response()->json([
-                'status'=>error,
-                'message'=>'Kategori tidak bisa dihapus karena masih memiliki produk.'
-            ],422);
+                'status' => 'error',
+                'message' => 'Kategori tidak dapat dihapus karena masih memiliki produk yang terkait.'
+            ], 422);
         }
+
         $category->delete();
+
         return response()->json([
-            'status'=>'success',    
-            'message'=>'Kategori berhasil dihapus'
-        ],200);
+            'status' => 'success',
+            'message' => 'Category berhasil dihapus'
+        ], 200);
     }
 }

@@ -12,7 +12,7 @@ import AuthCardWrapper from './AuthCardWrapper';
 
 import Logo from 'ui-component/Logo';
 import AuthFooter from 'ui-component/cards/AuthFooter';
-import AuthRegister from '../auth-forms/AuthRegister';
+import AuthRegister from '../AuthRegister';
 
 export default function Register() {
   const downMD = useMediaQuery((theme) => theme.breakpoints.down('md'));
@@ -42,7 +42,7 @@ export default function Register() {
                 </Box>
                 <Divider sx={{ width: 1 }} />
                 <Stack sx={{ alignItems: 'center' }}>
-                  <Typography component={Link} to="/pages/login" variant="subtitle1" sx={{ textDecoration: 'none' }}>
+                  <Typography component={Link} to="/login" variant="subtitle1" sx={{ textDecoration: 'none' }}>
                     Already have an account?
                   </Typography>
                 </Stack>

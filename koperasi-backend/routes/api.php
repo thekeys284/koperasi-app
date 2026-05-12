@@ -1,11 +1,14 @@
 <?php
 use App\Http\Controllers\Api\UserController;
 use Illuminate\Support\Facades\Route;
-
-
 use App\Http\Controllers\Api\ProductController;
-use App\Http\Controllers\Api\TransactionController;
 use App\Http\Controllers\Api\CategoryController;
+use App\Http\Controllers\Api\UnitController;
+use App\Http\Controllers\Api\UnitConversionController;
+
+
+
+use App\Http\Controllers\Api\TransactionController;
 
 // API Master Data
 
@@ -14,30 +17,24 @@ use App\Http\Controllers\Api\ReportController;
 use App\Http\Controllers\Api\SubmissionController;
 use App\Http\Controllers\Api\CreditController;
 use App\Http\Controllers\Api\MasterController;
+use App\Http\Controllers\Api\AuthController;
+
+
+Route::post('/login', [AuthController::class, 'login']);
 
 // --- MASTER DATA ---
+
 Route::apiResource('users', UserController::class);
-// Route::prefix('users')->group(function(){
-//     Route::get('/', [UserController::class, 'index']);
-//     Route::post('/', [UserController::class, 'store']);
-//     Route::get('/{id}', [UserController::class, 'show']);
-//     Route::post('/{id}',[UserController::class, 'update']);
-//     Route::post('/delete/{id}', [UserController::class, 'destroy']);
-// });
+Route::apiResource('products', ProductController::class);
+Route::apiResource('categories', CategoryController::class);
+Route::apiResource('units', UnitController::class);
+Route::apiResource('unitconversion', UnitConversionController::class);
 
-Route::prefix('products')->group(function(){
-    Route::get('/', [ProductController::class, 'index']);
-    Route::post('/', [ProductController::class, 'store']);
-    Route::get('/{id}', [ProductController::class, 'show']);
-    Route::post('/{id}',[ProductController::class, 'update']);
-});
 
-Route::prefix('categories')->group(function(){
-    Route::get('/', [CategoryController::class, 'index']);
-    Route::post('/', [CategoryController::class, 'store']);
-    Route::get('/{id}', [CategoryController::class, 'show']);
-    Route::post('/{id}',[CategoryController::class, 'update']);
-});
+// Route::apiResource('users', UserController::class);
+// Route::apiResource('products', ProductController::class);
+// Route::apiResource('categories', CategoryController::class);
+
 // Route::get('/products', [ProductController::class, 'index']);
 // Route::get('/categories', [MasterController::class, 'categories']);
 // Route::get('/units', [MasterController::class, 'units']);

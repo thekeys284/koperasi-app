@@ -5,18 +5,15 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use App\Models\Product;
+use App\Http\Resources\Api\ProductResource;
 
 
 class ProductController extends Controller
 {
     public function index()
     {
-        $products = Product::with('category')->get();
-        return response()->json([
-            'status' => 'success',
-            'message' => 'Daftar produk berhasil diambil',
-            'data' => $products
-        ], 200);
+        $products = Product::latest()->get();
+        return ProductResource::collection($products);
     }
 
     public function store(Request $request)
@@ -24,12 +21,17 @@ class ProductController extends Controller
         $validated = $request->validate([
             'category_id' => 'required|exists:categories,id',
             'barcode' => 'required|unique:products,barcode',
-            'product_name' => 'required|string|max:150',
-            'product_detail' => 'nullable|string|max:150',
-            'current_selling_price' => 'required|numeric|min:0',
+            'name' => 'required|string|max:150',
+            'detail' => 'nullable|string|max:150',
+            'price' => 'required|numeric|min:0',
             'min_stock' => 'required|integer|min:0',
-            'is_active' => 'boolean'
+            'is_active' => 'nullable|boolean'
         ]);
+
+        if (isset($validated['price'])) {
+            $validated['current_selling_price'] = $validated['price'];
+            unset($validated['price']);
+        }
 
         $product = Product::create($validated);
 
@@ -42,44 +44,28 @@ class ProductController extends Controller
 
     public function show($id)
     {
-        $product = Product::with('category')->find($id);
-
-        if (!$product) {
-            return response()->json([
-                'status' => 'error',
-                'message' => 'Produk tidak ditemukan',
-                'data' => null
-            ], 404);
-        }
-
-        return response()->json([
-            'status' => 'success',
-            'message' => 'Produk berhasil diambil',
-            'data' => $product
-        ], 200);
+        $product = Product::findOrFail($id);
+        return new ProductResource($product);
     }
     
     public function update(Request $request, $id)
     {
-        $product = Product::find($id);
-
-        if (!$product) {
-            return response()->json([
-                'status' => 'error',
-                'message' => 'Produk tidak ditemukan',
-                'data' => null
-            ], 404);
-        }
+        $product = Product::findOrFail($id);
 
         $validated = $request->validate([
             'category_id' => 'sometimes|required|exists:categories,id',
             'barcode' => 'sometimes|required|unique:products,barcode,'.$id,
-            'product_name' => 'sometimes|required|string|max:150',
-            'product_detail' => 'nullable|string|max:150',
-            'current_selling_price' => 'sometimes|required|numeric|min:0',
+            'name' => 'sometimes|required|string|max:150',
+            'detail' => 'nullable|string|max:150',
+            'price' => 'sometimes|required|numeric|min:0',
             'min_stock' => 'sometimes|required|integer|min:0',
             'is_active' => 'boolean'
         ]);
+
+        if (isset($validated['price'])) {
+            $validated['current_selling_price'] = $validated['price'];
+            unset($validated['price']);
+        }
 
         $product->update($validated);
 
@@ -92,7 +78,7 @@ class ProductController extends Controller
 
     public function destroy($id)
     {
-        $product = Product::find($id);
+        $product = Product::findOrFail($id);
 
         if (!$product) {
             return response()->json([

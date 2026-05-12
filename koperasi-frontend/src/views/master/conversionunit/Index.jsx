@@ -2,55 +2,54 @@ import { useNavigate } from 'react-router-dom';
 import {useEffect,useState} from 'react';
 import {
     Table, TableBody, TableCell, TableHead, TableRow, Typography, TableContainer,
-    Paper, CircularProgress, Box, Chip, Button, TextField, InputAdornment, TablePagination,
+    Paper, CircularProgress, Box, Button, TextField, InputAdornment, TablePagination,
     Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle, Snackbar, Alert
 } from '@mui/material';
-import { IconSearch, IconPlus, IconEdit, IconTrash, IconPackage } from '@tabler/icons-react';
+import { IconSearch, IconEdit, IconTrash } from '@tabler/icons-react';
 import MainCard from '../../../components/cards/MainCard.jsx';
-import api from '@/api/axios';
+import api from '@/api/axios.js';
 
-const ProductPage = () => {
+const CategoryPage = () => {
     const navigate = useNavigate();
-    const [ products, setProducts ] = useState([]);
+    const [ categories, setCategories ] = useState([]);
     const [ loading, setLoading ] = useState(true);
     const [ openDelete, setOpenDelete ] = useState(false);
-    const [selectedId, setSelectedId] = useState(null);
+    const [ selectedId, setSelectedId ] = useState(null);
     const [ searchTerm, setSearchTerm ] = useState('');
     const [ page, setPage ] = useState(0);
     const [ rowsPerPage, setRowsPerPage ] = useState(10);
     const [snackbar, setSnackbar ] = useState({
         open: false,
         message: '',
-        severity: 'success' // bisa 'success', 'error', 'info', atau 'warning'
+        severity: 'success' 
     });
     const handleCloseSnackbar = () => {
         setSnackbar({ ...snackbar, open: false });
     };
 
     useEffect(() => {
-        fetchProducts();
+        fetchCategory();
     }, []);
 
-    const fetchProducts = async () => {
+    const fetchCategory = async () => {
         try {
             setLoading(true);
-            const response = await api.get('/products');
+            const response = await api.get('/categories');
             const results = response.data.data || [];
-            setProducts(results);
+            setCategories(results);
         } catch (error) {
-            console.error("Gagal mengambil data produk:", error);
-            setProducts([]);
+            console.error("Gagal mengambil data kategori:", error);
+            setCategories([]);
         } finally {
             setLoading(false);
         }
     };
 
     // filer dan pagination
-    const filteredProducts = products.filter((item) =>
-        item.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        item.barcode?.includes(searchTerm)
+    const filteredCategories = categories.filter((item) =>
+        (item.name || '').toLowerCase().includes((searchTerm || '').toLowerCase())
     );
-    const paginatedProducts = filteredProducts.slice(
+    const paginatedCategories = filteredCategories.slice(
         page * rowsPerPage,
         page * rowsPerPage + rowsPerPage
     );
@@ -79,21 +78,21 @@ const ProductPage = () => {
     };
 
     const handleAdd = () => {
-        navigate('/admin/products/add');
+        navigate('/admin/categories/add');
     };
 
     const handleEdit = (id) => {
-        console.log("Edit product ID:", id);
-        navigate(`/admin/products/edit/${id}`);
+        console.log("Edit category ID:", id);
+        navigate(`/admin/categories/edit/${id}`);
     };
     const handleDelete = async () => {
             try {
-                await api.delete(`/products/${selectedId}`);
-                setProducts(prev => prev.filter(product => product.id !== selectedId));
+                await api.delete(`/categories/${selectedId}`);
+                setCategories(prev => prev.filter(category => category.id !== selectedId));
                 handleCloseDelete();
                 setSnackbar({
                     open: true,
-                    message: 'Data produk berhasil dihapus!',
+                    message: 'Data kategori berhasil dihapus!',
                     severity: 'success'
                 });
             } catch (error) {
@@ -106,10 +105,10 @@ const ProductPage = () => {
         };
 
     return (
-        <MainCard title="Daftar Barang">
+        <MainCard title="Daftar Kategori">
             <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 3, flexWrap: 'wrap', gap: 2 }}>
                 <TextField
-                    placeholder='Cari Barang atau Barcode'
+                    placeholder='Cari Kategori...'
                     size='small'
                     value={searchTerm}
                     onChange={handleSearch}
@@ -123,7 +122,7 @@ const ProductPage = () => {
                     sx={{ minWidth: 200, flex: 1, maxWidth: 400 }} // field bisa fleksibel tapi tetap maksimal 400px
                 />
                 <Button variant='contained' color='primary' onClick={handleAdd}>
-                    Tambah Barang
+                    Tambah Kategori
                 </Button>
             </Box>
         {loading ? (
@@ -134,52 +133,31 @@ const ProductPage = () => {
                     <Table stickyHeader size='small'>
                         <TableHead>
                             <TableRow>
-                                <TableCell>Barcode</TableCell>
-                                <TableCell>Nama Produk</TableCell>
-                                <TableCell align='center'>Minimum Stok</TableCell>
-                                <TableCell align='right'>Harga Jual</TableCell>
+                                <TableCell>Nama Kategori</TableCell>
+                                <TableCell>Deskripsi Kategori</TableCell>
                                 <TableCell align='center'>Aksi</TableCell>
                             </TableRow>
                         </TableHead>
                         <TableBody>
-                            {paginatedProducts.length > 0 ?(
-                                paginatedProducts.map((row)=>(
+                            {paginatedCategories.length > 0 ?(
+                                paginatedCategories.map((row)=>(
                                     <TableRow key={row.id} hover>
-                                        <TableCell>{row.barcode}</TableCell>
+                                        <TableCell>{row.name}</TableCell>
                                         <TableCell>
-                                            <Typography variant='subtitle2'>{row.name}</Typography>
-                                            <Typography variant='caption'>{row.category?.category_name}</Typography>
-                                        </TableCell>
-                                        <TableCell align="center">
-                                            <Typography color={row.total_stock <= row.min_stock ? 'error' : 'inherit'}>
-                                                {row.total_stock || 0}
-                                            </Typography>
-                                        </TableCell>
-                                        <TableCell align='right'>
-                                            Rp {new Intl.NumberFormat('id-ID').format(row.price)}
+                                            <Typography variant='subtitle2'>{row.description}</Typography>
                                         </TableCell>
                                         <TableCell align='center'>
-                                            <Button size='small' onClick={()=>navigate(`/admin/products/edit/${row.id}`)}>
+                                        <Button size='small' onClick={()=>handleEdit(row.id)}>
                                                 <IconEdit size={16}/>
                                             </Button>
-                                            <Button size='small' color='error'
-                                                onClick={async () => {
-                                                    if(window.confirm('Yakin ingin menghapus produk ini?')) {
-                                                    try {
-                                                        await api.delete(`/products/${row.id}`);
-                                                        fetchProducts(); // refresh tabel
-                                                    } catch(err) {
-                                                        console.error('Gagal menghapus produk', err);
-                                                    }
-                                                    }
-                                                }}>
+                                        <Button size='small' color='error' onClick={() => handleOpenDelete(row.id)}>
                                                 <IconTrash size='16'/>
                                             </Button>
                                         </TableCell>
                                     </TableRow>
-                                ))):(
+                            ))) : (
                                     <TableRow>
-                                        <TableCell colSpan={5} align='center' sx={{py:3}}>Data tidak ditemukan</TableCell>
+                                    <TableCell colSpan={3} align='center' sx={{py:3}}>Data tidak ditemukan</TableCell>
                                     </TableRow>
                             )}
                         </TableBody>
@@ -188,7 +166,7 @@ const ProductPage = () => {
                 <TablePagination
                     rowsPerPageOptions={[5,10,25]}
                     component='div'
-                    count={filteredProducts.length}
+                    count={filteredCategories.length}
                     rowsPerPage={rowsPerPage}
                     page={page}
                     onPageChange={handleChangePage}
@@ -211,7 +189,7 @@ const ProductPage = () => {
                 </DialogTitle>
                 <DialogContent>
                     <DialogContentText id="alert-dialog-description">
-                        Apakah Anda yakin ingin menghapus produk ini? Tindakan ini tidak dapat dibatalkan.
+                        Apakah Anda yakin ingin menghapus kategori ini? Tindakan ini tidak dapat dibatalkan.
                     </DialogContentText>
                 </DialogContent>
                 <DialogActions sx={{ px: 3, pb: 2 }}>
@@ -242,4 +220,4 @@ const ProductPage = () => {
     );
 };
 
-export default ProductPage;
+export default ConvUnitPage;

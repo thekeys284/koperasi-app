@@ -9,7 +9,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 class Product extends Model
 {
     protected $fillable =[
-        'category_id','barcod', 'product_name','product_detail','current_selling_price','min_stock','is_active'
+        'category_id','barcode', 'name','detail','current_selling_price','min_stock','is_active'
     ];
 
     // relasi ke kategori

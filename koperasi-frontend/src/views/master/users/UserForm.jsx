@@ -136,8 +136,6 @@ const UserForm = () =>{
                 message: isEdit ? 'Data anggota berhasil diperbarui!' : 'Anggota baru berhasil ditambahkan!',
                 severity: 'success'
             });
-
-            // 2. Beri jeda 1.5 detik agar user bisa baca pesan suksesnya, baru pindah halaman
             setTimeout(() => {
                 navigate('/admin/users');
             }, 1500);

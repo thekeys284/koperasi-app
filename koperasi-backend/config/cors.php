@@ -19,7 +19,7 @@ return [
 
     'allowed_methods' => ['*'],
 
-    'allowed_origins' => ['http://localhost:5173'],//disini bisa diubah url react saja
+    'allowed_origins' => ['*'],//disini bisa diubah url react saja
 
     'allowed_origins_patterns' => [],
 

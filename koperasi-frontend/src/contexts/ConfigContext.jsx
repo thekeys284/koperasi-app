@@ -2,7 +2,7 @@ import PropTypes from 'prop-types';
 import { createContext, useMemo } from 'react';
 
 // project imports
-import config from 'config';
+import config from '../config';
 import { useLocalStorage } from 'hooks/useLocalStorage';
 
 // ==============================|| CONFIG CONTEXT ||============================== //
