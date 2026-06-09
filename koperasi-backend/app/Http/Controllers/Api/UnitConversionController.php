@@ -11,7 +11,7 @@ class UnitConversionController extends Controller
 {
     public function index()
     {
-        $unitconv=UnitConversion::latest()->get();
+        $unitconv=UnitConversion::with(['fromUnit', 'toUnit'])->orderBy('id', 'desc')->get();
         return UnitConversionResource::collection($unitconv);
     }
 
@@ -19,7 +19,7 @@ class UnitConversionController extends Controller
     public function store(Request $request)
     {
         $validated=$request->validate([
-            'product_id'=>'required|integer',
+            'name'=>'required|string|max:255',
             'from_unit_id'=> 'required|integer',
             'to_unit_id'=>'required|integer',
             'multiplier'=>'required|integer'
@@ -36,7 +36,7 @@ class UnitConversionController extends Controller
     public function show($id)
     {
         try {
-        $unitconv = UnitConversion::findOrFail($id);
+        $unitconv = UnitConversion::with(['fromUnit', 'toUnit'])->findOrFail($id);
 
         return new UnitConversionResource($unitconv);
         } catch (\Exception $e) {
@@ -52,7 +52,7 @@ class UnitConversionController extends Controller
     {
         $unitconv=UnitConversion::findOrFail($id);
         $validated=$request->validate([
-            'product_id'=>'required|integer',
+            'name'=>'required|string|max:255',
             'from_unit_id'=> 'required|integer',
             'to_unit_id'=>'required|integer',
             'multiplier'=>'required|integer'

@@ -11,10 +11,12 @@ class UnitConversionResource extends JsonResource
     {
         return [
             'id' => $this->id,
-            'product_id' => $this->product_id,
+            'name' => $this->name,
             'from_unit_id' => $this->from_unit_id,
             'to_unit_id' => $this->to_unit_id,
-            'multiplier' => $this->multiplier
+            'multiplier' => $this->multiplier,
+            'from_unit' => $this->whenLoaded('fromUnit'),
+            'to_unit' => $this->whenLoaded('toUnit'),
         ];
     }
 }

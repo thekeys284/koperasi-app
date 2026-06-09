@@ -46,6 +46,10 @@ CREATE TABLE IF NOT EXISTS `products` (
 ) ENGINE=InnoDB;
 CREATE INDEX idx_products_name ON products(name);
 
+ALTER TABLE `products` 
+ADD COLUMN `unit_conversion_id` BIGINT UNSIGNED NULL,
+ADD FOREIGN KEY (`unit_conversion_id`) REFERENCES `unit_conversions`(`id`);
+
 -- price logs
 CREATE TABLE IF NOT EXISTS `price_logs` (
   id BIGINT UNSIGNED PRIMARY KEY AUTO_INCREMENT,
@@ -205,56 +209,48 @@ CREATE TABLE IF NOT EXISTS `submissions` (
   FOREIGN KEY (chairman_id) REFERENCES users(id)
 ) ENGINE=InnoDB;
 
--- loans (Pengajuan Pinjaman)
-CREATE TABLE IF NOT EXISTS loans (
+-- loans (Pinjaman Uang yang Sedang Berjalan)
+CREATE TABLE IF NOT EXISTS `loans` (
   id BIGINT UNSIGNED PRIMARY KEY AUTO_INCREMENT,
+  submission_id BIGINT UNSIGNED NOT NULL, -- Referensi dari pengajuan yang di-acc
   user_id BIGINT UNSIGNED NOT NULL,
-  jenis_pinjaman TINYINT(1) NOT NULL,
-  -- 0 = new produktif
-  -- 1 = new konsumtif
-  -- 2 = topup produktif
-  -- 3 = topup konsumtif
-  refers_to_loan_id BIGINT UNSIGNED NULL,
-  jumlah_pinjaman DECIMAL(15,2) NOT NULL,
-  lama_pembayaran INT NOT NULL,
-  tanggal_mulai_cicilan DATE NOT NULL,
-  status_pengajuan ENUM('pending', 'pending_pengajuan', 'disetujui_ketua', 'postpone', 'rejected', 'paid') DEFAULT 'pending',
-  postpone_cicilan_id BIGINT UNSIGNED NULL,
-  postpone_decision ENUM('approved', 'rejected') NULL,
-  file_path VARCHAR(255) NULL,
-  reason TEXT NULL,
-  tanggal_pengajuan TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  FOREIGN KEY (user_id) REFERENCES users(id),
-  FOREIGN KEY (refers_to_loan_id) REFERENCES loans(id) ON DELETE SET NULL
+  
+  total_loan DECIMAL(12,2) NOT NULL, -- Total pinjaman awal + bunga (jika ada)
+  remaining_loan DECIMAL(12,2) NOT NULL, -- Sisa hutang yang belum lunas
+  
+  monthly_installment DECIMAL(12,2) NOT NULL, -- Nominal yang harus dibayar tiap bulan
+  start_date DATE NOT NULL, -- Bulan mulai cicilan
+  end_date DATE NOT NULL, -- Bulan perkiraan lunas
+  
+  -- Status: 'ACTIVE', 'PAID', 'BAD_DEBT'
+  status ENUM('ACTIVE', 'PAID', 'BAD_DEBT') DEFAULT 'ACTIVE',
+  
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (submission_id) REFERENCES submissions(id),
+  FOREIGN KEY (user_id) REFERENCES users(id)
 ) ENGINE=InnoDB;
 
-CREATE INDEX idx_loans_refers_to_loan_id ON loans(refers_to_loan_id);
-
--- loan_approvals (Riwayat Persetujuan Pinjaman)
-CREATE TABLE IF NOT EXISTS loan_approvals (
+-- loan_recap_items (Catatan Rekap Bulanan)
+CREATE TABLE IF NOT EXISTS `loan_recap_items` (
   id BIGINT UNSIGNED PRIMARY KEY AUTO_INCREMENT,
   loan_id BIGINT UNSIGNED NOT NULL,
-  approver_id BIGINT UNSIGNED NOT NULL,
-  role ENUM('pj_toko', 'ketua') NOT NULL,
-  decision ENUM('approved', 'rejected', 'postponed') NOT NULL,
-  note TEXT NULL,
-  actioned_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  FOREIGN KEY (loan_id) REFERENCES loans(id) ON DELETE CASCADE,
-  FOREIGN KEY (approver_id) REFERENCES users(id)
-) ENGINE=InnoDB;
-
--- loan_cicilan (Cicilan)
-CREATE TABLE IF NOT EXISTS loan_cicilan (
-  id BIGINT UNSIGNED PRIMARY KEY AUTO_INCREMENT,
-  loans_id BIGINT UNSIGNED NOT NULL,
-  cicilan INT NOT NULL,
-  tanggal_pembayaran DATE NOT NULL,
-  nominal DECIMAL(15,2) NOT NULL,
-  status_pembayaran ENUM('pending', 'paid', 'postponed') DEFAULT 'pending',
-  status_updated_at TIMESTAMP NULL,
-  postponement_reason TEXT NULL,
-  pjtoko_note TEXT NULL,
-  FOREIGN KEY (loans_id) REFERENCES loans(id) ON DELETE CASCADE
+  
+  recap_month INT NOT NULL, -- Bulan (1-12)
+  recap_year INT NOT NULL, -- Tahun (2026)
+  
+  amount_to_pay DECIMAL(12,2) NOT NULL, -- Nominal tagihan bulan ini
+  
+  -- Status dari Keuangan: 'PENDING', 'SUCCESS', 'FAILED'
+  payment_status ENUM('PENDING', 'SUCCESS', 'FAILED') DEFAULT 'PENDING',
+  
+  processed_by BIGINT UNSIGNED NULL, -- Siapa orang keuangan yang konfirmasi
+  processed_at TIMESTAMP NULL,
+  
+  note TEXT NULL, -- Catatan jika gagal bayar
+  
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (loan_id) REFERENCES loans(id),
+  FOREIGN KEY (processed_by) REFERENCES users(id)
 ) ENGINE=InnoDB;
 
 

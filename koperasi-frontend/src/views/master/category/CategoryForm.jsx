@@ -65,7 +65,7 @@ const CategoryForm = () =>{
                 severity: 'success'
             });
             setTimeout(() => {
-                navigate('/admin/categories');
+                navigate('/master/categories');
             }, 1500);
         } catch(error){
             setSnackbar({
@@ -119,7 +119,7 @@ const CategoryForm = () =>{
                         <Button
                             variant="outlined"
                             color="secondary"
-                            onClick={() => navigate('/admin/categories')}
+                            onClick={() => navigate('/master/categories')}
                         >
                             Batal
                         </Button>

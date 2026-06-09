@@ -9,7 +9,7 @@ import { IconSearch, IconEdit, IconTrash } from '@tabler/icons-react';
 import MainCard from '../../../components/cards/MainCard.jsx';
 import api from '@/api/axios.js';
 
-const CategoryPage = () => {
+const ConvUnitPage = () => {
     const navigate = useNavigate();
     const [ categories, setCategories ] = useState([]);
     const [ loading, setLoading ] = useState(true);
@@ -34,11 +34,11 @@ const CategoryPage = () => {
     const fetchCategory = async () => {
         try {
             setLoading(true);
-            const response = await api.get('/categories');
+            const response = await api.get('/unitconversion');
             const results = response.data.data || [];
             setCategories(results);
         } catch (error) {
-            console.error("Gagal mengambil data kategori:", error);
+            console.error("Gagal mengambil data konversi:", error);
             setCategories([]);
         } finally {
             setLoading(false);
@@ -78,21 +78,21 @@ const CategoryPage = () => {
     };
 
     const handleAdd = () => {
-        navigate('/admin/categories/add');
+        navigate('/master/conversionunit/add');
     };
 
     const handleEdit = (id) => {
-        console.log("Edit category ID:", id);
-        navigate(`/admin/categories/edit/${id}`);
+        console.log("Edit conversion ID:", id);
+        navigate(`/master/conversionunit/edit/${id}`);
     };
     const handleDelete = async () => {
             try {
-                await api.delete(`/categories/${selectedId}`);
+                await api.delete(`/unitconversion/${selectedId}`);
                 setCategories(prev => prev.filter(category => category.id !== selectedId));
                 handleCloseDelete();
                 setSnackbar({
                     open: true,
-                    message: 'Data kategori berhasil dihapus!',
+                    message: 'Data konversi berhasil dihapus!',
                     severity: 'success'
                 });
             } catch (error) {
@@ -105,10 +105,10 @@ const CategoryPage = () => {
         };
 
     return (
-        <MainCard title="Daftar Kategori">
+        <MainCard title="Daftar Konversi Unit">
             <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 3, flexWrap: 'wrap', gap: 2 }}>
                 <TextField
-                    placeholder='Cari Kategori...'
+                    placeholder='Cari Konversi...'
                     size='small'
                     value={searchTerm}
                     onChange={handleSearch}
@@ -122,7 +122,7 @@ const CategoryPage = () => {
                     sx={{ minWidth: 200, flex: 1, maxWidth: 400 }} // field bisa fleksibel tapi tetap maksimal 400px
                 />
                 <Button variant='contained' color='primary' onClick={handleAdd}>
-                    Tambah Kategori
+                    Tambah Konversi
                 </Button>
             </Box>
         {loading ? (
@@ -157,7 +157,7 @@ const CategoryPage = () => {
                                     </TableRow>
                             ))) : (
                                     <TableRow>
-                                    <TableCell colSpan={3} align='center' sx={{py:3}}>Data tidak ditemukan</TableCell>
+                                    <TableCell colSpan={5} align='center' sx={{py:3}}>Data tidak ditemukan</TableCell>
                                     </TableRow>
                             )}
                         </TableBody>

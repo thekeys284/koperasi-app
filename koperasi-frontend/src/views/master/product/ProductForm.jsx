@@ -13,10 +13,12 @@ const ProductForm = () =>{
     const isEdit = Boolean(id);
     const [loading, setLoading]=useState(false);
     const [categories, setCategories]=useState([]);
+    const [units, setUnits] = useState([]);
     const [fetching, setFetching] = useState(false);
 
     const [formData, setFormData] = useState({
         category_id:'',
+        unit_id: '',
         barcode:'',
         name:'',
         detail:'',
@@ -36,6 +38,7 @@ const ProductForm = () =>{
 
     useEffect(()=>{
         api.get('/categories').then(res => setCategories(res.data.data || []));
+        api.get('/units').then(res => setUnits(res.data.data || []));
         if (isEdit) { 
             setFetching(true);
             api.get(`/products/${id}`)
@@ -44,6 +47,7 @@ const ProductForm = () =>{
                         const product = res.data.data;
                         setFormData({
                             category_id: product.category_id || '',
+                            unit_id: product.unit_id || '',
                             barcode : product.barcode || '',
                             name : product.name || '',
                             detail : product.detail || '',
@@ -73,7 +77,7 @@ const ProductForm = () =>{
                 severity: 'success'
             });
             setTimeout(() => {
-                navigate('/admin/products');
+                navigate('/master/products');
             }, 1500);
         } catch(error){
             setSnackbar({
@@ -138,7 +142,7 @@ const ProductForm = () =>{
                             renderInput={(params)=><TextField {...params} label="Kategori Barang" required />}
                         />
                     </Grid>
-                                        <Grid size={{ xs: 12, sm: 2 }}
+                    <Grid size={{ xs: 12, sm: 2 }}
                         sx={{
                             display: 'flex',
                             alignItems: 'center'
@@ -217,6 +221,28 @@ const ProductForm = () =>{
                             onChange={(e)=>setFormData({...formData, min_stock:e.target.value})}
                         />
                     </Grid>
+                    <Grid size={{ xs: 12, sm: 2 }}
+                        sx={{
+                            display: 'flex',
+                            justifyContent:'right',
+                            alignItems: 'center'
+                        }}>
+                        <Typography variant="body1">
+                            <b>Satuan unit yang digunakan</b>
+                        </Typography>
+                    </Grid>
+                    <Grid size={{xs:12, sm:4}}>
+                        <Autocomplete
+                            options={units}
+                            getOptionLabel={(option) => option.name || ''}
+                            value={units.find((c)=> c.id === formData.unit_id) || null}
+                            onChange={(event, newValue)=>{
+                                setFormData({...formData, unit_id:newValue?.id || ''});
+                            }}
+                            renderInput={(params)=><TextField {...params} label="Unit" required />}
+                        />
+                    </Grid>
+
                     <Grid item xs={12} sm={4}>
                         <FormControlLabel
                         control={
@@ -235,7 +261,7 @@ const ProductForm = () =>{
                         <Button
                             variant="outlined"
                             color="secondary"
-                            onClick={() => navigate('/admin/products')}
+                            onClick={() => navigate('/master/products')}
                         >
                             Batal
                         </Button>

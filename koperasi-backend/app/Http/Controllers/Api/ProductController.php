@@ -5,6 +5,9 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use App\Models\Product;
+use App\Models\Unit;
+use App\Models\UnitConversion;
+use App\Models\Category;
 use App\Http\Resources\Api\ProductResource;
 
 
@@ -12,7 +15,7 @@ class ProductController extends Controller
 {
     public function index()
     {
-        $products = Product::latest()->get();
+        $products = Product::with(['category', 'unit', 'unitConversion'])->latest()->get();
         return ProductResource::collection($products);
     }
 
@@ -20,6 +23,7 @@ class ProductController extends Controller
     {
         $validated = $request->validate([
             'category_id' => 'required|exists:categories,id',
+            'unit_id'=> 'required|exists:units,id',
             'barcode' => 'required|unique:products,barcode',
             'name' => 'required|string|max:150',
             'detail' => 'nullable|string|max:150',
@@ -44,7 +48,7 @@ class ProductController extends Controller
 
     public function show($id)
     {
-        $product = Product::findOrFail($id);
+        $product = Product::with(['category', 'unit', 'unitConversion'])->findOrFail($id);
         return new ProductResource($product);
     }
     
@@ -53,13 +57,14 @@ class ProductController extends Controller
         $product = Product::findOrFail($id);
 
         $validated = $request->validate([
-            'category_id' => 'sometimes|required|exists:categories,id',
-            'barcode' => 'sometimes|required|unique:products,barcode,'.$id,
-            'name' => 'sometimes|required|string|max:150',
-            'detail' => 'nullable|string|max:150',
-            'price' => 'sometimes|required|numeric|min:0',
-            'min_stock' => 'sometimes|required|integer|min:0',
-            'is_active' => 'boolean'
+            'category_id' => 'required|exists:categories,id',
+            'unit_id'=> 'required|exists:units,id',
+            'barcode' => 'required|unique:products,barcode,' . $id,
+            'name' => 'required|string|max:150',
+            'detail' => 'nullable|string',
+            'price' => 'required|numeric|min:0',
+            'min_stock' => 'required|integer|min:0',
+            'is_active' => 'nullable|boolean'
         ]);
 
         if (isset($validated['price'])) {

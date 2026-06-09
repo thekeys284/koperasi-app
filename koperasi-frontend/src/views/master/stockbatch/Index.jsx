@@ -2,54 +2,55 @@ import { useNavigate } from 'react-router-dom';
 import {useEffect,useState} from 'react';
 import {
     Table, TableBody, TableCell, TableHead, TableRow, Typography, TableContainer,
-    Paper, CircularProgress, Box, Button, TextField, InputAdornment, TablePagination,
+    Paper, CircularProgress, Box, Chip, Button, TextField, InputAdornment, TablePagination,
     Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle, Snackbar, Alert
 } from '@mui/material';
-import { IconSearch, IconEdit, IconTrash } from '@tabler/icons-react';
+import { IconSearch, IconPlus, IconEdit, IconTrash, IconPackage } from '@tabler/icons-react';
 import MainCard from '../../../components/cards/MainCard.jsx';
-import api from '@/api/axios.js';
+import api from '@/api/axios';
 
-const CategoryPage = () => {
+const StockBatchPage = () => {
     const navigate = useNavigate();
-    const [ categories, setCategories ] = useState([]);
+    const [ stockbatch, setStockbatch ] = useState([]);
     const [ loading, setLoading ] = useState(true);
     const [ openDelete, setOpenDelete ] = useState(false);
-    const [ selectedId, setSelectedId ] = useState(null);
+    const [selectedId, setSelectedId] = useState(null);
     const [ searchTerm, setSearchTerm ] = useState('');
     const [ page, setPage ] = useState(0);
     const [ rowsPerPage, setRowsPerPage ] = useState(10);
     const [snackbar, setSnackbar ] = useState({
         open: false,
         message: '',
-        severity: 'success' 
+        severity: 'success'
     });
     const handleCloseSnackbar = () => {
         setSnackbar({ ...snackbar, open: false });
     };
 
     useEffect(() => {
-        fetchCategory();
+        fetchStockBatch();
     }, []);
 
-    const fetchCategory = async () => {
+    const fetchStockBatch = async () => {
         try {
             setLoading(true);
-            const response = await api.get('/categories');
+            const response = await api.get('/stockbatch');
             const results = response.data.data || [];
-            setCategories(results);
+            setStockbatch(results);
         } catch (error) {
-            console.error("Gagal mengambil data kategori:", error);
-            setCategories([]);
+            console.error("Gagal mengambil data stock:", error);
+            setStockbatch([]);
         } finally {
             setLoading(false);
         }
     };
 
     // filer dan pagination
-    const filteredCategories = categories.filter((item) =>
-        (item.name || '').toLowerCase().includes((searchTerm || '').toLowerCase())
+    const filteredStockbatch = stockbatch.filter((item) =>
+        (item.product?.name || '').toLowerCase().includes((searchTerm || '').toLowerCase()) ||
+        (item.barcode || '').toLowerCase().includes((searchTerm || '').toLowerCase())
     );
-    const paginatedCategories = filteredCategories.slice(
+    const paginatedStockbatch = filteredStockbatch.slice(
         page * rowsPerPage,
         page * rowsPerPage + rowsPerPage
     );
@@ -78,37 +79,38 @@ const CategoryPage = () => {
     };
 
     const handleAdd = () => {
-        navigate('/master/categories/add');
+        navigate('/master/stocks/add');
     };
 
     const handleEdit = (id) => {
-        console.log("Edit category ID:", id);
-        navigate(`/master/categories/edit/${id}`);
+        console.log("Edit Stock ID:", id);
+        navigate(`/master/stocks/edit/${id}`);
     };
     const handleDelete = async () => {
             try {
-                await api.delete(`/categories/${selectedId}`);
-                setCategories(prev => prev.filter(category => category.id !== selectedId));
+                await api.delete(`/stockbatch/${selectedId}`);
+                setStockbatch(prev => prev.filter(product => product.id !== selectedId));
                 handleCloseDelete();
                 setSnackbar({
                     open: true,
-                    message: 'Data kategori berhasil dihapus!',
+                    message: 'Data produk berhasil dihapus!',
                     severity: 'success'
                 });
             } catch (error) {
+                handleCloseDelete();
                 setSnackbar({
                     open: true,
-                    message: 'Gagal menghapus data',
+                    message: error.response?.data?.message || 'Gagal menghapus data',
                     severity: 'error'
                 });
             }
         };
 
     return (
-        <MainCard title="Daftar Kategori">
+        <MainCard title="Daftar Stock Barang">
             <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 3, flexWrap: 'wrap', gap: 2 }}>
                 <TextField
-                    placeholder='Cari Kategori...'
+                    placeholder='Cari Stock Barang'
                     size='small'
                     value={searchTerm}
                     onChange={handleSearch}
@@ -119,10 +121,10 @@ const CategoryPage = () => {
                             </InputAdornment>
                         ),
                     }}
-                    sx={{ minWidth: 200, flex: 1, maxWidth: 400 }} // field bisa fleksibel tapi tetap maksimal 400px
+                    sx={{ minWidth: 200, flex: 1, maxWidth: 400 }}
                 />
                 <Button variant='contained' color='primary' onClick={handleAdd}>
-                    Tambah Kategori
+                    Tambah Stock Barang
                 </Button>
             </Box>
         {loading ? (
@@ -133,31 +135,47 @@ const CategoryPage = () => {
                     <Table stickyHeader size='small'>
                         <TableHead>
                             <TableRow>
-                                <TableCell>Nama Kategori</TableCell>
-                                <TableCell>Deskripsi Kategori</TableCell>
+                                <TableCell align='center'>Nama Produk</TableCell>
+                                <TableCell align='center'>Sisa Stock</TableCell>
+                                <TableCell align='center'>Harga Beli (Kulakan)</TableCell>
+                                <TableCell align='center'>Expiry Date</TableCell>
+                                <TableCell align='center'>Tanggal Input</TableCell>
                                 <TableCell align='center'>Aksi</TableCell>
                             </TableRow>
                         </TableHead>
                         <TableBody>
-                            {paginatedCategories.length > 0 ?(
-                                paginatedCategories.map((row)=>(
+                            {paginatedStockbatch.length > 0 ?(
+                                paginatedStockbatch.map((row)=>(
                                     <TableRow key={row.id} hover>
-                                        <TableCell>{row.name}</TableCell>
-                                        <TableCell>
-                                            <Typography variant='subtitle2'>{row.description}</Typography>
+                                        <TableCell>{row.product?.name || 'Produk Tidak Diketahui'}</TableCell>
+                                        <TableCell  align='center'>
+                                            <Typography variant='subtitle2'>{row.remaining_qty}</Typography>
+                                        </TableCell>
+                                        <TableCell  align='center'>
+                                            <Typography variant='subtitle2'>{row.purchase_price}</Typography>
                                         </TableCell>
                                         <TableCell align='center'>
-                                        <Button size='small' onClick={()=>handleEdit(row.id)}>
+                                            <Typography color={row.expiry_date <= row.expiry_date ? 'error' : 'inherit'}>
+                                                {row.expiry_date || 0}
+                                            </Typography>
+                                        </TableCell>
+                                        <TableCell align='center'>
+                                            <Typography variant='body2' color='textSecondary'>
+                                                {row.received_at || 0}
+                                            </Typography>
+                                        </TableCell>
+                                        <TableCell align='center'>
+                                            <Button size='small' onClick={()=>navigate(`/master/stocks/edit/${row.id}`)}>
                                                 <IconEdit size={16}/>
                                             </Button>
-                                        <Button size='small' color='error' onClick={() => handleOpenDelete(row.id)}>
+                                            <Button size='small' color='error' onClick={() => handleOpenDelete(row.id)}>
                                                 <IconTrash size='16'/>
                                             </Button>
                                         </TableCell>
                                     </TableRow>
-                            ))) : (
+                                ))):(
                                     <TableRow>
-                                    <TableCell colSpan={3} align='center' sx={{py:3}}>Data tidak ditemukan</TableCell>
+                                        <TableCell colSpan={5} align='center' sx={{py:3}}>Data tidak ditemukan</TableCell>
                                     </TableRow>
                             )}
                         </TableBody>
@@ -166,7 +184,7 @@ const CategoryPage = () => {
                 <TablePagination
                     rowsPerPageOptions={[5,10,25]}
                     component='div'
-                    count={filteredCategories.length}
+                    count={filteredStockbatch.length}
                     rowsPerPage={rowsPerPage}
                     page={page}
                     onPageChange={handleChangePage}
@@ -189,7 +207,7 @@ const CategoryPage = () => {
                 </DialogTitle>
                 <DialogContent>
                     <DialogContentText id="alert-dialog-description">
-                        Apakah Anda yakin ingin menghapus kategori ini? Tindakan ini tidak dapat dibatalkan.
+                        Apakah Anda yakin ingin menghapus stock produk ini? Tindakan ini tidak dapat dibatalkan.
                     </DialogContentText>
                 </DialogContent>
                 <DialogActions sx={{ px: 3, pb: 2 }}>
@@ -220,4 +238,4 @@ const CategoryPage = () => {
     );
 };
 
-export default CategoryPage;
+export default StockBatchPage;

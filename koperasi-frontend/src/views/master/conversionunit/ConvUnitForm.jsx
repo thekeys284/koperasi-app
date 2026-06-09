@@ -14,10 +14,9 @@ const ConvUnitForm = () =>{
     const [loading, setLoading]=useState(false);
     const [units, setunits]=useState([]);
     const [fetching, setFetching] = useState(false);
-    const [products, setProducts] = useState([]);
 
     const [formData, setFormData] = useState({
-        product_id: '',
+        name: '',
         from_unit_id: '',
         to_unit_id: '',
         multiplier: '',
@@ -34,7 +33,6 @@ const ConvUnitForm = () =>{
 
     useEffect(()=>{
         api.get('/units').then(res => setunits(res.data.data || []));
-        api.get('/products').then(res => setProducts(res.data.data || []));
         if (isEdit) { 
             setFetching(true);
             api.get(`/unitconversion/${id}`)
@@ -42,7 +40,7 @@ const ConvUnitForm = () =>{
                     if (res.data && res.data.data) {
                         const convUnit = res.data.data;
                         setFormData({
-                            product_id: convUnit.product_id || '',
+                            name: convUnit.name || '',
                             from_unit_id: convUnit.from_unit_id || '',
                             to_unit_id: convUnit.to_unit_id || '',
                             multiplier: convUnit.multiplier || '',
@@ -69,7 +67,7 @@ const ConvUnitForm = () =>{
                 severity: 'success'
             });
             setTimeout(() => {
-                navigate('/admin/conversionunit');
+                navigate('/master/conversionunit');
             }, 1500);
         } catch(error){
             setSnackbar({
@@ -87,83 +85,77 @@ const ConvUnitForm = () =>{
     return (
         <MainCard title={isEdit ? "Edit Konversi Unit" : "Tambah Konversi Baru"}>
             <form onSubmit={handleSubmit}>
-                <Grid container spacing={2} alignItems="center">
-                    <Grid item xs={12} sm={2}
+                <Grid container spacing={3}>
+                    <Grid size={{ xs: 12, sm: 2 }}
                         sx={{
                             display: 'flex',
-                            justifyContent:'right',
                             alignItems: 'center'
                         }}>
                         <Typography variant="body1">
-                            <b>Pilih Produk</b>
+                            <b>Nama Konversi</b>
                         </Typography>
                     </Grid>
-                    <Grid item xs={12} sm={4}>
+                    <Grid size={{xs:12, sm:10}}>
                         <TextField
-                            select fullWidth label="Pilih Produk"
+                            fullWidth label="Nama Konversi"
                             required
-                            value={formData.product_id}
-                            onChange={(e)=>setFormData({...formData, product_id: e.target.value})}>
-                                {products.map((product) => (
-                                    <MenuItem key={product.id} value={product.id}>{product.name}</MenuItem>
-                                ))}
-                        </TextField>
+                            value={formData.name}
+                            onChange={(e)=>setFormData({...formData, name: e.target.value})}
+                        />
                     </Grid>
-                    <Grid item xs={12} sm={2}
+                    <Grid size={{ xs: 12, sm: 1 }}
                         sx={{
                             display: 'flex',
-                            justifyContent:'right',
                             alignItems: 'center'
                         }}>
                         <Typography variant="body1">
                             <b>Unit Asal</b>
                         </Typography>
                     </Grid>
-                    <Grid item xs={12} sm={4}>
+                    <Grid size={{xs:12, sm:3}}>
                         <TextField
                             select fullWidth label="Unit Asal"
                             required
                             value={formData.from_unit_id}
-                            onChange={(e)=>setFormData({...formData, from_unit_id:e.target.value})}>
-                                {units.map((unit) => (
-                                    <MenuItem key={unit.id} value={unit.id}>{unit.name}</MenuItem>
-                                ))}
+                            onChange={(e)=>setFormData({...formData, from_unit_id: e.target.value})}>
+                            {units.map((unit) => (
+                                <MenuItem key={unit.id} value={unit.id}>{unit.name}</MenuItem>
+                            ))}
                         </TextField>
                     </Grid>
-                    <Grid item xs={12} sm={2}
+                    <Grid size={{ xs: 12, sm: 1 }}
                         sx={{
                             display: 'flex',
-                            justifyContent:'right',
                             alignItems: 'center'
                         }}>
                         <Typography variant="body1">
                             <b>Unit Tujuan</b>
                         </Typography>
                     </Grid>
-                    <Grid item xs={12} sm={4}>
+                    <Grid size={{xs:12, sm:3}}>
                         <TextField
                             select fullWidth label="Unit Tujuan"
                             required
                             value={formData.to_unit_id}
                             onChange={(e)=>setFormData({...formData, to_unit_id: e.target.value})}>
-                                {units.map((unit) => (
-                                    <MenuItem key={unit.id} value={unit.id}>{unit.name}</MenuItem>
-                                ))}
+                            {units.map((unit) => (
+                                <MenuItem key={unit.id} value={unit.id}>{unit.name}</MenuItem>
+                            ))}
                         </TextField>
                     </Grid>
-                    <Grid item xs={12} sm={2}
+                    
+                    <Grid size={{ xs: 12, sm: 1 }}
                         sx={{
                             display: 'flex',
-                            justifyContent:'right',
                             alignItems: 'center'
                         }}>
                         <Typography variant="body1">
                             <b>Multiplier</b>
                         </Typography>
                     </Grid>
-                    <Grid item xs={12} sm={4}>
+                    <Grid size={{xs:12, sm:3}}>
                         <TextField
-                            fullWidth label="Multiplier (Pengali)" type="number"
+                            fullWidth label="Multiplier" type="number"
                             required
                             value={formData.multiplier}
                             onChange={(e)=>setFormData({...formData, multiplier: e.target.value})}
@@ -176,7 +168,7 @@ const ConvUnitForm = () =>{
                         <Button
                             variant="outlined"
                             color="secondary"
-                            onClick={() => navigate('/admin/conversionunit')}
+                            onClick={() => navigate('/master/conversionunit')}
                         >
                             Batal
                         </Button>

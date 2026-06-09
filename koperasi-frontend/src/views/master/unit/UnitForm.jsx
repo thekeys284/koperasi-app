@@ -59,7 +59,7 @@ const UnitForm = () =>{
                 severity: 'success'
             });
             setTimeout(() => {
-                navigate('/admin/units');
+                navigate('/master/units');
             }, 1500);
         } catch(error){
             setSnackbar({
@@ -97,7 +97,7 @@ const UnitForm = () =>{
                         <Button
                             variant="outlined"
                             color="secondary"
-                            onClick={() => navigate('/admin/units')}
+                            onClick={() => navigate('/master/units')}
                         >
                             Batal
                         </Button>

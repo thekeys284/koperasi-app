@@ -78,12 +78,12 @@ const UnitPage = () => {
     };
 
     const handleAdd = () => {
-        navigate('/admin/units/add');
+        navigate('/master/units/add');
     };
 
     const handleEdit = (id) => {
         console.log("Edit unit ID:", id);
-        navigate(`/admin/units/edit/${id}`);
+        navigate(`/master/units/edit/${id}`);
     };
     const handleDelete = async () => {
             try {

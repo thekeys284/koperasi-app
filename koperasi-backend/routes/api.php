@@ -5,6 +5,7 @@ use App\Http\Controllers\Api\ProductController;
 use App\Http\Controllers\Api\CategoryController;
 use App\Http\Controllers\Api\UnitController;
 use App\Http\Controllers\Api\UnitConversionController;
+use App\Http\Controllers\Api\StockBatchController;
 
 
 
@@ -29,6 +30,7 @@ Route::apiResource('products', ProductController::class);
 Route::apiResource('categories', CategoryController::class);
 Route::apiResource('units', UnitController::class);
 Route::apiResource('unitconversion', UnitConversionController::class);
+Route::apiResource('stockbatch', StockBatchController::class);
 
 
 // Route::apiResource('users', UserController::class);

@@ -20,6 +20,8 @@ const UnitPage = Loadable(lazy(() => import('../views/master/unit/Index.jsx')));
 const UnitForm = Loadable(lazy(() => import('../views/master/unit/UnitForm.jsx')));
 const ConvUnitPage = Loadable(lazy(()=>import('../views/master/conversionunit/Index.jsx')));
 const ConvUnitForm = Loadable(lazy(()=>import('../views/master/conversionunit/ConvUnitForm.jsx')));
+const StockBatchPage = Loadable(lazy(() => import('../views/master/stockbatch/Index.jsx')));
+const StockBatchForm = Loadable(lazy(()=>import('../views/master/stockbatch/StockBatchForm')));
 
 
 const MainRoutes = {
@@ -35,22 +37,22 @@ const MainRoutes = {
             children: [{ path: 'default', element: <DashboardDefault /> }]
         },
         {
-            path: 'admin',
+            path: 'master',
             children: [
-                {
-                    path: 'users',
-                    children: [
-                        { path: '', element: <UserPage /> },
-                        { path: 'add', element: <UserForm /> },
-                        { path: 'edit/:id', element: <UserForm /> }
-                    ]
-                },
                 {
                     path: 'products',
                     children: [
                         { path: '', element: <ProductPage /> },
                         { path: 'add', element: <ProductForm /> },  
                         { path: 'edit/:id', element: <ProductForm /> }
+                    ]
+                },
+                {
+                    path: 'stocks',
+                    children: [
+                        { path: '', element: <StockBatchPage /> },
+                        { path: 'add', element: <StockBatchForm /> },  
+                        { path: 'edit/:id', element: <StockBatchForm /> }
                     ]
                 },
                 {
@@ -78,7 +80,19 @@ const MainRoutes = {
                     ]
                 }
             ]
-        }
+        },
+        {
+            path: 'admin',
+            children: [
+                {
+                    path: 'users',
+                    children: [
+                        { path: '', element: <UserPage /> },
+                        { path: 'add', element: <UserForm /> },
+                        { path: 'edit/:id', element: <UserForm /> }
+                    ]
+                },
+        ]}
     ]
 };
 

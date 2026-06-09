@@ -21,7 +21,7 @@ const ProductPage = () => {
     const [snackbar, setSnackbar ] = useState({
         open: false,
         message: '',
-        severity: 'success' // bisa 'success', 'error', 'info', atau 'warning'
+        severity: 'success'
     });
     const handleCloseSnackbar = () => {
         setSnackbar({ ...snackbar, open: false });
@@ -79,12 +79,12 @@ const ProductPage = () => {
     };
 
     const handleAdd = () => {
-        navigate('/admin/products/add');
+        navigate('/master/products/add');
     };
 
     const handleEdit = (id) => {
         console.log("Edit product ID:", id);
-        navigate(`/admin/products/edit/${id}`);
+        navigate(`/master/products/edit/${id}`);
     };
     const handleDelete = async () => {
             try {
@@ -151,15 +151,15 @@ const ProductPage = () => {
                                             <Typography variant='caption'>{row.category?.category_name}</Typography>
                                         </TableCell>
                                         <TableCell align="center">
-                                            <Typography color={row.total_stock <= row.min_stock ? 'error' : 'inherit'}>
-                                                {row.total_stock || 0}
+                                            <Typography color={row.min_stock <= row.min_stock ? 'error' : 'inherit'}>
+                                                {row.min_stock || 0}
                                             </Typography>
                                         </TableCell>
                                         <TableCell align='right'>
                                             Rp {new Intl.NumberFormat('id-ID').format(row.price)}
                                         </TableCell>
                                         <TableCell align='center'>
-                                            <Button size='small' onClick={()=>navigate(`/admin/products/edit/${row.id}`)}>
+                                            <Button size='small' onClick={()=>navigate(`/master/products/edit/${row.id}`)}>
                                                 <IconEdit size={16}/>
                                             </Button>
                                             <Button size='small' color='error'
