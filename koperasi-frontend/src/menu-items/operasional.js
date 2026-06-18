@@ -11,7 +11,7 @@ const operasional = {
       title: "Transaksi",
       caption: "Kelola Transaksi Penjualan",
       type: "item",
-      url: "/admin/transaksi",
+      url: "/operational/transactions",
       icon: icons.IconShoppingCart,
       breadcrumbs: false,
     },

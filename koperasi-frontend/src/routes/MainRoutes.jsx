@@ -22,6 +22,12 @@ const ConvUnitPage = Loadable(lazy(()=>import('../views/master/conversionunit/In
 const ConvUnitForm = Loadable(lazy(()=>import('../views/master/conversionunit/ConvUnitForm.jsx')));
 const StockBatchPage = Loadable(lazy(() => import('../views/master/stockbatch/Index.jsx')));
 const StockBatchForm = Loadable(lazy(()=>import('../views/master/stockbatch/StockBatchForm')));
+const PaymentMethodPage = Loadable(lazy(() => import('../views/master/payment/Index.jsx')));
+const PaymentMethodForm = Loadable(lazy(() => import('../views/master/payment/PaymentMethodForm.jsx')));
+
+// Operational
+const TransactionPage = Loadable(lazy(() => import('../views/operational/transaction/Index.jsx')));
+const TransactionForm = Loadable(lazy(() => import('../views/operational/transaction/TransactionForm.jsx')));
 
 
 const MainRoutes = {
@@ -78,9 +84,29 @@ const MainRoutes = {
                         { path: 'add', element: <ConvUnitForm /> },  
                         { path: 'edit/:id', element: <ConvUnitForm /> }
                     ]
+                },
+                {
+                    path: 'payment-methods',
+                    children: [
+                        { path: '', element: <PaymentMethodPage /> },
+                        { path: 'add', element: <PaymentMethodForm /> },  
+                        { path: 'edit/:id', element: <PaymentMethodForm /> }
+                    ]
                 }
             ]
         },
+        {
+            path: 'operational',
+            children: [
+                {
+                    path: 'transactions',
+                    children: [
+                        { path: '', element: <TransactionPage /> },
+                        { path: 'add', element: <TransactionForm /> },
+                        { path: 'edit/:id', element: <TransactionForm /> }
+                    ]
+                },
+        ]},
         {
             path: 'admin',
             children: [

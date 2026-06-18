@@ -88,7 +88,7 @@ const master = {
       id: "payment-methods",
       title: "Cara Pembayaran",
       type: "item",
-      url: "/admin/paymentmethods",
+      url: "/master/payment-methods",
       icon: icon.IconCreditCard, 
       breadcrumbs: false,
     }, 

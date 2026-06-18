@@ -6,14 +6,11 @@ use App\Http\Controllers\Api\CategoryController;
 use App\Http\Controllers\Api\UnitController;
 use App\Http\Controllers\Api\UnitConversionController;
 use App\Http\Controllers\Api\StockBatchController;
-
-
-
+use App\Http\Controllers\Api\PaymentController;
 use App\Http\Controllers\Api\TransactionController;
 
 // API Master Data
 
-// use App\Http\Controllers\Api\UserController;
 use App\Http\Controllers\Api\ReportController;
 use App\Http\Controllers\Api\SubmissionController;
 use App\Http\Controllers\Api\CreditController;
@@ -31,6 +28,11 @@ Route::apiResource('categories', CategoryController::class);
 Route::apiResource('units', UnitController::class);
 Route::apiResource('unitconversion', UnitConversionController::class);
 Route::apiResource('stockbatch', StockBatchController::class);
+Route::apiResource('payment-methods', PaymentController::class);
+
+// --- KASIR TOKO ---
+Route::apiResource('transactions', TransactionController::class);
+
 
 
 // Route::apiResource('users', UserController::class);
