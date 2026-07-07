@@ -69,11 +69,26 @@ INSERT INTO stock_batches (product_id, received_unit_id, received_qty_in_unit, m
 
 -- 10. SALES & SALE ITEMS
 -- Penjualan 1: User beli 5 PCS secara langsung
-INSERT INTO sales (id, invoice_number, user_id, cashier_id, total_bill, payment_method_id, payment_status) VALUES
-(1, 'INV-20260315-001', 5, 2, 17500.00, 1, 'PAID');
+INSERT INTO sales (id, invoice_number, user_id, cashier_id, total_bill, total_discount, payment_method_id, payment_status, transaction_date) VALUES
+(1, 'INV-20260315-001', 5, 2, 17500.00, 0.00, 1, 'PAID', '2026-03-15 10:30:00'),
+(2, 'INV-20260315-002', NULL, 2, 45000.00, 5000.00, 2, 'PAID', '2026-03-15 14:15:22');
 
-INSERT INTO sale_items (sale_id, product_id, batch_id, qty_input, unit_id, qty_in_base_unit, normal_price, final_price, hpp_at_sale, item_profit) VALUES
-(1, 1, 1, 5, 1, 5, 3500.00, 17500.00, 2800.00, 3500.00);
+INSERT INTO sale_items (
+  id, sale_id, product_id, batch_id, qty_input, unit_id, 
+  qty_in_base_unit, normal_price, discount_amount, final_price, 
+  hpp_at_sale, item_profit
+) VALUES
+-- BARANG UNTUK NOTA ID 1 (Total Tagihan Induk: 17.500, Diskon: 0)
+-- Beli 5 Pcs Indomie @3.500. Modal/HPP per pcs 2.800. Profit per pcs 700. Total Profit = 3.500
+(1, 1, 1, 1, 5, 1, 5, 3500.00, 0.00, 17500.00, 2800.00, 3500.00),
+
+-- BARANG UNTUK NOTA ID 2 (Total Tagihan Induk: 45.000, Ada Diskon Global Nota: 5.000)
+-- Catatan: Total final_price di keranjang barang harus berjumlah 50.000 (SubTotal sebelum dipotong Diskon Global 5.000 di induk)
+-- Item A: Beli 2 Pcs Sabun @15.000 = 30.000. HPP 12.000. Profit = 30.000 - (2 x 12.000) = 6.000
+(2, 2, 2, 3, 2, 1, 2, 15000.00, 0.00, 30000.00, 12000.00, 6000.00),
+
+-- Item B: Beli 1 Pcs Minyak @20.000 = 20.000. HPP 16.500. Profit = 20.000 - 16.500 = 3.500
+(3, 2, 3, 4, 1, 1, 1, 20000.00, 0.00, 20000.00, 16500.00, 3500.00);
 
 -- 11. SUBMISSIONS & LOANS (Sesuai Skema Loans Baru)
 INSERT INTO submissions (id, user_id, type, amount_requested, tenor_months, start_date, reason, pj_status, chairman_status, final_status) VALUES
@@ -92,5 +107,16 @@ INSERT INTO activity_logs (title, message, user_id, icon, status_color) VALUES
 ('Stok Masuk', 'Budi PJ Toko menginput stok Indomie sebanyak 1 Dus (40 Pcs)', 3, 'package', 'success'),
 ('Penjualan', 'Transaksi INV-20260315-001 berhasil simpan', 2, 'shopping-cart', 'primary');
 
--- 14. AKTIFKAN KEMBALI PENGECEKAN FOREIGN KEY
+-- 14. PRICE LOGS (Riwayat Perubahan Harga)
+INSERT INTO price_logs (id, product_id, user_id, old_price, new_price, change_type, reason, changed_at) VALUES
+-- Kasus 1: Budi PJ Toko (User ID 3) menaikkan harga jual Indomie Goreng (Product ID 1) karena kenaikan harga dari distributor.
+(1, 1, 3, 3200.00, 3500.00, 'SELLING_PRICE', 'Penyesuaian kenaikan harga distributor pusat', '2026-03-01 09:00:00'),
+
+-- Kasus 2: Budi PJ Toko (User ID 3) mencatat perubahan harga beli (modal) Indomie Goreng (Product ID 1) pada batch stock baru.
+(2, 1, 3, 2500.00, 2800.00, 'PURCHASE_PRICE', 'Harga modal naik dari agen grosir', '2026-03-01 08:00:00'),
+
+-- Kasus 3: Admin Utama (User ID 1) mengubah harga jual Buku Tulis Sidu (Product ID 2) untuk program promo menjelang tahun ajaran baru.
+(3, 2, 1, 5500.00, 5000.00, 'SELLING_PRICE', 'Diskon khusus menyambut tahun ajaran baru', '2026-03-10 14:00:00');
+
+-- 15. AKTIFKAN KEMBALI PENGECEKAN FOREIGN KEY
 SET FOREIGN_KEY_CHECKS=1;

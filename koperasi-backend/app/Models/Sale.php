@@ -11,7 +11,11 @@ class Sale extends Model
     protected $fillable=[
         'invoice_number','user_id','cashier_id',
         'total_bill','total_discount', 
-        'payment_method_id','payment_status'
+        'payment_method_id','payment_status', 'transaction_date'
+    ];
+    
+    protected $casts = [
+        'transaction_date' => 'datetime',
     ];
 
     public function items():HasMany{

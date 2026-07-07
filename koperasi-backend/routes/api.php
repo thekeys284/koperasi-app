@@ -8,6 +8,7 @@ use App\Http\Controllers\Api\UnitConversionController;
 use App\Http\Controllers\Api\StockBatchController;
 use App\Http\Controllers\Api\PaymentController;
 use App\Http\Controllers\Api\TransactionController;
+use App\Http\Controllers\Api\PriceLogController;
 
 // API Master Data
 
@@ -29,6 +30,8 @@ Route::apiResource('units', UnitController::class);
 Route::apiResource('unitconversion', UnitConversionController::class);
 Route::apiResource('stockbatch', StockBatchController::class);
 Route::apiResource('payment-methods', PaymentController::class);
+Route::apiResource('price-logs', PriceLogController::class);
+
 
 // --- KASIR TOKO ---
 Route::apiResource('transactions', TransactionController::class);

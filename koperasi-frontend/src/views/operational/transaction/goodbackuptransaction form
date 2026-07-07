@@ -3,10 +3,9 @@ import { useNavigate, useParams } from "react-router-dom";
 import { 
     Button, TextField, MenuItem, Box, Typography, Autocomplete,
     Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper,
-    Snackbar, Alert, InputAdornment, Grid, IconButton, Tooltip,
-    Dialog, DialogTitle, DialogContent, DialogActions, Divider
+    Snackbar, Alert, InputAdornment, Grid, IconButton, Tooltip
 } from "@mui/material";
-import { IconArrowLeft, IconBarcode, IconDeviceFloppy, IconPlus, IconTrash, IconCheck, IconX, IconPencil, IconPrinter } from '@tabler/icons-react';
+import { IconArrowLeft, IconBarcode, IconDeviceFloppy, IconPlus, IconTrash, IconCheck, IconX, IconPencil } from '@tabler/icons-react';
 import MainCard from '../../../components/cards/MainCard.jsx';
 import api from "@/api/axios.js";
 
@@ -29,12 +28,8 @@ const TransactionForm = () => {
     const [selectedUnit, setSelectedUnit] = useState(null);
 
     // --- STATE UNTUK EDIT BARIS KERANJANG ---
-    const [editingIndex, setEditingIndex] = useState(null);
-    const [editRow, setEditRow] = useState(null);
-
-    // --- STATE UNTUK MODAL INVOICE ---
-    const [invoiceOpen, setInvoiceOpen] = useState(false);
-    const [invoiceData, setInvoiceData] = useState(null); // snapshot data untuk ditampilkan di invoice
+    const [editingIndex, setEditingIndex] = useState(null); // index baris yang sedang diedit
+    const [editRow, setEditRow] = useState(null); // data sementara saat mode edit (belum di-commit ke cart)
 
     const [snackbar, setSnackbar] = useState({
         open: false,
@@ -50,14 +45,6 @@ const TransactionForm = () => {
         const day = String(today.getDate()).padStart(2, '0');
         return `${year}-${month}-${day}`;
     };
-
-    // Format tanggal dari 'YYYY-MM-DD' menjadi 'DD/MM/YYYY' untuk tampilan invoice
-    const formatDateDisplay = (dateStr) => {
-        if (!dateStr) return '-';
-        const [year, month, day] = dateStr.split('-');
-        return `${day}/${month}/${year}`;
-    };
-
     const [formData, setFormData] = useState({
         user_id: '',
         payment_method_id: '',
@@ -232,6 +219,7 @@ const TransactionForm = () => {
 
     const handleRemoveItem = (index) => {
         setCart(cart.filter((_, i) => i !== index));
+        // Kalau baris yang dihapus sedang dalam mode edit, batalkan mode edit
         if (editingIndex === index) {
             setEditingIndex(null);
             setEditRow(null);
@@ -240,7 +228,13 @@ const TransactionForm = () => {
 
     // ============ FITUR EDIT INLINE BARIS KERANJANG ============
 
+    /**
+     * Dipanggil saat baris tabel diklik.
+     * Menyimpan salinan data baris ke `editRow` sebagai working-copy,
+     * sehingga perubahan tidak langsung mengubah `cart` sebelum disimpan.
+     */
     const handleStartEditRow = (idx) => {
+        // Jangan buka ulang kalau baris yang sama sudah dalam mode edit
         if (editingIndex === idx) return;
         const item = cart[idx];
         setEditingIndex(idx);
@@ -248,6 +242,8 @@ const TransactionForm = () => {
             qty_input: item.qty_input,
             unit_id: item.unit_id,
             unit_name: item.unit_name,
+            // discount_amount yang tersimpan adalah TOTAL diskon baris ini.
+            // Untuk editing per-satuan, kita hitung mundur ke diskon per unit.
             discount_per_unit: item.qty_input > 0 ? (item.discount_amount / item.qty_input) : 0,
         });
     };
@@ -257,11 +253,16 @@ const TransactionForm = () => {
         setEditRow(null);
     };
 
+    /**
+     * Commit perubahan dari editRow ke cart, sekaligus hitung ulang
+     * discount_amount (total) dan final_price berdasarkan qty & unit baru.
+     */
     const handleSaveEditRow = (idx) => {
         const item = cart[idx];
         const newQty = Math.max(1, parseInt(editRow.qty_input) || 1);
         const newDiscountPerUnit = Math.max(0, parseFloat(editRow.discount_per_unit) || 0);
 
+        // Validasi stok sederhana (opsional) — cek terhadap data produk master
         const productRef = products.find(p => p.id === item.product_id);
         if (productRef && productRef.stock !== undefined && newQty > productRef.stock) {
             setSnackbar({
@@ -290,6 +291,7 @@ const TransactionForm = () => {
         setEditRow(null);
     };
 
+    // Simpan dengan Enter langsung di salah satu field edit
     const handleEditRowKeyDown = (e, idx) => {
         if (e.key === 'Enter') {
             e.preventDefault();
@@ -333,22 +335,6 @@ const TransactionForm = () => {
             }))
         };
 
-        // --- Siapkan snapshot data invoice SEBELUM cart/formData direset ---
-        const memberName = members.find(m => m.id === formData.user_id)?.name || 'Umum / Tanpa Member';
-        const paymentMethodName = paymentMethods.find(p => p.id === formData.payment_method_id)?.name || '-';
-
-        const invoiceSnapshot = {
-            customerName: memberName,
-            transactionDate: formData.transaction_date,
-            paymentMethodName,
-            items: cart.map(item => ({ ...item })), // salin array supaya tidak ke-mutasi
-            totalDiscount: formData.total_discount,
-            subTotal,
-            grandTotal,
-            amountPaid: formData.amount_paid,
-            changeAmount,
-        };
-
         try {
             setLoading(true);
             if (isEdit) {
@@ -356,51 +342,14 @@ const TransactionForm = () => {
             } else {
                 await api.post('/transactions', payload);
             }
-
             setSnackbar({ open: true, message: 'Transaksi Kasir Berhasil Disimpan!', severity: 'success' });
-
-            // Tampilkan modal invoice, TIDAK navigate ke halaman daftar transaksi
-            setInvoiceData(invoiceSnapshot);
-            setInvoiceOpen(true);
-
+            setTimeout(() => navigate('/operational/transactions'), 1500);
         } catch (err) {
             console.error("Error saving transaction:", err);
             setSnackbar({ open: true, message: err.response?.data?.message || 'Gagal menyimpan transaksi', severity: 'error' });
         } finally {
             setLoading(false);
         }
-    };
-
-    // Dipanggil saat modal invoice ditutup / user siap melayani transaksi baru
-    const handleCloseInvoiceAndReset = () => {
-        setInvoiceOpen(false);
-        setInvoiceData(null);
-
-        // Reset form & keranjang untuk transaksi berikutnya
-        setCart([]);
-        setFormData({
-            user_id: '',
-            payment_method_id: '',
-            total_discount: 0,
-            amount_paid: 0,
-            transaction_date: getTodayDateString(),
-        });
-        setSelectedProduct(null);
-        setSelectedUnit(null);
-        setInputQty(1);
-        setInputDiscountPrice(0);
-        setInputBarcode('');
-
-        // Kalau sebelumnya mode edit transaksi lama, arahkan balik ke daftar transaksi
-        if (isEdit) {
-            navigate('/operational/transactions');
-        } else {
-            barcodeInputRef.current?.focus();
-        }
-    };
-
-    const handlePrintInvoice = () => {
-        window.print();
     };
 
     return (
@@ -879,122 +828,6 @@ const TransactionForm = () => {
                     />
                 </Grid>
             </Grid>
-
-            {/* ============ MODAL INVOICE ============ */}
-            <Dialog 
-                open={invoiceOpen} 
-                onClose={(event, reason) => {
-                    // Cegah tertutup tidak sengaja via klik luar / Escape,
-                    // supaya kasir sadar untuk klik tombol "Transaksi Baru".
-                    if (reason === 'backdropClick' || reason === 'escapeKeyDown') return;
-                }}
-                maxWidth="xs" 
-                fullWidth
-            >
-                <DialogTitle sx={{ textAlign: 'center', fontWeight: 800, pb: 0.5 }}>
-                    Koperasi StatMart
-                </DialogTitle>
-                <DialogContent dividers>
-                    {invoiceData && (
-                        <Box>
-                            {/* Info Pelanggan & Tanggal */}
-                            <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1.5 }}>
-                                <Typography variant="body2">
-                                    <b>Pelanggan:</b> {invoiceData.customerName}
-                                </Typography>
-                                <Typography variant="body2">
-                                    <b>Tanggal:</b> {formatDateDisplay(invoiceData.transactionDate)}
-                                </Typography>
-                            </Box>
-
-                            <Divider sx={{ mb: 1.5 }} />
-
-                            {/* Tabel Item Belanja */}
-                            <TableContainer>
-                                <Table size="small">
-                                    <TableHead>
-                                        <TableRow>
-                                            <TableCell sx={{ fontWeight: 700, px: 0.5 }}>Nama Barang</TableCell>
-                                            <TableCell align="center" sx={{ fontWeight: 700, px: 0.5 }}>Jml</TableCell>
-                                            <TableCell align="right" sx={{ fontWeight: 700, px: 0.5 }}>Harga</TableCell>
-                                            <TableCell align="right" sx={{ fontWeight: 700, px: 0.5 }}>Subtotal</TableCell>
-                                        </TableRow>
-                                    </TableHead>
-                                    <TableBody>
-                                        {invoiceData.items.map((item, idx) => (
-                                            <TableRow key={idx}>
-                                                <TableCell sx={{ px: 0.5 }}>{item.name}</TableCell>
-                                                <TableCell align="center" sx={{ px: 0.5 }}>
-                                                    {item.qty_input} {item.unit_name}
-                                                </TableCell>
-                                                <TableCell align="right" sx={{ px: 0.5 }}>
-                                                    {new Intl.NumberFormat('id-ID').format(item.normal_price)}
-                                                </TableCell>
-                                                <TableCell align="right" sx={{ px: 0.5 }}>
-                                                    {new Intl.NumberFormat('id-ID').format(item.final_price)}
-                                                </TableCell>
-                                            </TableRow>
-                                        ))}
-                                    </TableBody>
-                                </Table>
-                            </TableContainer>
-
-                            <Divider sx={{ my: 1.5 }} />
-
-                            {/* Ringkasan Total */}
-                            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-                                <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                                    <Typography variant="body2">Subtotal</Typography>
-                                    <Typography variant="body2">Rp {new Intl.NumberFormat('id-ID').format(invoiceData.subTotal)}</Typography>
-                                </Box>
-                                {invoiceData.totalDiscount > 0 && (
-                                    <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                                        <Typography variant="body2">Diskon Transaksi</Typography>
-                                        <Typography variant="body2">- Rp {new Intl.NumberFormat('id-ID').format(invoiceData.totalDiscount)}</Typography>
-                                    </Box>
-                                )}
-                                <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                                    <Typography variant="subtitle1" sx={{ fontWeight: 800 }}>TOTAL</Typography>
-                                    <Typography variant="subtitle1" sx={{ fontWeight: 800 }}>
-                                        Rp {new Intl.NumberFormat('id-ID').format(invoiceData.grandTotal)}
-                                    </Typography>
-                                </Box>
-                                <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                                    <Typography variant="body2">Bayar</Typography>
-                                    <Typography variant="body2">Rp {new Intl.NumberFormat('id-ID').format(invoiceData.amountPaid)}</Typography>
-                                </Box>
-                                <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                                    <Typography variant="body2">Kembali</Typography>
-                                    <Typography variant="body2">Rp {new Intl.NumberFormat('id-ID').format(invoiceData.changeAmount)}</Typography>
-                                </Box>
-                            </Box>
-
-                            <Divider sx={{ my: 1.5 }} />
-
-                            {/* Metode Pembayaran */}
-                            <Typography variant="body2" sx={{ textAlign: 'center', fontWeight: 600 }}>
-                                Metode Pembayaran: {invoiceData.paymentMethodName}
-                            </Typography>
-                        </Box>
-                    )}
-                </DialogContent>
-                <DialogActions sx={{ px: 3, pb: 2 }}>
-                    <Button
-                        variant="outlined"
-                        startIcon={<IconPrinter size={18} />}
-                        onClick={handlePrintInvoice}
-                    >
-                        Cetak
-                    </Button>
-                    <Button
-                        variant="contained"
-                        color="primary"
-                        onClick={handleCloseInvoiceAndReset}
-                    >
-                        {isEdit ? 'Selesai' : 'Transaksi Baru'}
-                    </Button>
-                </DialogActions>
-            </Dialog>
 
             <Snackbar open={snackbar.open} autoHideDuration={3000} onClose={handleCloseSnackbar} anchorOrigin={{ vertical: 'top', horizontal: 'right' }}>
                 <Alert onClose={handleCloseSnackbar} severity={snackbar.severity} variant="filled" sx={{ width: '100%', borderRadius: '8px' }}>

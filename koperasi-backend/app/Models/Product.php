@@ -38,4 +38,10 @@ class Product extends Model
     public function unitConversion(): BelongsTo {
         return $this->belongsTo(UnitConversion::class, 'unit_conversion_id');
     }
+
+    // relasi ke price logs
+    public function priceLogs(): HasMany
+    {
+        return $this->hasMany(PriceLog::class);
+    }
 }

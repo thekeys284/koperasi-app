@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Button, TextField, Grid, MenuItem, Box, Typography, Autocomplete, FormControlLabel, Switch,
      Snackbar, Alert, InputAdornment, IconButton, CircularProgress
@@ -15,6 +15,11 @@ const ProductForm = () =>{
     const [categories, setCategories]=useState([]);
     const [units, setUnits] = useState([]);
     const [fetching, setFetching] = useState(false);
+    const [checkingBarcode, setCheckingBarcode] = useState(false);
+
+    // Ref untuk kontrol fokus antar-field saat entri cepat via scan
+    const barcodeInputRef = useRef(null);
+    const nameInputRef = useRef(null);
 
     const [formData, setFormData] = useState({
         category_id:'',
@@ -61,6 +66,63 @@ const ProductForm = () =>{
         }
     }, [id, isEdit]);
 
+    // Autofokus ke kolom Barcode saat halaman tambah produk pertama kali dibuka
+    useEffect(() => {
+        if (!isEdit) {
+            barcodeInputRef.current?.focus();
+        }
+    }, [isEdit]);
+
+    /**
+     * Dipanggil saat barcode di-scan (ditandai dengan tombol Enter dari scanner)
+     * atau saat user menekan Enter setelah mengetik manual.
+     * 
+     * Alurnya:
+     * 1. Cek apakah barcode sudah terdaftar di database via API.
+     * 2. Jika SUDAH ada -> beri peringatan duplikat, bersihkan input, fokus kembali ke barcode.
+     * 3. Jika BELUM ada -> lanjutkan entri, pindahkan fokus ke field "Nama Produk".
+     */
+    const handleBarcodeScan = async (e) => {
+        if (e.key !== 'Enter') return;
+        e.preventDefault();
+
+        const code = formData.barcode.trim();
+        if (code === '') return;
+
+        // Saat mode edit, tidak perlu validasi duplikat (barcode sudah milik produk ini)
+        if (isEdit) {
+            nameInputRef.current?.focus();
+            return;
+        }
+
+        try {
+            setCheckingBarcode(true);
+            // Sesuaikan endpoint ini dengan API backend kamu untuk cek barcode.
+            // Contoh umum: GET /products?barcode=xxxx atau endpoint khusus /products/check-barcode/xxxx
+            const res = await api.get('/products', { params: { barcode: code } });
+            const found = res.data?.data?.find(p => p.barcode === code);
+
+            if (found) {
+                setSnackbar({
+                    open: true,
+                    message: `Barcode "${code}" sudah terdaftar untuk produk "${found.name}". Silakan edit produk tersebut jika ingin mengubah data.`,
+                    severity: 'warning'
+                });
+                setFormData(prev => ({ ...prev, barcode: '' }));
+                barcodeInputRef.current?.focus();
+            } else {
+                // Barcode baru, lanjut entri -> pindah fokus ke Nama Produk
+                nameInputRef.current?.focus();
+            }
+        } catch (err) {
+            console.error('Gagal memeriksa barcode:', err);
+            // Kalau API cek gagal (misal endpoint belum ada), tetap lanjutkan alur entri
+            nameInputRef.current?.focus();
+        } finally {
+            setCheckingBarcode(false);
+        }
+    };
+
     const handleSubmit = async (e) => {
         e.preventDefault();
         setLoading(true);
@@ -89,6 +151,21 @@ const ProductForm = () =>{
             setLoading(false);
         }
     };
+
+    // Reset form + fokus balik ke barcode, untuk entri barang berikutnya secara berurutan
+    const handleResetForNextEntry = () => {
+        setFormData({
+            category_id: formData.category_id, // kategori & unit sering sama untuk barang sejenis, jadi dipertahankan
+            unit_id: formData.unit_id,
+            barcode: '',
+            name: '',
+            detail: '',
+            price: '',
+            min_stock: formData.min_stock,
+            is_active: true
+        });
+        barcodeInputRef.current?.focus();
+    };
     
     if (fetching) return <Box sx={{ p: 5, textAlign: 'center' }}><CircularProgress /></Box>;
 
@@ -110,13 +187,20 @@ const ProductForm = () =>{
                             fullWidth
                             label="Barcode/Kode Barang"
                             required
-                            placeholder="Scan atau ketik barcode ..."
+                            placeholder="Scan barcode di sini, atau ketik manual lalu Enter..."
                             value={formData.barcode}
                             onChange={(e)=> setFormData({...formData, barcode:e.target.value})}
+                            onKeyDown={handleBarcodeScan}
+                            inputRef={barcodeInputRef}
                             InputProps={{
                                 startAdornment:(
                                     <InputAdornment position="start">
                                         <IconBarcode size="20"/>
+                                    </InputAdornment>
+                                ),
+                                endAdornment: checkingBarcode && (
+                                    <InputAdornment position="end">
+                                        <CircularProgress size={18} />
                                     </InputAdornment>
                                 )
                             }}/>
@@ -135,6 +219,7 @@ const ProductForm = () =>{
                         <Autocomplete
                             options={categories}
                             getOptionLabel={(option) => option.name || ''}
+                            isOptionEqualToValue={(option, value) => option.id === value.id}
                             value={categories.find((c)=> c.id === formData.category_id) || null}
                             onChange={(event, newValue)=>{
                                 setFormData({...formData, category_id:newValue?.id || ''});
@@ -158,6 +243,7 @@ const ProductForm = () =>{
                             required
                             value={formData.name}
                             onChange={(e)=> setFormData({...formData, name:e.target.value})}
+                            inputRef={nameInputRef}
                         />
                     </Grid>
                     <Grid size={{ xs: 12, sm: 2 }}
@@ -235,6 +321,7 @@ const ProductForm = () =>{
                         <Autocomplete
                             options={units}
                             getOptionLabel={(option) => option.name || ''}
+                            isOptionEqualToValue={(option, value) => option.id === value.id}
                             value={units.find((c)=> c.id === formData.unit_id) || null}
                             onChange={(event, newValue)=>{
                                 setFormData({...formData, unit_id:newValue?.id || ''});
@@ -243,7 +330,7 @@ const ProductForm = () =>{
                         />
                     </Grid>
 
-                    <Grid item xs={12} sm={4}>
+                    <Grid size={{ xs: 12, sm: 4 }}>
                         <FormControlLabel
                         control={
                             <Switch
@@ -252,11 +339,11 @@ const ProductForm = () =>{
                             color="primary"
                             />
                         }
-                        label="Tampilkan produk ini di kasih (aktif)"
+                        label="Tampilkan produk ini di kasir (aktif)"
                         />
                     </Grid>
 
-                    <Grid item xs={12} sm={8}>
+                    <Grid size={{ xs: 12, sm: 8 }}>
                         <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 2 }}>
                         <Button
                             variant="outlined"
@@ -265,6 +352,17 @@ const ProductForm = () =>{
                         >
                             Batal
                         </Button>
+                        {!isEdit && (
+                            <Button
+                                variant="outlined"
+                                color="primary"
+                                type="submit"
+                                disabled={loading}
+                                onClick={() => { /* handleSubmit tetap jalan via form onSubmit */ }}
+                            >
+                                Simpan & Entri Barang Lagi
+                            </Button>
+                        )}
                         <Button
                             variant="contained"
                             color="primary"
@@ -282,12 +380,12 @@ const ProductForm = () =>{
                 open={snackbar.open} 
                 autoHideDuration={3000} 
                 onClose={handleCloseSnackbar}
-                anchorOrigin={{ vertical: 'top', horizontal: 'right' }} // Muncul di pojok kanan bawah
+                anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
             >
                 <Alert 
                     onClose={handleCloseSnackbar} 
-                    severity={snackbar.severity} 
-                    variant="filled" // Agar warnanya solid khas Material UI modern
+                    severity={snackbar.severity}
+                    variant="filled"
                     sx={{ width: '100%', borderRadius: '8px' }}
                 >
                     {snackbar.message}
