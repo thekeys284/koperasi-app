@@ -187,6 +187,7 @@ CREATE TABLE IF NOT EXISTS `submissions` (
   tenor_months INT NOT NULL, -- Jangka waktu (bulan)
   start_date DATE NOT NULL, -- Tanggal mulai pembayaran
   reason TEXT, -- Alasan peminjaman
+  document_path TEXT, --
   -- Tracking Persetujuan PJ Peminjaman
   pj_id BIGINT UNSIGNED NULL, -- Siapa PJ yang memeriksa
   pj_status ENUM('PENDING', 'APPROVED', 'REJECTED') DEFAULT 'PENDING',
@@ -247,15 +248,15 @@ CREATE TABLE IF NOT EXISTS loan_approvals (
 -- loan_cicilan (Cicilan)
 CREATE TABLE IF NOT EXISTS loan_cicilan (
   id BIGINT UNSIGNED PRIMARY KEY AUTO_INCREMENT,
-  loans_id BIGINT UNSIGNED NOT NULL,
+  loan_id BIGINT UNSIGNED NOT NULL,
   cicilan INT NOT NULL,
   tanggal_pembayaran DATE NOT NULL,
   nominal DECIMAL(15,2) NOT NULL,
   status_pembayaran ENUM('pending', 'paid', 'postponed') DEFAULT 'pending',
   status_updated_at TIMESTAMP NULL,
   postponement_reason TEXT NULL,
-  pjtoko_note TEXT NULL,
-  FOREIGN KEY (loans_id) REFERENCES loans(id) ON DELETE CASCADE
+  pj_pinjaman_note TEXT NULL,
+  FOREIGN KEY (loan_id) REFERENCES loans(id) ON DELETE CASCADE
 ) ENGINE=InnoDB;
 
 

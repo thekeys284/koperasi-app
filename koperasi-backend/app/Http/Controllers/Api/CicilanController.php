@@ -1,0 +1,253 @@
+<?php
+
+namespace App\Http\Controllers\Api;
+
+use App\Helpers\ActivityLogHelper;
+use App\Http\Controllers\Controller;
+use App\Models\Loan;
+use App\Models\LoanApproval;
+use App\Models\LoanCicilan;
+use App\Models\User;
+use Carbon\Carbon;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Validation\ValidationException;
+use App\Traits\LoanFormatting;
+
+class CicilanController extends Controller
+{
+    use LoanFormatting;
+    /**
+     * Update status cicilan.
+     * PATCH /api/loans/{loan}/cicilan/{cicilan}
+     * Memperbarui status pembayaran suatu cicilan (contoh: sudah bayar, ditunda, pending).
+     */
+    public function update(Request $request, $loanId, $cicilanId)
+    {
+        try {
+            $user = $this->resolveUser($request);
+
+            if (!$user) {
+                return response()->json(['success' => false, 'message' => 'User tidak ditemukan.'], 401);
+            }
+
+            $validated = $request->validate([
+                'tukin_status'  => 'required|in:sudah,postponed,pending,belum',
+                'note'          => 'nullable|string|max:500',
+                'pjtoko_note'    => 'nullable|string|max:500',
+            ]);
+
+            $query = Loan::with(['user', 'cicilan'])->where('id', $loanId);
+
+            if (!$this->shouldShowAllLoans($request, $user)) {
+                $query->where('user_id', $user->id);
+            }
+
+            $loan = $query->first();
+
+            if (!$loan) {
+                return response()->json(['success' => false, 'message' => 'Pinjaman tidak ditemukan.'], 404);
+            }
+
+            $cicilan = LoanCicilan::where('loans_id', $loan->id)->where('id', $cicilanId)->first();
+
+            if (!$cicilan) {
+                return response()->json(['success' => false, 'message' => 'Cicilan tidak ditemukan.'], 404);
+            }
+
+            DB::transaction(function () use ($loan, $cicilan, $validated, $user) {
+                $tukinStatus = $validated['tukin_status'];
+
+                if ($tukinStatus === 'sudah') {
+                    $this->markAsPaid($loan, $cicilan);
+                } elseif ($tukinStatus === 'postponed') {
+                    $this->handlePostponed($loan, $cicilan);
+                } elseif ($loan->status_pengajuan === 'postpone' || $tukinStatus === 'pending') {
+                    $cicilan->update(['status_pembayaran' => 'pending']);
+                } else {
+                    $this->handleManualBelum($loan, $cicilan);
+                }
+
+                $this->updateLoanMeta($loan, $validated, $user);
+
+                try {
+                    ActivityLogHelper::create(
+                        $user->id,
+                        'Konfirmasi Cicilan',
+                        'Cicilan #' . $cicilan->cicilan . ' pada pinjaman ' . $loan->id
+                            . ' diperbarui menjadi '
+                            . ($tukinStatus === 'sudah' ? 'paid' : ($tukinStatus === 'postponed' ? 'ditunda' : 'belum bayar'))
+                            . '. Catatan: ' . ($validated['note'] ?? '-')
+                    );
+                } catch (\Exception $e) {
+                    Log::warning('Activity log failed: ' . $e->getMessage());
+                }
+            });
+
+            $loan->refresh()->load('cicilan');
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Cicilan berhasil diperbarui.',
+                'data'    => $this->formatLoan($loan, true),
+            ]);
+        } catch (ValidationException $e) {
+            return response()->json(['success' => false, 'message' => 'Validasi gagal', 'errors' => $e->errors()], 422);
+        } catch (\Exception $e) {
+            Log::error('Cicilan update error: ' . $e->getMessage() . ' ' . $e->getFile() . ':' . $e->getLine());
+            return response()->json(['success' => false, 'message' => 'Terjadi kesalahan: ' . $e->getMessage()], 500);
+        }
+    }
+
+    // =========================================================================
+    // PRIVATE HELPERS
+    // =========================================================================
+
+    /**
+     * Tandai cicilan sebagai sudah dibayar.
+     * Jika semua cicilan lunas → update status loan ke 'paid'.
+     */
+    private function markAsPaid(Loan $loan, LoanCicilan $cicilan): void
+    {
+        $cicilan->update([
+            'status_pembayaran' => 'paid',
+            'status_updated_at' => now(),
+        ]);
+
+        $remaining = LoanCicilan::where('loans_id', $loan->id)
+            ->where('status_pembayaran', '!=', 'paid')
+            ->count();
+
+        if ($remaining === 0) {
+            $loan->update(['status_pengajuan' => 'paid']);
+        }
+    }
+
+    /**
+     * Tangani persetujuan penundaan cicilan.
+     * Jika loan sedang dalam status postpone → geser tanggal semua cicilan berikutnya.
+     */
+    private function handlePostponed(Loan $loan, LoanCicilan $cicilan): void
+    {
+        if ($loan->status_pengajuan === 'postpone') {
+            $this->shiftInstallmentsForwardFrom($loan->id, (int) $cicilan->cicilan);
+        }
+
+        $cicilan->update([
+            'status_pembayaran' => 'pending',
+            'status_updated_at' => now(),
+        ]);
+    }
+
+    /**
+     * Admin memilih 'Belum' secara manual (bukan penolakan postpone).
+     * Tambah cicilan baru di akhir, tandai cicilan ini sebagai 'postponed'.
+     */
+    private function handleManualBelum(Loan $loan, LoanCicilan $cicilan): void
+    {
+        $lastInstallment = LoanCicilan::where('loans_id', $loan->id)
+            ->orderByDesc('cicilan')
+            ->first();
+
+        if ($lastInstallment) {
+            $lastDueDate = Carbon::parse($lastInstallment->tanggal_pembayaran);
+            $newDueDate = $lastDueDate->copy()->addMonthNoOverflow()->endOfMonth();
+
+            // Use insert array for consistency with bulk operations
+            LoanCicilan::insert([[
+                'loans_id' => $loan->id,
+                'tanggal_pembayaran' => $newDueDate->toDateString(),
+                'nominal' => $cicilan->nominal,
+                'status_pembayaran' => 'pending',
+                'cicilan' => ($lastInstallment->cicilan ?? 0) + 1,
+            ]]);
+
+            $cicilan->update([
+                'status_pembayaran' => 'postponed',
+                'status_updated_at' => now(),
+            ]);
+        }
+    }
+
+    /**
+     * Update kolom-kolom metadata loan setelah update cicilan.
+     */
+    private function updateLoanMeta(Loan $loan, array $validated, User $user): void
+    {
+        $tukinStatus = $validated['tukin_status'];
+        $isPostponeAction = in_array($tukinStatus, ['postponed', 'belum'], true);
+        $isPostponeRequestActive = $loan->status_pengajuan === 'postpone';
+        $note = $validated['pjtoko_note'] ?? $validated['note'] ?? null;
+
+        if ($isPostponeRequestActive && $isPostponeAction) {
+            LoanApproval::create([
+                'loan_id' => $loan->id,
+                'approver_id' => $user->id,
+                'role' => 'ketua',
+                'decision' => $tukinStatus === 'postponed' ? 'postponed' : 'rejected',
+                'note' => $note,
+                'actioned_at' => now(),
+            ]);
+        }
+
+        $loan->update([
+            'status_pengajuan' => ($tukinStatus === 'postponed' || $tukinStatus === 'belum')
+                ? 'disetujui_ketua'
+                : $loan->status_pengajuan,
+            'lama_pembayaran' => (
+                ($isPostponeAction && !$isPostponeRequestActive)
+                || $tukinStatus === 'postponed'
+            )
+                ? ($loan->lama_pembayaran + 1)
+                : $loan->lama_pembayaran,
+            'postpone_cicilan_id' => $isPostponeAction ? null : $loan->postpone_cicilan_id,
+            'postpone_decision' => ($isPostponeRequestActive && $tukinStatus === 'postponed')
+                ? 'approved'
+                : (($isPostponeRequestActive && $tukinStatus === 'belum') ? 'rejected' : $loan->postpone_decision),
+        ]);
+    }
+
+    /**
+     * Geser tanggal semua cicilan mulai dari nomor tertentu maju 1 bulan.
+     */
+    private function shiftInstallmentsForwardFrom(int $loanId, int $startingInstallmentNo): void
+    {
+        $installments = LoanCicilan::where('loans_id', $loanId)
+            ->where('cicilan', '>=', $startingInstallmentNo)
+            ->whereNotNull('tanggal_pembayaran')
+            ->orderBy('cicilan')
+            ->get();
+
+        if ($installments->isEmpty()) {
+            return;
+        }
+
+        // Build CASE statement untuk batch update (1 query instead of N queries)
+        $caseWhenClauses = [];
+        $bindings = [];
+        $idList = [];
+
+        foreach ($installments as $installment) {
+            $newDate = Carbon::parse($installment->tanggal_pembayaran)
+                ->addMonthNoOverflow()
+                ->endOfMonth()
+                ->toDateString();
+
+            $caseWhenClauses[] = 'WHEN ? THEN ?';
+            $bindings[] = $installment->id;
+            $bindings[] = $newDate;
+            $idList[] = $installment->id;
+        }
+
+        if (!empty($caseWhenClauses)) {
+            $caseStatement = 'CASE id ' . implode(' ', $caseWhenClauses) . ' END';
+            $idPlaceholders = implode(',', array_fill(0, count($idList), '?'));
+
+            DB::update(
+                "UPDATE loan_cicilan SET tanggal_pembayaran = {$caseStatement}, status_pembayaran = ?, status_updated_at = ? WHERE id IN ({$idPlaceholders})",
+                array_merge($bindings, ['pending', now(), ...$idList])
+            );
+        }
+    }
+}

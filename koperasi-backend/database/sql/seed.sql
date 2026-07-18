@@ -98,7 +98,7 @@ INSERT INTO loans (id, user_id, jenis_pinjaman, jumlah_pinjaman, lama_pembayaran
 (1, 5, 1, 1000000.00, 5, '2026-04-01', 'disetujui_ketua');
 
 -- 12. LOAN CICILAN (Pengganti Recap)
-INSERT INTO loan_cicilan (loans_id, cicilan, tanggal_pembayaran, nominal, status_pembayaran) VALUES
+INSERT INTO loan_cicilan (loan_id, cicilan, tanggal_pembayaran, nominal, status_pembayaran) VALUES
 (1, 1, '2026-04-01', 200000.00, 'pending'),
 (1, 2, '2026-05-01', 200000.00, 'pending');
 

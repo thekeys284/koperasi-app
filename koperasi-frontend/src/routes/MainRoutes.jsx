@@ -24,10 +24,20 @@ const StockBatchPage = Loadable(lazy(() => import('../views/master/stockbatch/In
 const StockBatchForm = Loadable(lazy(()=>import('../views/master/stockbatch/StockBatchForm')));
 const PaymentMethodPage = Loadable(lazy(() => import('../views/master/payment/Index.jsx')));
 const PaymentMethodForm = Loadable(lazy(() => import('../views/master/payment/PaymentMethodForm.jsx')));
+const LeadLoanPage = Loadable(lazy(() => import('../views/lead/loans/LeadLoan.jsx')));
+const LeadLoanDetailPage = Loadable(lazy(() => import('../views/lead/loans/LeadLoanDetail.jsx')));
 
 // Operational
 const TransactionPage = Loadable(lazy(() => import('../views/operational/transaction/Index.jsx')));
 const TransactionForm = Loadable(lazy(() => import('../views/operational/transaction/TransactionForm.jsx')));
+// ==== PJ Toko (sesuaikan nama file setelah folder di-expand) ====
+const PjtokoLoanPage = Loadable(lazy(() => import('../views/pjtoko/loans/PjtokoLoan.jsx')));
+const PjtokoLoanDetailPage = Loadable(lazy(() => import('../views/pjtoko/loans/PjtokoLoanDetail.jsx')));
+
+// ==== User ====
+const UserLoansPage = Loadable(lazy(() => import('../views/users/loans/userLoans.jsx')));
+const UserPengajuanPage = Loadable(lazy(() => import('../views/users/loans/userPengajuan.jsx')));
+const UserCicilanPage = Loadable(lazy(() => import('../views/users/loans/userCicilan.jsx')));
 
 
 const MainRoutes = {
@@ -41,6 +51,30 @@ const MainRoutes = {
         {
             path: 'dashboard',
             children: [{ path: 'default', element: <DashboardDefault /> }]
+        },
+        {
+            path: 'lead',
+            children: [
+                {
+                    path: 'loans',
+                    children: [
+                        { path: 'pengajuan', element: <LeadLoanPage /> },
+                        { path: 'pengajuan/details', element: <LeadLoanDetailPage /> }
+                    ]
+                }
+            ]
+        },
+        {
+            path: 'pjtoko',
+            children: [
+                {
+                    path: 'loans',
+                    children: [
+                        { path: 'pengajuan', element: <PjtokoLoanPage /> },
+                        { path: 'pengajuan/details', element: <PjtokoLoanDetailPage /> }
+                    ]
+                }
+            ]
         },
         {
             path: 'master',

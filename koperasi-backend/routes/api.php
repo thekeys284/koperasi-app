@@ -1,6 +1,7 @@
 <?php
-use App\Http\Controllers\Api\UserController;
+
 use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\Api\UserController;
 use App\Http\Controllers\Api\ProductController;
 use App\Http\Controllers\Api\CategoryController;
 use App\Http\Controllers\Api\UnitController;
@@ -9,33 +10,63 @@ use App\Http\Controllers\Api\StockBatchController;
 use App\Http\Controllers\Api\PaymentController;
 use App\Http\Controllers\Api\TransactionController;
 use App\Http\Controllers\Api\PriceLogController;
-
-// API Master Data
-
+use App\Http\Controllers\Api\LoanController;
+use App\Http\Controllers\Api\CicilanController;
+use App\Http\Controllers\Api\LoanApprovalController;
 use App\Http\Controllers\Api\ReportController;
 use App\Http\Controllers\Api\SubmissionController;
 use App\Http\Controllers\Api\CreditController;
 use App\Http\Controllers\Api\MasterController;
 use App\Http\Controllers\Api\AuthController;
 
-
 Route::post('/login', [AuthController::class, 'login']);
+Route::post('/register', [AuthController::class, 'register']);
 
-// --- MASTER DATA ---
+Route::middleware('auth:sanctum')->group(function () {
+    
+    // Fungsi umum untuk semua orang yang sudah login
+    Route::post('/logout', [AuthController::class, 'logout']);
 
-Route::apiResource('users', UserController::class);
-Route::apiResource('products', ProductController::class);
-Route::apiResource('categories', CategoryController::class);
-Route::apiResource('units', UnitController::class);
-Route::apiResource('unitconversion', UnitConversionController::class);
-Route::apiResource('stockbatch', StockBatchController::class);
-Route::apiResource('payment-methods', PaymentController::class);
-Route::apiResource('price-logs', PriceLogController::class);
+    Route::middleware('role:admin,ketua,pj_toko')->group(function () {
+        Route::apiResource('users', UserController::class);
+        Route::apiResource('products', ProductController::class);
+        Route::apiResource('categories', CategoryController::class);
+        Route::apiResource('units', UnitController::class);
+        Route::apiResource('unitconversion', UnitConversionController::class);
+        Route::apiResource('stockbatch', StockBatchController::class);
+        Route::apiResource('payment-methods', PaymentController::class);
+        Route::apiResource('price-logs', PriceLogController::class);
+    });
 
+    Route::middleware('role:admin,pj_toko,operator')->group(function () {
+        Route::apiResource('transactions', TransactionController::class);
+    });
 
-// --- KASIR TOKO ---
-Route::apiResource('transactions', TransactionController::class);
+    Route::middleware('role:admin,ketua')->group(function () {
+        Route::prefix('loans')->group(function () {
+            // Report & Filters (Aman ditaruh di paling atas)
+            Route::get('/report/data', [ReportController::class, 'loanReport']);
+            Route::get('/filter-members', [LoanController::class, 'getFilterMembers']);
 
+            // LoanController (CRUD Dasar Pinjaman)
+            Route::get('/', [LoanController::class, 'index']);
+            Route::post('/', [LoanController::class, 'store']);
+            Route::get('/{id}', [LoanController::class, 'show']);
+            Route::delete('/{id}', [LoanController::class, 'destroy']);
+
+            // LoanApprovalController (Persetujuan & Penolakan Proposal)
+            Route::patch('/{id}/approve', [LoanApprovalController::class, 'approve']);
+            Route::patch('/{id}/reject', [LoanApprovalController::class, 'reject']);
+
+            // CicilanController & Postpone (Manajemen Tagihan & Penundaan)
+            Route::patch('/{loan}/cicilan/{cicilan}', [CicilanController::class, 'update']);
+            Route::patch('/{id}/postpone-request', [LoanController::class, 'postponeRequest']);
+            Route::patch('/{id}/postpone-approve', [LoanController::class, 'postponeApprove']);
+            Route::patch('/{id}/postpone-reject', [LoanController::class, 'postponeReject']);
+        });
+    });
+
+});
 
 
 // Route::apiResource('users', UserController::class);

@@ -20,7 +20,7 @@ const operasional = {
       title: "Peminjaman",
       caption: "Kelola Peminjaman",
       type: "item",
-      url: "/admin/loans",
+      url: "/lead/loans/pengajuan",
       icon: icons.IconCash,
       breadcrumbs: false,
     },
