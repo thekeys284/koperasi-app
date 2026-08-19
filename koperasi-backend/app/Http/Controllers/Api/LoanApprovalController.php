@@ -36,13 +36,23 @@ class LoanApprovalController extends Controller
                 return response()->json(['success' => false, 'message' => 'Pinjaman tidak ditemukan.'], 404);
             }
 
+            // -----------------------------------------------------------------
+            // 🔒 TAHAP 1: Persetujuan oleh PJ Toko
+            // -----------------------------------------------------------------
             if ($loan->status_pengajuan === 'pending') {
+                // 💡 AMAN: Pastikan hanya PJ Toko atau Admin yang bisa memproses tahap awal
+                if (!in_array($user->role, ['admin', 'pj_toko', 'pj_pinjaman'], true)) {
+                    return response()->json(['success' => false, 'message' => 'Anda tidak memiliki otoritas sebagai PJ untuk menyetujui tahap ini.'], 403);
+                }
+
+                // Peran persetujuan untuk tahap ini adalah 'pj_toko', konsisten dengan metode reject
+                $approvalRole = 'pj_toko';
                 $loan->update(['status_pengajuan' => 'pending_pengajuan']);
 
                 LoanApproval::create([
                     'loan_id' => $loan->id,
                     'approver_id' => $user->id,
-                    'role' => 'pj_toko',
+                    'role' => $approvalRole,
                     'decision' => 'approved',
                     'note' => $request->input('note'),
                     'actioned_at' => now(),
@@ -61,7 +71,15 @@ class LoanApprovalController extends Controller
                 ]);
             }
 
+            // -----------------------------------------------------------------
+            // 🔒 TAHAP 2: Persetujuan Akhir oleh Ketua Koperasi
+            // -----------------------------------------------------------------
             if ($loan->status_pengajuan === 'pending_pengajuan') {
+                // 💡 AMAN: Pastikan hanya Ketua atau Admin yang bisa mengetok palu keputusan akhir
+                if (!in_array($user->role, ['admin', 'ketua'], true)) {
+                    return response()->json(['success' => false, 'message' => 'Anda tidak memiliki otoritas sebagai Ketua untuk menyetujui tahap akhir ini.'], 403);
+                }
+
                 $loan = DB::transaction(function () use ($loan, $request, $user) {
                     $loan->update(['status_pengajuan' => 'disetujui_ketua']);
 
@@ -74,18 +92,15 @@ class LoanApprovalController extends Controller
                         'actioned_at' => now(),
                     ]);
 
+                    // Jika tipe pinjaman adalah top-up, lakukan rebalance otomatis
                     if (in_array((int) $loan->jenis_pinjaman, [2, 3], true) && $loan->refers_to_loan_id) {
                         $referredLoan = Loan::lockForUpdate()->find($loan->refers_to_loan_id);
 
                         if ($referredLoan) {
-                            if ((float) $loan->jumlah_pinjaman <= (float) $referredLoan->jumlah_pinjaman) {
-                                $loan->update([
-                                    'jumlah_pinjaman' => (float) $referredLoan->jumlah_pinjaman + (float) $loan->jumlah_pinjaman,
-                                ]);
+                            // 💡 FIXED LOGIC: Jalankan rebalance installments untuk mengunci nilai nominal cicilan baru
+                            $this->rebalanceInstallments($loan->fresh());
 
-                                $this->rebalanceInstallments($loan->fresh());
-                            }
-
+                            // Otomatis tandai pinjaman lama sebagai lunas (paid) karena saldonya sudah dilebur ke pinjaman baru
                             if (!in_array($referredLoan->status_pengajuan, ['paid', 'rejected'], true)) {
                                 $referredLoan->update(['status_pengajuan' => 'paid']);
                             }
@@ -110,7 +125,7 @@ class LoanApprovalController extends Controller
 
             return response()->json([
                 'success' => false,
-                'message' => 'Status pengajuan tidak dapat diproses untuk persetujuan.',
+                'message' => 'Status pengajuan tidak dapat diproses untuk persetujuan (Mungkin sudah disetujui/ditolak sebelumnya).',
                 'loan' => null,
             ], 400);
         } catch (\Exception $e) {
@@ -139,7 +154,16 @@ class LoanApprovalController extends Controller
                 return response()->json(['success' => false, 'message' => 'Pinjaman tidak ditemukan.'], 404);
             }
 
+            // Tentukan penolak berdasarkan status pengajuan berjalan
             $role = $loan->status_pengajuan === 'pending' ? 'pj_toko' : 'ketua';
+
+            // 💡 AMAN: Validasi hak penolakan agar tidak saling silang antar instansi/jabatan
+            if ($role === 'pj_toko' && !in_array($user->role, ['admin', 'pj_toko', 'pj_pinjaman'], true)) {
+                return response()->json(['success' => false, 'message' => 'Anda tidak berhak menolak pengajuan pada fase ini.'], 403);
+            }
+            if ($role === 'ketua' && !in_array($user->role, ['admin', 'ketua'], true)) {
+                return response()->json(['success' => false, 'message' => 'Anda tidak berhak menolak pengajuan pada fase evaluasi ketua.'], 403);
+            }
 
             DB::transaction(function () use ($loan, $validated, $role, $user) {
                 $loan->update(['status_pengajuan' => 'rejected']);
@@ -187,6 +211,7 @@ class LoanApprovalController extends Controller
             ->orderBy('cicilan')
             ->get();
 
+        // 💡 Catatan: Jika baris cicilan di database belum terbentuk sempurna atau jumlahnya tidak pas, batalkan rebalance agar tidak crash
         if ($installments->count() !== $tenor) {
             return;
         }

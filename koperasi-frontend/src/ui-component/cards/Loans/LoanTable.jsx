@@ -49,7 +49,7 @@ const LoanTable = ({ title, columns, data, emptyMessage = "Tidak ada data.", hid
             {paginatedData && paginatedData.length > 0 ? (
               paginatedData.map((row, rowIndex) => (
                 <TableRow 
-                  key={rowIndex} 
+                  key={row.id || rowIndex} // Use row.id if available, fallback to rowIndex
                   hover
                   selected={isRowSelected ? isRowSelected(row) : false}
                   onClick={onRowClick ? () => onRowClick(row) : undefined}
@@ -80,13 +80,14 @@ const LoanTable = ({ title, columns, data, emptyMessage = "Tidak ada data.", hid
           </TableBody>
         </Table>
       </Box>
-      {data && data.length > 0 && (
+      {data && data.length > 0 && ( // Check data.length > 0 is sufficient if data is always an array
         <TablePagination
           rowsPerPageOptions={[5, 10, 25]}
           component="div"
           count={data.length}
           rowsPerPage={rowsPerPage}
           page={page}
+          aria-label="pagination table pinjaman"
           onPageChange={handleChangePage}
           onRowsPerPageChange={handleChangeRowsPerPage}
           labelRowsPerPage="Baris per halaman:"

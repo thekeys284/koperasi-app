@@ -1,0 +1,485 @@
+import React from "react";
+import { formatCurrency, formatDate } from "../../../../utils/format";
+import { useNavigate } from "react-router-dom";
+import api from "../../../../api/axios";
+
+import {
+    Box,
+    Typography,
+    Stack,
+    Card,
+    CardContent,
+    Button,
+    Chip,
+    CircularProgress,
+    IconButton,
+    Breadcrumbs,
+    Link,
+    LinearProgress,
+    Alert,
+    Dialog,
+    DialogTitle,
+    DialogContent,
+    DialogActions,
+} from "@mui/material";
+
+import NavigateNextIcon from "@mui/icons-material/NavigateNext";
+import AddIcon from "@mui/icons-material/Add";
+import MoreVertIcon from "@mui/icons-material/MoreVert";
+import DeleteIcon from "@mui/icons-material/DeleteOutline";
+import { IconLock } from "@tabler/icons-react";
+import LoanFeedbackSnackbar from "../../../../ui-component/feedback/LoanFeedbackSnackbar";
+import LoanTable from "../../../../ui-component/cards/Loans/LoanTable";
+import { LoanStatusBadge, LoanTypeBadge, LoanModeBadge } from "../../../../ui-component/cards/Loans/LoanBadges";
+
+const UserLoans = () => {
+    const navigate = useNavigate();
+    const [loading, setLoading] = React.useState(true);
+    const [error, setError] = React.useState("");
+    const [loans, setLoans] = React.useState([]);
+    const [deleteModalOpen, setDeleteModalOpen] = React.useState(false);
+    const [loanToDelete, setLoanToDelete] = React.useState(null);
+    const [deleting, setDeleting] = React.useState(false);
+    const [feedback, setFeedback] = React.useState({
+        open: false,
+        message: "",
+        severity: "success",
+    });
+
+    const fetchLoans = async () => {
+        try {
+            setLoading(true);
+            const response = await api.get("/loans", {
+                params: {
+                    user_id: 10,
+                },
+            });
+            setLoans(response.data?.data || []);
+        } catch (err) {
+            setError(err.response?.data?.message || "Gagal mengambil data pinjaman user.");
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    React.useEffect(() => {
+        fetchLoans();
+    }, []);
+
+    const handleDeleteClick = (id) => {
+        setLoanToDelete(id);
+        setDeleteModalOpen(true);
+    };
+
+    const confirmDelete = async () => {
+        try {
+            setDeleting(true);
+            await api.delete(`/loans/${loanToDelete}`, {
+                params: { user_id: 10 }
+            });
+            await fetchLoans();
+            setDeleteModalOpen(false);
+            setFeedback({
+                open: true,
+                message: "Pengajuan berhasil dihapus.",
+                severity: "success",
+            });
+        } catch (err) {
+            setFeedback({
+                open: true,
+                message: err.response?.data?.message || "Gagal menghapus pengajuan.",
+                severity: "error",
+            });
+        } finally {
+            setDeleting(false);
+            setLoanToDelete(null);
+        }
+    };
+
+    const handleCloseFeedback = () => {
+        setFeedback((prev) => ({ ...prev, open: false }));
+    };
+
+    // Scoreboard should reflect only currently active loans.
+    const activeLoans = loans.filter((l) => ["disetujui_ketua", "aktif"].includes(l.status_pengajuan));
+
+    const totalPokok = activeLoans.reduce((sum, loan) => sum + Number(loan.jumlah_pinjaman || 0), 0);
+
+    const totalTerbayar = activeLoans.reduce((sum, loan) => {
+        const loanCicilan = loan.cicilan || [];
+        const paidAmount = loanCicilan
+            .filter((item) => item.status_pembayaran === "paid")
+            .reduce((s, item) => s + Number(item.nominal || 0), 0);
+        return sum + paidAmount;
+    }, 0);
+
+    const sisaPinjaman = Math.max(0, totalPokok - totalTerbayar);
+    const progress = totalPokok > 0 ? Math.round((totalTerbayar / totalPokok) * 100) : 0;
+    
+    const selectedLoan = loans.find(l => !["paid", "rejected"].includes(l.status_pengajuan)) || loans[0] || null;
+    const hasActiveLoan = loans.some(loan => !["paid", "rejected"].includes(loan.status_pengajuan));
+    const isPending = loans.some(l => ["pending", "pending_pengajuan"].includes(l.status_pengajuan));
+    const hasApprovedLoan = activeLoans.length > 0;
+
+    const userColumns = [
+        {
+            header: "ID & TGL PENGAJUAN",
+            render: (loan) => (
+                <>
+                    <Typography fontWeight={700} color="#2563EB">
+                        #{loan.loan_number}
+                    </Typography>
+                    <Typography fontSize={12} color="#64748B">
+                        {formatDate(loan.created_at)}
+                    </Typography>
+                </>
+            )
+        },
+        {
+            header: "JENIS & JUMLAH",
+            render: (loan) => (
+                <>
+                    <Stack direction="row" spacing={1} sx={{ mb: 0.5 }}>
+                        <LoanTypeBadge type={loan.type_slug} />
+                        <LoanModeBadge mode={loan.loan_mode} />
+                    </Stack>
+                    <Typography fontWeight={800} sx={{ mt: 0.5 }}>
+                        {formatCurrency(loan.jumlah_pinjaman)}
+                    </Typography>
+                    {loan.referred_loan?.loan_number && (
+                        <Typography variant="caption" color="text.secondary">
+                            Ref: #{loan.referred_loan.loan_number}
+                        </Typography>
+                    )}
+                </>
+            )
+        },
+        {
+            header: "TENOR",
+            render: (loan) => (
+                <Typography sx={{ fontWeight: 600, color: '#475569' }}>
+                    {loan.lama_pembayaran} Bulan
+                </Typography>
+            )
+        },
+        {
+            header: "STATUS",
+            render: (loan) => (
+                <Stack spacing={0.5} alignItems="flex-start">
+                    <LoanStatusBadge status={loan.status_pengajuan} reason={loan.status_reason} />
+                </Stack>
+            )
+        },
+        {
+            header: "PERSETUJUAN",
+            render: (loan) => (
+                <Stack spacing={0.4}>
+                    <Typography fontSize={12} color="#334155" fontWeight={700}>
+                        ACC PJ Toko: {loan.status_pengajuan === "rejected" && !loan.tgl_acc_pjtoko ? (
+                            <Typography component="span" fontSize={11} color="error.main" fontWeight={800}>DITOLAK PJToko</Typography>
+                        ) : formatDate(loan.tgl_acc_pjtoko)}
+                    </Typography>
+                    <Typography fontSize={12} color="#334155" fontWeight={700}>
+                        ACC Ketua: {loan.status_pengajuan === "rejected" && loan.tgl_acc_pjtoko && !loan.tgl_acc_ketua ? (
+                            <Typography component="span" fontSize={11} color="error.main" fontWeight={800}>DITOLAK KETUA</Typography>
+                        ) : formatDate(loan.tgl_acc_ketua)}
+                    </Typography>
+                </Stack>
+            )
+        },
+        {
+            header: "DETAIL",
+            align: "center",
+            render: (loan) => (
+                <Stack direction="row" spacing={0.5} justifyContent="center">
+                    <IconButton 
+                        onClick={() => navigate(`/user/loans/cicilan?loan_id=${loan.id}&user_id=10`)}
+                        size="small"
+                        disabled={loan.status_pengajuan === "rejected"}
+                        sx={{ 
+                            color: '#94A3B8', 
+                            '&:hover': { color: '#2563EB', background: '#EFF6FF' },
+                            '&.Mui-disabled': { color: '#E2E8F0' }
+                        }}
+                    >
+                        <MoreVertIcon fontSize="small" />
+                    </IconButton>
+                    
+                    {loan.status_pengajuan === "pending" && (
+                        <IconButton 
+                            onClick={() => handleDeleteClick(loan.id)}
+                            size="small"
+                            sx={{ color: '#94A3B8', '&:hover': { color: '#EF4444', background: '#FEF2F2' } }}
+                        >
+                            <DeleteIcon fontSize="small" />
+                        </IconButton>
+                    )}
+                </Stack>
+            )
+        }
+    ];
+
+    return (
+        <Box sx={{ p: 4, background: "#F5F7FB", minHeight: "100vh" }}>
+
+            {/* BREADCRUMB */}
+            <Breadcrumbs
+                separator={<NavigateNextIcon fontSize="small" />}
+                sx={{ mb: 1 }}
+            >
+                <Link underline="hover" color="text.primary">
+                    Pinjaman
+                </Link>
+            </Breadcrumbs>
+
+            {loading ? (
+                <Stack direction="row" spacing={2} alignItems="center" mt={4} justifyContent="center" sx={{ minHeight: '60vh' }}>
+                    <CircularProgress size={40} thickness={4} sx={{ color: '#2563EB' }} />
+                    <Typography color="#1E293B" fontWeight={600} fontSize={18}>Memuat data pinjaman...</Typography>
+                </Stack>
+            ) : error ? (
+                <Alert severity="error" sx={{ mt: 2, borderRadius: 2 }}>
+                    {error}
+                </Alert>
+            ) : loans.length === 0 ? (
+                /* EMPTY STATE */
+                <Box 
+                    sx={{ 
+                        display: 'flex', 
+                        flexDirection: 'column', 
+                        alignItems: 'center', 
+                        justifyContent: 'center', 
+                        minHeight: '70vh',
+                        textAlign: 'center',
+                        px: 2
+                    }}
+                >
+                    <Box 
+                        sx={{ 
+                            width: 120, 
+                            height: 120, 
+                            borderRadius: '50%', 
+                            background: '#EFF6FF', 
+                            display: 'flex', 
+                            alignItems: 'center', 
+                            justifyContent: 'center',
+                            mb: 3,
+                            border: '4px solid #DBEAFE'
+                        }}
+                    >
+                        <AddIcon sx={{ fontSize: 60, color: '#2563EB' }} />
+                    </Box>
+                    <Typography variant="h3" fontWeight={800} color="#1E293B" mb={1}>
+                        Belum Ada Pinjaman
+                    </Typography>
+                    <Typography color="#64748B" sx={{ maxWidth: 450, mb: 4, fontSize: 16 }}>
+                        Anda belum memiliki riwayat pengajuan pinjaman. Mulai pengajuan baru Anda dengan menekan tombol di bawah ini.
+                    </Typography>
+                    <Button
+                        variant="contained"
+                        startIcon={<AddIcon />}
+                        onClick={() => navigate("/user/loans/add")}
+                        sx={{
+                            borderRadius: "12px",
+                            textTransform: "none",
+                            fontWeight: 700,
+                            px: 5,
+                            py: 1.5,
+                            fontSize: 16,
+                            backgroundColor: "#2563EB",
+                            boxShadow: "0 10px 15px -3px rgba(37, 99, 235, 0.4)",
+                            "&:hover": {
+                                backgroundColor: "#1D4ED8",
+                                boxShadow: "0 20px 25px -5px rgba(37, 99, 235, 0.4)",
+                            }
+                        }}
+                    >
+                        Ajukan Pinjaman Baru
+                    </Button>
+                </Box>
+            ) : (
+                <>
+                    {/* LABEL */}
+                    <Chip
+                        label={hasActiveLoan ? "Pinjaman Aktif" : "Tidak Ada Pinjaman Aktif"}
+                        sx={{
+                            background: hasActiveLoan ? "#DCFCE7" : "#F1F5F9",
+                            color: hasActiveLoan ? "#16A34A" : "#64748B",
+                            fontWeight: 700,
+                            mb: 1,
+                            px: 1
+                        }}
+                        size="small"
+                    />
+
+                    {/* HEADER */}
+                    <Stack
+                        direction="row"
+                        justifyContent="space-between"
+                        alignItems="center"
+                        mb={4}
+                    >
+                        <Typography variant="h4" fontWeight={800}>
+                            ID Pinjam: {selectedLoan?.loan_number ? `#${selectedLoan.loan_number}` : "-"}
+                        </Typography>
+
+                    </Stack>
+
+                    {/* STAT CARDS */}
+                    <Stack direction={{ xs: 'column', sm: 'row' }} spacing={3} mb={4} width="100%">
+                        <Card sx={{ flex: 1, borderRadius: 3, border: "1px solid #E5E7EB", boxShadow: "none" }}>
+                            <CardContent sx={{ p: '24px !important' }}>
+                                <Typography fontSize={15} fontWeight={600} color="#64748B" mb={1}>
+                                    Total Pinjaman Pokok
+                                </Typography>
+                                <Typography fontSize={28} fontWeight={800} color="#1E293B">
+                                    {formatCurrency(totalPokok)}
+                                </Typography>
+                            </CardContent>
+                        </Card>
+
+                        <Card sx={{ flex: 1, borderRadius: 3, border: "1px solid #E5E7EB", boxShadow: "none" }}>
+                            <CardContent sx={{ p: '24px !important' }}>
+                                <Typography fontSize={15} fontWeight={600} color="#64748B" mb={1}>
+                                    Total Terbayar
+                                </Typography>
+                                <Typography fontSize={28} fontWeight={800} color="#16A34A">
+                                    {formatCurrency(totalTerbayar)}
+                                </Typography>
+                                <LinearProgress
+                                    variant="determinate"
+                                    value={progress}
+                                    sx={{
+                                        mt: 1.5,
+                                        borderRadius: 2,
+                                        height: 8,
+                                        backgroundColor: "#F1F5F9",
+                                        "& .MuiLinearProgress-bar": {
+                                            backgroundColor: "#16A34A",
+                                            borderRadius: 2,
+                                        },
+                                    }}
+                                />
+                            </CardContent>
+                        </Card>
+
+                        <Card sx={{ flex: 1, borderRadius: 3, border: "1px solid #E5E7EB", boxShadow: "none" }}>
+                            <CardContent sx={{ p: '24px !important' }}>
+                                <Typography fontSize={15} fontWeight={600} color="#64748B" mb={1}>
+                                    Sisa Pinjaman
+                                </Typography>
+                                <Typography fontSize={28} fontWeight={800} color="#EF4444">
+                                    {formatCurrency(sisaPinjaman)}
+                                </Typography>
+                                {/* <Typography fontSize={13} fontWeight={500} color="#94A3B8" sx={{ display: "block", mt: 1 }}>
+                                    {sisaCicilan} cicilan tersisa
+                                </Typography> */}
+                            </CardContent>
+                        </Card>
+                    </Stack>
+
+                    {/* TABLE */}
+                    <Card sx={{ borderRadius: 3, border: "1px solid #E5E7EB", boxShadow: "none", overflow: 'hidden' }}>
+                        <CardContent sx={{ pb: '0 !important', pt: '20px !important' }}>
+                            <Stack
+                                direction="row"
+                                justifyContent="space-between"
+                                alignItems="center"
+                                mb={3}
+                                px={1}
+                            >
+                                <Typography variant="h5" fontWeight={800} color="#1E293B">
+                                    Daftar Pengajuan Pinjaman
+                                </Typography>
+
+                                <Button
+                                    startIcon={<AddIcon />}
+                                    variant="contained"
+                                    disabled={isPending}
+                                    onClick={() => navigate(hasApprovedLoan ? "/user/loans/topup" : "/user/loans/add")}
+                                    sx={{
+                                        borderRadius: "10px",
+                                        textTransform: "none",
+                                        fontWeight: 700,
+                                        px: 3,
+                                        py: 1,
+                                        backgroundColor: "#2563EB",
+                                        "&:hover": {
+                                            backgroundColor: "#1D4ED8",
+                                        },
+                                        "&.Mui-disabled": {
+                                            backgroundColor: "#F1F5F9",
+                                            color: "#94A3B8"
+                                        }
+                                    }}
+                                >
+                                    {hasApprovedLoan ? "Top Up" : "Pengajuan Baru +"}
+                                </Button>
+                            </Stack>
+
+                            <Box sx={{ mx: -2 }}>
+                                <LoanTable 
+                                    columns={userColumns} 
+                                    data={loans} 
+                                    hideCard={true} 
+                                    emptyMessage="Anda belum memiliki pengajuan pinjaman."
+                                />
+                            </Box>
+                        </CardContent>
+                    </Card>
+                </>
+            )}
+
+            {/* DELETE CONFIRMATION DIALOG */}
+            <Dialog 
+                open={deleteModalOpen} 
+                onClose={() => !deleting && setDeleteModalOpen(false)}
+                PaperProps={{
+                    sx: { borderRadius: '16px', p: 1, maxWidth: '400px' }
+                }}
+            >
+                <DialogTitle sx={{ fontWeight: 800, fontSize: '1.25rem', pb: 1 }}>
+                    Hapus Pengajuan?
+                </DialogTitle>
+                <DialogContent>
+                    <Typography color="text.secondary">
+                        Apakah Anda yakin ingin menghapus pengajuan pinjaman ini? Tindakan ini tidak dapat dibatalkan.
+                    </Typography>
+                </DialogContent>
+                <DialogActions sx={{ p: 2, gap: 1 }}>
+                    <Button 
+                        onClick={() => setDeleteModalOpen(false)} 
+                        disabled={deleting}
+                        sx={{ borderRadius: '10px', textTransform: 'none', fontWeight: 600, px: 3 }}
+                    >
+                        Batal
+                    </Button>
+                    <Button 
+                        onClick={confirmDelete}
+                        variant="contained"
+                        color="error"
+                        disabled={deleting}
+                        sx={{ 
+                            borderRadius: '10px', 
+                            textTransform: 'none', 
+                            fontWeight: 700, 
+                            px: 3,
+                            boxShadow: '0 4px 12px rgba(239, 68, 68, 0.25)'
+                        }}
+                    >
+                        {deleting ? 'Menghapus...' : 'Ya, Hapus'}
+                    </Button>
+                </DialogActions>
+            </Dialog>
+
+            <LoanFeedbackSnackbar
+                open={feedback.open}
+                message={feedback.message}
+                severity={feedback.severity}
+                onClose={handleCloseFeedback}
+            />
+        </Box>
+    );
+};
+
+export default UserLoans;

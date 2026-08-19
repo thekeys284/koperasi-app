@@ -108,7 +108,7 @@ class TransactionController extends Controller
 
                 // Pengaman jika kasir memasukkan jumlah melebihi total stok gudang
                 if ($qtyNeeded > 0) {
-                    throw new \Exception("Stok barang dengan ID " . $item['product_id'] . " tidak mencukupi!");
+                    throw ValidationException::withMessages(['items' => ["Stok barang dengan ID " . $item['product_id'] . " tidak mencukupi!"]]); // FIX: Gunakan ValidationException
                 }
             }
             $grandTotal = max(0, $totalBill - ($validated['total_discount'] ?? 0));
@@ -202,7 +202,7 @@ class TransactionController extends Controller
                     $qtyNeeded -= $take;
                 }
                 if ($qtyNeeded > 0) {
-                    throw new \Exception("Stock barang dengan ID " . $item['product_id'] . " tidak mencukupi setelah kalkulasi ulang");
+                    throw ValidationException::withMessages(['items' => ["Stok barang dengan ID " . $item['product_id'] . " tidak mencukupi setelah kalkulasi ulang"]]); // FIX: Gunakan ValidationException
                 }
             }
 

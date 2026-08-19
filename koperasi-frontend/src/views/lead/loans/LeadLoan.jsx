@@ -52,7 +52,7 @@ const LeadLoanPage = () => {
             setLoading(true);
             const response = await api.get("/loans", {
                 params: {
-                    all: 1,
+                    all: 1, // 'all: 1' is typically used by admin/ketua to see all loans, not just their own.
                     user_id: 1, 
                 },
             });
@@ -184,7 +184,13 @@ const LeadLoanPage = () => {
                 <Link
                     underline="hover"
                     color="text.primary"
-                    onClick={() => navigate("/lead/loans/pengajuan")}
+                    sx={{ cursor: "pointer", display: "flex", alignItems: "center" }}
+                >
+                    Pinjaman
+                </Link>
+                <Link
+                    underline="hover"
+                    color="text.primary"
                     sx={{ cursor: "pointer", display: "flex", alignItems: "center" }}
                 >
                     Daftar Pengajuan
@@ -241,7 +247,7 @@ const LeadLoanPage = () => {
             <Card sx={{ borderRadius: 3 }}>
                 <Box sx={{ borderBottom: 1, borderColor: 'divider', px: 2, pt: 1 }}>
                     <Tabs value={tabValue} onChange={handleTabChange} textColor="primary" indicatorColor="primary">
-                        <Tab label={`Perlu Persetujuan (${loans.filter(l => l.status_pengajuan === 'pending_pengajuan').length})`} sx={{ fontWeight: 700, textTransform: 'none' }} />
+                        <Tab label={`Perlu Persetujuan (${summary.pending})`} sx={{ fontWeight: 700, textTransform: 'none' }} />
                         <Tab label="Riwayat Pengajuan" sx={{ fontWeight: 700, textTransform: 'none' }} />
                     </Tabs>
                 </Box>

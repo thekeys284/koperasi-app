@@ -27,7 +27,7 @@ import {
 import LoanFeedbackSnackbar from "../../../ui-component/feedback/LoanFeedbackSnackbar";
 import TopupInfoCard from "../../../ui-component/cards/Loans/Pjtoko/TopupInfoCard";
 
-import NavigateNextIcon from "@mui/icons-material/NavigateNext";
+import NavigateNextIcon from "@mui/icons-material/NavigateNext"; // Keep this for Breadcrumbs
 import {
     IconUser,
     IconFileText,
@@ -38,7 +38,8 @@ import {
     IconDots,
     IconLock,
     IconClipboardList,
-    IconArrowUpCircle
+    IconArrowUpCircle,
+    IconCheck, IconX // Added for clearer approval flow icons
 } from '@tabler/icons-react';
 
 import { Accordion, AccordionSummary, AccordionDetails } from "@mui/material";
@@ -58,7 +59,7 @@ const LeadLoanDetailPage = () => {
     });
 
     const [openReject, setOpenReject] = React.useState(false);
-    const [reason, setReason] = React.useState('');
+    const [reason, setReason] = React.useState(''); // Reason for rejection
 
     const loanId = searchParams.get("loan_id");
     const userId = searchParams.get("user_id") || "1";
@@ -155,6 +156,48 @@ const LeadLoanDetailPage = () => {
         return `${baseUrl}${path.startsWith('/') ? '' : '/'}${path}`;
     };
 
+    // Helper to get approval status for a specific role
+    const getApprovalStatus = (role) => {
+        if (!loan?.approvals) return { status: 'Menunggu', icon: <IconDots size="1rem" />, bgColor: "#F1F5F9", color: "#94A3B8" };
+
+        const approvalsForRole = loan.approvals.filter(app => app.role === role);
+        const latestApproval = approvalsForRole.length > 0 
+            ? approvalsForRole.reduce((prev, current) => (prev.actioned_at > current.actioned_at) ? prev : current)
+            : null;
+
+        if (latestApproval) {
+            if (latestApproval.decision === 'approved' || latestApproval.decision === 'postponed') {
+                return { status: 'Dikonfirmasi', icon: <IconCheck size="1rem" />, bgColor: "#DCFCE7", color: "#16A34A" };
+            } else if (latestApproval.decision === 'rejected') {
+                return { status: 'Ditolak', icon: <IconX size="1rem" />, bgColor: "#FEE2E2", color: "#DC2626" };
+            }
+        }
+
+        // Special handling for initial pending states
+        if (role === 'pj_toko') { // Admin/PJ Toko
+            if (loan.status_pengajuan === 'pending') {
+                return { status: 'Menunggu Konfirmasi', icon: <IconDots size="1rem" />, bgColor: "#FFF8E1", color: "#F59E0B" };
+            } else if (loan.status_pengajuan === 'rejected' && !loan.tgl_acc_pjtoko) {
+                return { status: 'Ditolak', icon: <IconX size="1rem" />, bgColor: "#FEE2E2", color: "#DC2626" };
+            }
+        } else if (role === 'ketua') { // Lead/Ketua
+            if (loan.status_pengajuan === 'pending') {
+                return { status: 'Menunggu Admin', icon: <IconDots size="1rem" />, bgColor: "#F1F5F9", color: "#94A3B8" };
+            } else if (loan.status_pengajuan === 'pending_pengajuan') {
+                return { status: 'Menunggu Konfirmasi', icon: <IconDots size="1rem" />, bgColor: "#E3F2FD", color: "#2196F3" };
+            } else if (loan.status_pengajuan === 'rejected' && loan.tgl_acc_ketua) { // Check tgl_acc_ketua for rejection by ketua
+                return { status: 'Ditolak', icon: <IconX size="1rem" />, bgColor: "#FEE2E2", color: "#DC2626" };
+            } else if (['disetujui_ketua', 'aktif', 'paid'].includes(loan.status_pengajuan)) {
+                return { status: 'Disetujui', icon: <IconCheck size="1rem" />, bgColor: "#DCFCE7", color: "#16A34A" };
+            }
+        }
+
+        return { status: 'Menunggu', icon: <IconDots size="1rem" />, bgColor: "#F1F5F9", color: "#94A3B8" };
+    };
+
+    const adminApproval = getApprovalStatus('pj_toko'); // Assuming 'pj_toko' is the admin role for initial approval
+    const leadApproval = getApprovalStatus('ketua');
+
     if (loading) return (
         <Box sx={{ p: 5, textAlign: "center" }}>
           <CircularProgress size={40} thickness={4} />
@@ -172,7 +215,9 @@ const LeadLoanDetailPage = () => {
     return (
         <Box sx={{ p: 4, background: "#f5f7fb", minHeight: "100vh" }}>
             {/* BREADCRUMB */}
-            <Breadcrumbs separator={<NavigateNextIcon fontSize="small" />} sx={{ mb: 2 }}>
+            <Breadcrumbs separator={<NavigateNextIcon fontSize="small" />} sx={{ mb: 2 }}> 
+                <Link underline="hover" color="inherit" sx={{ cursor: "pointer" }}>Pinjaman</Link>
+                <Link underline="hover" color="inherit" onClick={() => navigate("/lead/loans/pengajuan")} sx={{ cursor: "pointer" }}>Daftar Pengajuan</Link>
                 <Link underline="hover" color="inherit" onClick={() => navigate("/lead/loans/pengajuan")} sx={{ cursor: "pointer" }}>Daftar Pengajuan</Link>
                 <Typography color="text.primary" fontWeight={700}>Detail Pengajuan</Typography>
             </Breadcrumbs>
@@ -190,7 +235,7 @@ const LeadLoanDetailPage = () => {
                                     {loan?.loan_number ? `#${loan.loan_number}` : "-"}
                                 </Typography>
                                 <Typography variant="h3" sx={{ fontWeight: 800, color: "#1E293B" }}>
-                                    {loan?.status_pengajuan === "pending" ? "Menunggu Konfirmasi Ketua" : (loan?.status_pengajuan === "pending_pengajuan" ? "Menunggu Konfirmasi Ketua" : (loan?.status_pengajuan === "rejected" ? "Ditolak" : "Diproses"))}
+                                    {loan?.status_pengajuan === "pending" || loan?.status_pengajuan === "pending_pengajuan" ? "Menunggu Konfirmasi Ketua" : (loan?.status_pengajuan === "rejected" ? "Ditolak" : "Diproses")}
                                 </Typography>
                             </Box>
                         </Box>
@@ -253,7 +298,7 @@ const LeadLoanDetailPage = () => {
                                 <Box sx={{ display: "flex", gap: 1 }}>
                                     <Typography variant="body1" sx={{ width: 140, color: "#64748B", fontWeight: 500 }}>Gaji Pokok</Typography>
                                     <Typography variant="body1" sx={{ fontWeight: 700 }}>: {formatCurrency(4500000)}</Typography>
-                                </Box>
+                                </Box> {/* TODO: Replace hardcoded salary with actual user data */}
                             </Stack>
                         </CardContent>
                     </Card>

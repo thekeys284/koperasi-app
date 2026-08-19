@@ -42,7 +42,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::apiResource('transactions', TransactionController::class);
     });
 
-    Route::middleware('role:admin,ketua')->group(function () {
+    Route::middleware('role:admin,ketua, pj_toko')->group(function () {
         Route::prefix('loans')->group(function () {
             // Report & Filters (Aman ditaruh di paling atas)
             Route::get('/report/data', [ReportController::class, 'loanReport']);

@@ -18,10 +18,10 @@ use App\Traits\LoanFormatting;
 class CicilanController extends Controller
 {
     use LoanFormatting;
+    
     /**
      * Update status cicilan.
      * PATCH /api/loans/{loan}/cicilan/{cicilan}
-     * Memperbarui status pembayaran suatu cicilan (contoh: sudah bayar, ditunda, pending).
      */
     public function update(Request $request, $loanId, $cicilanId)
     {
@@ -40,14 +40,18 @@ class CicilanController extends Controller
 
             $query = Loan::with(['user', 'cicilan'])->where('id', $loanId);
 
-            if (!$this->shouldShowAllLoans($request, $user)) {
+            // 💡 OPTIMASI KUNCI: Admin dan Ketua otomatis dilewatkan untuk mengontrol data semua anggota
+            $isAdminOrManagement = in_array($user->role, ['admin', 'ketua', 'pj_pinjaman'], true);
+            
+            if (!$isAdminOrManagement && !$this->shouldShowAllLoans($request, $user)) {
+                // Jika bukan admin/manajemen dan tidak memenuhi syarat trait, kunci hanya ke data miliknya sendiri
                 $query->where('user_id', $user->id);
             }
 
             $loan = $query->first();
 
             if (!$loan) {
-                return response()->json(['success' => false, 'message' => 'Pinjaman tidak ditemukan.'], 404);
+                return response()->json(['success' => false, 'message' => 'Pinjaman tidak ditemukan atau Anda tidak memiliki akses.'], 404);
             }
 
             $cicilan = LoanCicilan::where('loans_id', $loan->id)->where('id', $cicilanId)->first();
@@ -101,13 +105,9 @@ class CicilanController extends Controller
     }
 
     // =========================================================================
-    // PRIVATE HELPERS
+    // PRIVATE HELPERS (Tetap dipertahankan sesuai kode aslimu)
     // =========================================================================
 
-    /**
-     * Tandai cicilan sebagai sudah dibayar.
-     * Jika semua cicilan lunas → update status loan ke 'paid'.
-     */
     private function markAsPaid(Loan $loan, LoanCicilan $cicilan): void
     {
         $cicilan->update([
@@ -124,10 +124,6 @@ class CicilanController extends Controller
         }
     }
 
-    /**
-     * Tangani persetujuan penundaan cicilan.
-     * Jika loan sedang dalam status postpone → geser tanggal semua cicilan berikutnya.
-     */
     private function handlePostponed(Loan $loan, LoanCicilan $cicilan): void
     {
         if ($loan->status_pengajuan === 'postpone') {
@@ -140,10 +136,6 @@ class CicilanController extends Controller
         ]);
     }
 
-    /**
-     * Admin memilih 'Belum' secara manual (bukan penolakan postpone).
-     * Tambah cicilan baru di akhir, tandai cicilan ini sebagai 'postponed'.
-     */
     private function handleManualBelum(Loan $loan, LoanCicilan $cicilan): void
     {
         $lastInstallment = LoanCicilan::where('loans_id', $loan->id)
@@ -154,7 +146,6 @@ class CicilanController extends Controller
             $lastDueDate = Carbon::parse($lastInstallment->tanggal_pembayaran);
             $newDueDate = $lastDueDate->copy()->addMonthNoOverflow()->endOfMonth();
 
-            // Use insert array for consistency with bulk operations
             LoanCicilan::insert([[
                 'loans_id' => $loan->id,
                 'tanggal_pembayaran' => $newDueDate->toDateString(),
@@ -170,9 +161,6 @@ class CicilanController extends Controller
         }
     }
 
-    /**
-     * Update kolom-kolom metadata loan setelah update cicilan.
-     */
     private function updateLoanMeta(Loan $loan, array $validated, User $user): void
     {
         $tukinStatus = $validated['tukin_status'];
@@ -208,9 +196,6 @@ class CicilanController extends Controller
         ]);
     }
 
-    /**
-     * Geser tanggal semua cicilan mulai dari nomor tertentu maju 1 bulan.
-     */
     private function shiftInstallmentsForwardFrom(int $loanId, int $startingInstallmentNo): void
     {
         $installments = LoanCicilan::where('loans_id', $loanId)
@@ -223,7 +208,6 @@ class CicilanController extends Controller
             return;
         }
 
-        // Build CASE statement untuk batch update (1 query instead of N queries)
         $caseWhenClauses = [];
         $bindings = [];
         $idList = [];

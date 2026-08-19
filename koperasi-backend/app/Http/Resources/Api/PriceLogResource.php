@@ -10,19 +10,19 @@ class PriceLogResource extends JsonResource
      * Transform the resource into an array.
      *
      * @param  \Illuminate\Http\Request  $request
-     * @return array|\Illuminate\Contracts\Support\Arrayable|\JsonSerializable
+     * @return array
      */
     public function toArray($request)
     {
         return [
             'id' => $this->id,
-            'product' => new ProductResource($this->whenLoaded('product')),
-            'user' => new UserResource($this->whenLoaded('user')),
-            'old_price' => (float) $this->old_price, // Cast to float for consistency
-            'new_price' => (float) $this->new_price, // Cast to float for consistency
+            'product_name' => $this->product->name ?? null, // Mengambil nama produk dari relasi
+            'user_name' => $this->user->name ?? null,       // Mengambil nama user dari relasi
+            'old_price' => $this->old_price,
+            'new_price' => $this->new_price,
             'change_type' => $this->change_type,
             'reason' => $this->reason,
-            'changed_at' => $this->changed_at ? $this->changed_at->format('Y-m-d H:i:s') : null,
+            'changed_at' => $this->created_at, // Atau kolom timestamp lain jika ada
         ];
     }
 }

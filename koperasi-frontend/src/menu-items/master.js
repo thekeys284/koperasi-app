@@ -80,7 +80,7 @@ const master = {
       id: "price-logs",
       title: "History Harga",
       type: "item",
-      url: "/admin/pricelogs",
+      url: "/operational/pricelogs",
       icon: icon.IconHistory, 
       breadcrumbs: false,
     },
