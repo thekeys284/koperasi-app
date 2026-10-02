@@ -183,9 +183,9 @@ export default function LoanDetails() {
     }
   };
 
-  const isPjtokoOrAdmin = location.pathname.includes("/pjtoko") || location.pathname.includes("/admin");
-  const basePath = isPjtokoOrAdmin ? "/pjtoko/loans/daftar" : "/user/loans/daftar"; // Adjusted for user's loan list
-  const isAdmin = isPjtokoOrAdmin; // Set isAdmin based on current path
+  const isPjPinjamanOrAdmin = location.pathname.includes("/pjpinjaman") || location.pathname.includes("/admin");
+  const basePath = isPjPinjamanOrAdmin ? "/pjpinjaman/loans/daftar" : "/user/loans/daftar";
+  const isAdmin = isPjPinjamanOrAdmin;
   const loanId = searchParams.get("loan_id");
   const userId = searchParams.get("user_id") || "1";
 

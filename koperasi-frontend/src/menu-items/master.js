@@ -41,6 +41,7 @@ const master = {
           url: "/master/products",
           icon: icon.IconBox,
           breadcrumbs: false,
+          roles: ['admin', 'operator', 'pj_toko'],
         },
         {
           id: "stock",
@@ -49,6 +50,7 @@ const master = {
           url: "/master/stocks",
           icon: icon.IconBox,
           breadcrumbs: false,
+          roles: ['admin', 'operator', 'pj_toko'],
         },
         {
           id: "category",
@@ -57,6 +59,7 @@ const master = {
           url: "/master/categories",
           icon: icon.IconSettings,
           breadcrumbs: false,
+          roles: ['admin', 'operator', 'pj_toko'],
         },
         {
           id: "unit",
@@ -65,6 +68,7 @@ const master = {
           url: "/master/units",
           icon: icon.IconRulerMeasure,
           breadcrumbs: false,
+          roles: ['admin', 'operator', 'pj_toko'],
         },
         {
           id: "conversion-unit",
@@ -73,6 +77,7 @@ const master = {
           url: "/master/conversionunit",
           icon: icon.IconArrowsHorizontal,
           breadcrumbs: false,
+          roles: ['admin', 'operator', 'pj_toko'],
         }
       ]
     },
@@ -81,16 +86,18 @@ const master = {
       title: "History Harga",
       type: "item",
       url: "/operational/pricelogs",
-      icon: icon.IconHistory, 
-      breadcrumbs: false,
+    icon: icon.IconHistory, 
+    breadcrumbs: false,
+    roles: ['admin', 'operator', 'pj_toko'],
     },
     {
       id: "payment-methods",
       title: "Cara Pembayaran",
       type: "item",
       url: "/master/payment-methods",
-      icon: icon.IconCreditCard, 
-      breadcrumbs: false,
+    icon: icon.IconCreditCard, 
+    breadcrumbs: false,
+    roles: ['admin', 'pj_toko'],
     }, 
     {
       id: "master-user",
@@ -106,6 +113,7 @@ const master = {
           url: "/admin/users",
           icon: icon.IconUsers,
           breadcrumbs: false,
+          roles: ['admin', 'pj_toko', 'pj_pinjaman', 'ketua'],
         }
       ]
     }, 

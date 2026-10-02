@@ -16,9 +16,9 @@ import {
     Alert,
     IconButton,
 } from "@mui/material";
-import api from "../../../../api/axios";
-import LoanFeedbackSnackbar from "../../../../ui-component/feedback/LoanFeedbackSnackbar";
-import LoanProofModal from "../../../../ui-component/cards/Loans/LoanProofModal";
+import api from "../../../api/axios";
+import LoanFeedbackSnackbar from "../../../ui-component/feedback/LoanFeedbackSnackbar";
+import LoanProofModal from "../../../ui-component/cards/Loans/LoanProofModal";
 
 import {
     IconFileDescription,

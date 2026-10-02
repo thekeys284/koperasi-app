@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { formatCurrency, formatDate } from "../../../../utils/format";
+import { formatCurrency, formatDate } from "../../../utils/format";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import {
     Box,
@@ -28,12 +28,12 @@ import MoreVertIcon from "@mui/icons-material/MoreVert";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import { IconArrowUpCircle } from "@tabler/icons-react";
 
-import PostponeInstallmentModal from "../../../../ui-component/cards/Loans/User/userTundaCicilan";
-import LoanFeedbackSnackbar from "../../../../ui-component/feedback/LoanFeedbackSnackbar";
-import TopupInfoCard from "../../../../ui-component/cards/Loans/Pjtoko/TopupInfoCard";
-import LoanProofModal from "../../../../ui-component/cards/Loans/LoanProofModal";
-import api from "../../../../api/axios";
-import { InstallmentStatusBadge, LoanStatusBadge, LoanTypeBadge } from "../../../../ui-component/cards/Loans/LoanBadges";
+import PostponeInstallmentModal from "../../../ui-component/cards/Loans/User/userTundaCicilan";
+import LoanFeedbackSnackbar from "../../../ui-component/feedback/LoanFeedbackSnackbar";
+import TopupInfoCard from "../../../ui-component/cards/Loans/Pjtoko/TopupInfoCard";
+import LoanProofModal from "../../../ui-component/cards/Loans/LoanProofModal";
+import api from "../../../api/axios";
+import { InstallmentStatusBadge, LoanStatusBadge, LoanTypeBadge } from "../../../ui-component/cards/Loans/LoanBadges";
 const UserCicilan = () => {
     const navigate = useNavigate();
     const [searchParams] = useSearchParams();

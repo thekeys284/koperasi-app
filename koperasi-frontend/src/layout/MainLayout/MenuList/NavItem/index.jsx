@@ -119,17 +119,21 @@ export default function NavItem({ item, level, isParents = false, setSelectedID 
         </ButtonBase>
 
         {(drawerOpen || (!drawerOpen && level !== 1)) && (
-          <Tooltip title={item.title} disableHoverListener={!hoverStatus}>
+          <Tooltip title={item.title} disableHoverListener={drawerOpen || !hoverStatus}>
             <ListItemText
+              sx={{ minWidth: 0 }}
               primary={
                 <Typography
                   ref={ref}
-                  noWrap
+                  noWrap={!drawerOpen}
                   variant={isSelected ? 'h5' : 'body1'}
                   sx={{
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis',
-                    width: 102,
+                    overflow: drawerOpen ? 'visible' : 'hidden',
+                    textOverflow: drawerOpen ? 'clip' : 'ellipsis',
+                    whiteSpace: drawerOpen ? 'normal' : 'nowrap',
+                    overflowWrap: 'anywhere',
+                    lineHeight: 1.35,
+                    width: drawerOpen ? 'auto' : 102,
                     color: 'inherit'
                   }}
                 >

@@ -41,7 +41,7 @@ class LoanApprovalController extends Controller
             // -----------------------------------------------------------------
             if ($loan->status_pengajuan === 'pending') {
                 // 💡 AMAN: Pastikan hanya PJ Toko atau Admin yang bisa memproses tahap awal
-                if (!in_array($user->role, ['admin', 'pj_toko', 'pj_pinjaman'], true)) {
+                if (!in_array($user->role, ['admin', 'pj_pinjaman'], true)) {
                     return response()->json(['success' => false, 'message' => 'Anda tidak memiliki otoritas sebagai PJ untuk menyetujui tahap ini.'], 403);
                 }
 
@@ -158,7 +158,7 @@ class LoanApprovalController extends Controller
             $role = $loan->status_pengajuan === 'pending' ? 'pj_toko' : 'ketua';
 
             // 💡 AMAN: Validasi hak penolakan agar tidak saling silang antar instansi/jabatan
-            if ($role === 'pj_toko' && !in_array($user->role, ['admin', 'pj_toko', 'pj_pinjaman'], true)) {
+            if ($role === 'pj_toko' && !in_array($user->role, ['admin', 'pj_pinjaman'], true)) {
                 return response()->json(['success' => false, 'message' => 'Anda tidak berhak menolak pengajuan pada fase ini.'], 403);
             }
             if ($role === 'ketua' && !in_array($user->role, ['admin', 'ketua'], true)) {

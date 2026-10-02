@@ -7,28 +7,12 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use App\Models\Sale;
 use App\Models\StockBatch;
-use App\Models\Product;
-use App\Models\UnitConversion;
 use App\Http\Resources\Api\TransactionResource;
-use Illuminate\Validation\ValidationException;
 use Exception;
 
 
 class TransactionController extends Controller
 {
-    // Konversi qty yang diinput kasir (dalam satuan yang dipilih, mis. Lusin)
-    // ke satuan dasar produk (Pcs) memakai tabel unit_conversions.
-    private function resolveMultiplier(?int $unitId, int $baseUnitId): float
-    {
-        if (!$unitId || $unitId === $baseUnitId) {
-            return 1.0;
-        }
-        $conversion = UnitConversion::where('from_unit_id', $unitId)
-            ->where('to_unit_id', $baseUnitId)
-            ->first();
-        return $conversion ? (float) $conversion->multiplier : 1.0;
-    }
-
     public function index(){
         $sales = Sale::with([
                 'cashier:id,name', 
@@ -68,7 +52,6 @@ class TransactionController extends Controller
             'items.*.qty_input' => 'required|integer|min:1',
             'items.*.unit_id' => 'nullable|exists:units,id',
             'items.*.selling_price' => 'required|numeric|min:0',
-            'items.*.discount_amount' => 'nullable|numeric|min:0',
         ]);
 
         return DB::transaction(function() use ($validated) {
@@ -82,56 +65,40 @@ class TransactionController extends Controller
                 'payment_status' => 'unpaid',
                 'transaction_date' => $validated['transaction_date'] ?? now()
             ]);
-
+            
             $totalBill = 0;
-
+            
             foreach ($validated['items'] as $item) {
-                $product = Product::findOrFail($item['product_id']);
-                // Konversi qty yang diinput (mis. 2 Lusin) ke satuan dasar produk (Pcs)
-                $multiplier = $this->resolveMultiplier($item['unit_id'] ?? null, $product->unit_id);
-                $qtyBaseTotal = $item['qty_input'] * $multiplier;
-                $lineDiscountTotal = $item['discount_amount'] ?? 0;
-                $discountPerBaseUnit = $qtyBaseTotal > 0 ? $lineDiscountTotal / $qtyBaseTotal : 0;
-
-                $qtyNeeded = $qtyBaseTotal;
+                $qtyNeeded = $item['qty_input'];
                 $batches = StockBatch::where('product_id', $item['product_id'])
                             ->where('remaining_qty', '>', 0)
                             ->orderByRaw('expiry_date IS NULL ASC')
                             ->orderBy('expiry_date', 'asc')
                             ->orderBy('received_at', 'asc')
                             ->get();
-                foreach ($batches as $batch) {
+                foreach ($batches as $batch) { 
                     if ($qtyNeeded <= 0) break;
-                    // qty (dalam satuan dasar/Pcs) yang bisa diambil dari batch ini
+                    // qty yang bisa diambil dari batch ini
                     $take = min($qtyNeeded, $batch->remaining_qty);
-                    // potong sisa batch yang barusan ditentukan
+                    // potong sisa batch yang barusan ditentukan 
                     $batch->decrement('remaining_qty', $take);
 
-                    $discountForTake = $discountPerBaseUnit * $take;
-                    $subtotal = max(0, ($take * $item['selling_price']) - $discountForTake);
+                    $subtotal = $take * $item['selling_price'];
                     $totalBill += $subtotal;
-
+                    
                     // Hitung nilai profit kotor
                     $costOfGoods = $take * $batch->purchase_price;
                     $calculatedProfit = $subtotal - $costOfGoods;
-
-                    // Jika satu batch cukup memenuhi seluruh baris (kasus umum), simpan
-                    // qty_input dalam satuan asli yang dipilih kasir agar riwayat transaksi
-                    // tetap menampilkan satuan yang benar. Jika terpecah ke beberapa batch,
-                    // baris pecahan disimpan dalam satuan dasar (Pcs).
-                    $isFullyCoveredBySingleBatch = $take === $qtyBaseTotal;
-                    $rowQtyInput = $isFullyCoveredBySingleBatch ? $item['qty_input'] : $take;
-                    $rowUnitId = $isFullyCoveredBySingleBatch ? ($item['unit_id'] ?? $product->unit_id) : $product->unit_id;
 
                     // simpan ke sale_item
                     $sale->items()->create([
                         'product_id' => $item['product_id'],
                         'batch_id' => $batch->id,
-                        'qty_input' => $rowQtyInput,
-                        'unit_id' => $rowUnitId,
+                        'qty_input' => $take,
+                        'unit_id' => $item['unit_id'] ?? 1,
                         'qty_in_base_unit' => $take,
                         'normal_price' => $item['selling_price'],
-                        'discount_amount' => $discountForTake,
+                        'discount_amount' => 0,
                         'final_price' => $subtotal,
                         'hpp_at_sale' => $batch->purchase_price,
                         'item_profit' => $calculatedProfit
@@ -141,7 +108,7 @@ class TransactionController extends Controller
 
                 // Pengaman jika kasir memasukkan jumlah melebihi total stok gudang
                 if ($qtyNeeded > 0) {
-                    throw ValidationException::withMessages(['items' => ["Stok barang '{$product->name}' tidak mencukupi!"]]);
+                    throw ValidationException::withMessages(['items' => ["Stok barang dengan ID " . $item['product_id'] . " tidak mencukupi!"]]); // FIX: Gunakan ValidationException
                 }
             }
             $grandTotal = max(0, $totalBill - ($validated['total_discount'] ?? 0));
@@ -166,28 +133,25 @@ class TransactionController extends Controller
             'items.*.product_id' => 'nullable|exists:products,id',
             'items.*.qty_input' => 'nullable|integer|min:1',
             'items.*.unit_id' => 'nullable|exists:units,id',
-            'items.*.selling_price' => 'nullable|numeric|min:0',
-            'items.*.discount_amount' => 'nullable|numeric|min:0',
+            'items.*.selling_price' => 'nullable|numeric|min:0'
         ]);
 
         $sale = Sale::with(['items'])->findOrFail($id);
         $userRole = auth()->user()->role ?? 'operator';
 
-        // Hanya operator yang dibatasi. Admin & PJ Toko boleh mengubah
-        // struk berapapun statusnya (sesuai matriks akses).
-        if ($sale->payment_status === 'paid' && !in_array($userRole, ['admin', 'pj_toko'])){
+        if ($sale->payment_status === 'paid' && $userRole !== 'admin'){
             return response()->json([
                 'status' => 'error',
-                'message' => 'Transaksi yang sudah lunas hanya bisa diubah oleh Admin atau PJ Toko'
+                'message' => 'Transaksi yang sudah lunas hanya bisa diubah oleh Admin'
             ], 403);
         }
 
         // mengembalikan data barang ke batch stock
         return DB::transaction(function() use ($validatedData, $sale) {
-            // Mengembalikan sisa stock (selalu dalam satuan dasar/Pcs)
+            // Mengembalikan sisa stock 
             foreach ($sale->items as $oldItem) {
                 StockBatch::where('id', $oldItem->batch_id)
-                ->increment('remaining_qty', $oldItem->qty_in_base_unit);
+                ->increment('remaining_qty', $oldItem->qty_input);
             }
             // hapus rincian barang lama di tabel sale_items
             $sale->items()->delete();
@@ -202,13 +166,7 @@ class TransactionController extends Controller
 
             $totalBill = 0;
             foreach ($validatedData['items'] as $item) {
-                $product = Product::findOrFail($item['product_id']);
-                $multiplier = $this->resolveMultiplier($item['unit_id'] ?? null, $product->unit_id);
-                $qtyBaseTotal = $item['qty_input'] * $multiplier;
-                $lineDiscountTotal = $item['discount_amount'] ?? 0;
-                $discountPerBaseUnit = $qtyBaseTotal > 0 ? $lineDiscountTotal / $qtyBaseTotal : 0;
-
-                $qtyNeeded = $qtyBaseTotal;
+                $qtyNeeded = $item['qty_input'];
                 // menggunakan urutan ganda FEFO makanan dan FIFO non makanan
                 $batches = StockBatch::where('product_id', $item['product_id'])
                             ->where('remaining_qty', '>', 0)
@@ -221,27 +179,21 @@ class TransactionController extends Controller
                     $take = min($qtyNeeded, $batch->remaining_qty);
                     // potong stok baru
                     $batch->decrement('remaining_qty', $take);
-
-                    $discountForTake = $discountPerBaseUnit * $take;
-                    $subtotal = max(0, ($take * $item['selling_price']) - $discountForTake);
+                    $subtotal = $take * $item['selling_price'];
                     $totalBill += $subtotal;
 
                     $costOfGoods = $take * $batch->purchase_price;
                     $calculatedProfit = $subtotal - $costOfGoods;
-
-                    $isFullyCoveredBySingleBatch = $take === $qtyBaseTotal;
-                    $rowQtyInput = $isFullyCoveredBySingleBatch ? $item['qty_input'] : $take;
-                    $rowUnitId = $isFullyCoveredBySingleBatch ? ($item['unit_id'] ?? $product->unit_id) : $product->unit_id;
-
+                    
                     // tulis rincian baru di sale_items
                     $sale->items()->create([
                         'product_id' => $item['product_id'],
                         'batch_id' => $batch->id,
-                        'qty_input' => $rowQtyInput,
-                        'unit_id' => $rowUnitId,
+                        'qty_input' => $take,
+                        'unit_id' => $item['unit_id'] ?? 1,
                         'qty_in_base_unit' => $take,
                         'normal_price' => $item['selling_price'],
-                        'discount_amount' => $discountForTake,
+                        'discount_amount' => 0,
                         'final_price' => $subtotal,
                         'item_profit' => $calculatedProfit,
                         'hpp_at_sale' => $batch->purchase_price
@@ -270,22 +222,17 @@ class TransactionController extends Controller
         $sale = Sale::with(['items'])->findOrFail($id);
         // role operator?
         $userRole = auth()->user()->role ?? 'operator';
-
-        // BUGFIX: sebelumnya menggunakan `userRole` (tanpa $) sehingga
-        // pengecekan ini tidak pernah benar-benar berjalan. Sekarang
-        // menggunakan $userRole, dan admin + pj_toko sama-sama boleh
-        // menghapus struk yang sudah lunas; operator tidak boleh.
-        if ($sale->payment_status === 'paid' && !in_array($userRole, ['admin', 'pj_toko'])){
+        if ($sale->payment_status === 'paid' && userRole !== 'admin'){
             return response()->json([
                 'status' => 'error',
-                'message' => 'Transaksi yang sudah lunas hanya bisa dihapus oleh Admin atau PJ Toko'
+                'message' => 'Transaksi yang sudah lunas hanya bisa dihapus oleh Admin' 
             ], 403);
         }
 
         return DB::transaction(function() use ($sale) {
             foreach ($sale->items as $item){
                 StockBatch::where('id', $item->batch_id)
-                ->increment('remaining_qty', $item->qty_in_base_unit);
+                ->increment('remaining_qty', $item->qty_input);
 
             }
             

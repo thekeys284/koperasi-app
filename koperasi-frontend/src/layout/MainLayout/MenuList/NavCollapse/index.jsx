@@ -177,18 +177,22 @@ export default function NavCollapse({ menu, level, parentId }) {
           </ListItemIcon>
         </Activity>
         {(drawerOpen || (!drawerOpen && level !== 1)) && (
-          <Tooltip title={menu.title} disableHoverListener={!hoverStatus}>
+          <Tooltip title={menu.title} disableHoverListener={drawerOpen || !hoverStatus}>
             <ListItemText
+              sx={{ minWidth: 0 }}
               primary={
                 <Typography
                   ref={ref}
-                  noWrap
+                  noWrap={!drawerOpen}
                   variant={isSelected || anchorEl ? 'h5' : 'body1'}
                   sx={{
                     color: 'inherit',
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis',
-                    width: 120
+                    overflow: drawerOpen ? 'visible' : 'hidden',
+                    textOverflow: drawerOpen ? 'clip' : 'ellipsis',
+                    whiteSpace: drawerOpen ? 'normal' : 'nowrap',
+                    overflowWrap: 'anywhere',
+                    lineHeight: 1.35,
+                    width: drawerOpen ? 'auto' : 120
                   }}
                 >
                   {menu.title}

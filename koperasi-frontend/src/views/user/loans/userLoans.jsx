@@ -1,7 +1,7 @@
 import React from "react";
-import { formatCurrency, formatDate } from "../../../../utils/format";
+import { formatCurrency, formatDate } from "../../../utils/format";
 import { useNavigate } from "react-router-dom";
-import api from "../../../../api/axios";
+import api from "../../../api/axios";
 
 import {
     Box,
@@ -28,9 +28,9 @@ import AddIcon from "@mui/icons-material/Add";
 import MoreVertIcon from "@mui/icons-material/MoreVert";
 import DeleteIcon from "@mui/icons-material/DeleteOutline";
 import { IconLock } from "@tabler/icons-react";
-import LoanFeedbackSnackbar from "../../../../ui-component/feedback/LoanFeedbackSnackbar";
-import LoanTable from "../../../../ui-component/cards/Loans/LoanTable";
-import { LoanStatusBadge, LoanTypeBadge, LoanModeBadge } from "../../../../ui-component/cards/Loans/LoanBadges";
+import LoanFeedbackSnackbar from "../../../ui-component/feedback/LoanFeedbackSnackbar";
+import LoanTable from "../../../ui-component/cards/Loans/LoanTable";
+import { LoanStatusBadge, LoanTypeBadge, LoanModeBadge } from "../../../ui-component/cards/Loans/LoanBadges";
 
 const UserLoans = () => {
     const navigate = useNavigate();

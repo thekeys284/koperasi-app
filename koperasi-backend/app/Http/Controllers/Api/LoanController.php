@@ -32,7 +32,7 @@ class LoanController extends Controller
             }
 
             // 💡 OPTIMASI 1: Deteksi apakah yang login adalah manajemen koperasiku
-            $isAdminOrManagement = in_array($user->role, ['admin', 'ketua', 'pj_pinjaman', 'pj_toko', 'operator'], true); // FIX: Tambahkan 'pj_toko'
+            $isAdminOrManagement = in_array($user->role, ['admin', 'ketua', 'pj_pinjaman'], true);
 
             $query = Loan::with($this->loanRelations())
                 ->orderByDesc('tanggal_pengajuan')
@@ -235,7 +235,7 @@ class LoanController extends Controller
 
             $query = Loan::with($this->loanRelations())->where('id', $id);
 
-            $isAdminOrManagement = in_array($user->role, ['admin', 'ketua', 'pj_pinjaman', 'pj_toko', 'operator'], true);
+            $isAdminOrManagement = in_array($user->role, ['admin', 'ketua', 'pj_pinjaman'], true);
             if (!$isAdminOrManagement && !$this->shouldShowAllLoans($request, $user)) {
                 $query->where('user_id', $user->id);
             }
@@ -310,6 +310,17 @@ class LoanController extends Controller
 
             $loan = Loan::where('id', $id)->first();
             if (!$loan) { return response()->json(['success' => false, 'message' => 'Pengajuan pinjaman tidak ditemukan.'], 404); }
+
+            if ($user->role === 'user' && (int) $loan->user_id !== (int) $user->id) {
+                return response()->json(['success' => false, 'message' => 'Anda tidak memiliki akses untuk mengajukan penundaan pinjaman ini.'], 403);
+            }
+
+            $cicilan = LoanCicilan::where('loans_id', $loan->id)
+                ->where('id', $validated['cicilan_id'])
+                ->first();
+            if (!$cicilan) {
+                return response()->json(['success' => false, 'message' => 'Cicilan tidak sesuai dengan pinjaman yang dipilih.'], 422);
+            }
 
             DB::transaction(function () use ($loan, $validated) {
                 $loan->update([

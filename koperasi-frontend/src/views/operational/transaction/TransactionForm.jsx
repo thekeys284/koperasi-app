@@ -21,6 +21,7 @@ const TransactionForm = () => {
     const [members, setMembers] = useState([]);
     const [paymentMethods, setPaymentMethods] = useState([]);
     const [units, setUnits] = useState([]);
+    const [unitConversions, setUnitConversions] = useState([]);
     
     const [inputBarcode, setInputBarcode] = useState('');
     const [inputQty, setInputQty] = useState(1);
@@ -71,26 +72,29 @@ const TransactionForm = () => {
     useEffect(() => {
         const fetchMaster = async () => {
             try {
-                const [resProd, resMem, resPay, resUnit] = await Promise.all([
+                const [resProd, resMem, resPay, resUnit, resUnitConv] = await Promise.all([
                     api.get('/products'),
-                    api.get('/users'),
+                    api.get('/members'),
                     api.get('/payment-methods'),
-                    api.get('/units')
+                    api.get('/units'),
+                    api.get('/unitconversion')
                 ]);
 
-                const productsWithSimulatedStock = resProd.data.data.map(p => ({
+                const mappedProducts = resProd.data.data.map(p => ({
                     ...p,
                     name: p.name ?? p.product_name ?? p.nama_produk ?? '',
                     current_selling_price: parseFloat(
                         p.current_selling_price ?? p.selling_price ?? p.price ?? p.harga_jual ?? 0
                     ) || 0,
-                    stock: Math.floor(Math.random() * 50) + 10,
+                    // Stok nyata (Pcs) hasil rekap batch dari backend, bukan simulasi.
+                    stock: Number(p.total_stock) || 0,
                 }));
 
-                setProducts(productsWithSimulatedStock || []);
+                setProducts(mappedProducts || []);
                 setMembers(resMem.data.data || []);
                 setPaymentMethods(resPay.data.data || []);
                 setUnits(resUnit.data.data || []);
+                setUnitConversions(resUnitConv.data.data || []);
 
                 if (isEdit) {
                     loadTransactionDetail();
@@ -124,7 +128,7 @@ const TransactionForm = () => {
                 product_id: item.product?.id,
                 barcode: item.product?.barcode,
                 name: item.product?.name,
-                qty_input: item.quantity,
+                qty_input: item.qty_input,
                 unit_id: item.unit_id || 1,
                 unit_name: item.unit_name || 'Pcs',
                 normal_price: parseFloat(item.normal_price) || 0,
@@ -140,40 +144,54 @@ const TransactionForm = () => {
         }
     };
 
+    // Ambil faktor konversi dari satuan yang dipilih ke satuan dasar produk (Pcs).
+    // Mis. Lusin -> Pcs = 12, Dus -> Pcs = 40, dst. Jika satuan sama, faktornya 1.
+    const getMultiplier = (fromUnitId, toUnitId) => {
+        if (!fromUnitId || !toUnitId || fromUnitId === toUnitId) return 1;
+        const direct = unitConversions.find(c => c.from_unit_id === fromUnitId && c.to_unit_id === toUnitId);
+        if (direct) return parseFloat(direct.multiplier) || 1;
+        const reverse = unitConversions.find(c => c.from_unit_id === toUnitId && c.to_unit_id === fromUnitId);
+        if (reverse && parseFloat(reverse.multiplier) > 0) return 1 / parseFloat(reverse.multiplier);
+        return 1;
+    };
+
+    // Total qty (dalam satuan dasar/Pcs) suatu produk yang sudah ada di keranjang,
+    // dipakai untuk validasi stok lintas baris/satuan yang berbeda.
+    const getCartBaseQtyForProduct = (productId, baseUnitId, excludeIndex = -1) => {
+        return cart.reduce((sum, item, idx) => {
+            if (idx === excludeIndex || item.product_id !== productId) return sum;
+            return sum + item.qty_input * getMultiplier(item.unit_id, baseUnitId);
+        }, 0);
+    };
+
     const addItemToCart = (productToAdd, quantity, unit, discountPricePerUnit) => {
         if (!productToAdd || quantity <= 0 || !unit) {
             setSnackbar({ open: true, message: 'Pilih produk, satuan, dan masukkan jumlah yang valid.', severity: 'warning' });
             return;
         }
 
-        const currentStock = productToAdd.stock;
-        if (currentStock === undefined) {
-            setSnackbar({ open: true, message: `Stok produk '${productToAdd.name}' tidak tersedia di data. Mohon hubungi administrator.`, severity: 'error' });
-            return;
-        }
+        const currentStock = Number(productToAdd.stock) || 0;
+        const baseUnitId = productToAdd.unit_id;
+        const multiplier = getMultiplier(unit.id, baseUnitId);
+        const qtyInBaseUnit = quantity * multiplier;
 
-        let existingQuantityInCart = 0;
-        const existingItemInCart = cart.find(item => 
-            item.product_id === productToAdd.id && item.unit_id === unit.id
-        );
-        if (existingItemInCart) {
-            existingQuantityInCart = existingItemInCart.qty_input;
-        }
+        const existingBaseQtyInCart = getCartBaseQtyForProduct(productToAdd.id, baseUnitId);
+        const totalRequestedBaseQty = existingBaseQtyInCart + qtyInBaseUnit;
 
-        const totalRequestedQuantity = existingQuantityInCart + quantity;
-
-        if (totalRequestedQuantity > currentStock) {
-            setSnackbar({ 
-                open: true, 
-                message: `Stok '${productToAdd.name}' tidak mencukupi. Tersedia: ${currentStock}, Diminta: ${totalRequestedQuantity}.`, 
-                severity: 'error' 
+        if (totalRequestedBaseQty > currentStock) {
+            const sisaBase = Math.max(0, currentStock - existingBaseQtyInCart);
+            const sisaDalamSatuanInput = multiplier > 0 ? Math.floor(sisaBase / multiplier) : 0;
+            setSnackbar({
+                open: true,
+                message: `Stok '${productToAdd.name}' tidak mencukupi. Tersedia: ${currentStock} Pcs (setara ${sisaDalamSatuanInput} ${unit.name}), Diminta: ${qtyInBaseUnit} Pcs.`,
+                severity: 'error'
             });
             return;
         }
 
-        const effectivePricePerUnit = Math.max(0, productToAdd.current_selling_price - discountPricePerUnit);
-        const itemFinalPrice = effectivePricePerUnit * quantity;
-        const totalDiscountAmount = discountPricePerUnit * quantity;
+        const effectivePricePerBaseUnit = Math.max(0, productToAdd.current_selling_price - discountPricePerUnit);
+        const itemFinalPrice = effectivePricePerBaseUnit * qtyInBaseUnit;
+        const totalDiscountAmount = discountPricePerUnit * qtyInBaseUnit;
 
         const existingItemIndex = cart.findIndex(item => 
             item.product_id === productToAdd.id && item.unit_id === unit.id
@@ -243,12 +261,16 @@ const TransactionForm = () => {
     const handleStartEditRow = (idx) => {
         if (editingIndex === idx) return;
         const item = cart[idx];
+        const productRef = products.find(p => p.id === item.product_id);
+        const baseUnitId = productRef ? productRef.unit_id : item.unit_id;
+        const multiplier = getMultiplier(item.unit_id, baseUnitId);
+        const qtyInBaseUnit = item.qty_input * multiplier;
         setEditingIndex(idx);
         setEditRow({
             qty_input: item.qty_input,
             unit_id: item.unit_id,
             unit_name: item.unit_name,
-            discount_per_unit: item.qty_input > 0 ? (item.discount_amount / item.qty_input) : 0,
+            discount_per_unit: qtyInBaseUnit > 0 ? (item.discount_amount / qtyInBaseUnit) : 0,
         });
     };
 
@@ -263,18 +285,27 @@ const TransactionForm = () => {
         const newDiscountPerUnit = Math.max(0, parseFloat(editRow.discount_per_unit) || 0);
 
         const productRef = products.find(p => p.id === item.product_id);
-        if (productRef && productRef.stock !== undefined && newQty > productRef.stock) {
-            setSnackbar({
-                open: true,
-                message: `Stok '${item.name}' tidak mencukupi. Tersedia: ${productRef.stock}, Diminta: ${newQty}.`,
-                severity: 'error'
-            });
-            return;
+        const baseUnitId = productRef ? productRef.unit_id : item.unit_id;
+        const multiplier = getMultiplier(editRow.unit_id, baseUnitId);
+        const newQtyInBaseUnit = newQty * multiplier;
+
+        if (productRef) {
+            const currentStock = Number(productRef.stock) || 0;
+            const otherBaseQtyInCart = getCartBaseQtyForProduct(item.product_id, baseUnitId, idx);
+            const totalRequestedBaseQty = otherBaseQtyInCart + newQtyInBaseUnit;
+            if (totalRequestedBaseQty > currentStock) {
+                setSnackbar({
+                    open: true,
+                    message: `Stok '${item.name}' tidak mencukupi. Tersedia: ${currentStock} Pcs, Diminta: ${totalRequestedBaseQty} Pcs.`,
+                    severity: 'error'
+                });
+                return;
+            }
         }
 
-        const effectivePricePerUnit = Math.max(0, item.normal_price - newDiscountPerUnit);
-        const newFinalPrice = effectivePricePerUnit * newQty;
-        const newTotalDiscount = newDiscountPerUnit * newQty;
+        const effectivePricePerBaseUnit = Math.max(0, item.normal_price - newDiscountPerUnit);
+        const newFinalPrice = effectivePricePerBaseUnit * newQtyInBaseUnit;
+        const newTotalDiscount = newDiscountPerUnit * newQtyInBaseUnit;
 
         const updatedCart = [...cart];
         updatedCart[idx] = {
@@ -303,8 +334,12 @@ const TransactionForm = () => {
     // ============================================================
 
     const currentPricePerUnit = selectedProduct ? selectedProduct.current_selling_price : 0;
+    const currentMultiplier = selectedProduct && selectedUnit
+        ? getMultiplier(selectedUnit.id, selectedProduct.unit_id)
+        : 1;
     const currentEffectivePricePerUnit = Math.max(0, currentPricePerUnit - inputDiscountPrice);
-    const currentSubtotalInput = currentEffectivePricePerUnit * inputQty;
+    // Subtotal mengikuti satuan yang dipilih: qty * multiplier * (harga satuan - diskon per satuan)
+    const currentSubtotalInput = currentEffectivePricePerUnit * currentMultiplier * inputQty;
 
     const subTotal = cart.reduce((sum, item) => sum + item.final_price, 0);
     const grandTotal = Math.max(0, subTotal - formData.total_discount);

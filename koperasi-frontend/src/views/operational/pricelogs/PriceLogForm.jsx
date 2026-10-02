@@ -3,7 +3,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import {
     Button,
     TextField,
-    Unstable_Grid2 as Grid2, // Menggunakan Grid2 dari MUI v6
+    Grid,
     MenuItem,
     Box,
     Typography,
@@ -112,17 +112,17 @@ const PriceLogForm = () => {
     return (
         <MainCard title={isEdit ? "Edit Riwayat Perubahan Harga" : "Tambah Riwayat Perubahan Harga Baru"}>
             <form onSubmit={handleSubmit}>
-                <Grid2 container spacing={3}> {/* Menggunakan Grid2 container */}
+                <Grid container spacing={3}>
                     {error && (
-                        <Grid2 item xs={12}> {/* Menggunakan Grid2 item */}
+                        <Grid size={12}>
                             <Alert severity="error">{error}</Alert>
-                        </Grid2>
+                        </Grid>
                     )}
                     
-                    <Grid2 item xs={12} sm={2} sx={{ display: 'flex', alignItems: 'center' }}> {/* Menggunakan Grid2 item */}
+                    <Grid size={{ xs: 12, sm: 2 }} sx={{ display: 'flex', alignItems: 'center' }}>
                         <Typography variant="body1"><b>Produk</b></Typography>
-                    </Grid2>
-                    <Grid2 item xs={12} sm={10}> {/* Menggunakan Grid2 item */}
+                    </Grid>
+                    <Grid size={{ xs: 12, sm: 10 }}>
                         <Autocomplete
                             options={products}
                             getOptionLabel={(option) => option.name || ''}
@@ -162,7 +162,7 @@ const PriceLogForm = () => {
                                 />
                             )}
                         />
-                    </Grid2>
+                    </Grid>
 
                     <Grid size={{ xs: 12, sm: 2 }} sx={{ display: 'flex', alignItems: 'center' }}>
                         <Typography variant="body1"><b>Harga Lama</b></Typography>
@@ -248,7 +248,7 @@ const PriceLogForm = () => {
                             </Button>
                         </Box>
                     </Grid>
-                </Grid2>
+                </Grid>
             </form>
         </MainCard>
     );

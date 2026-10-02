@@ -238,7 +238,7 @@ const LoanSubmissionPage = () => {
   }, []);
 
   const openLoanDetail = (loanId, userId) => {
-    navigate(`/pjtoko/loans/pengajuan/details?loan_id=${loanId}&user_id=${userId}`);
+    navigate(`/pjpinjaman/loans/pengajuan/details?loan_id=${loanId}&user_id=${userId}`);
   };
 
   const handleTabChange = (event, newValue) => {
@@ -261,7 +261,7 @@ const LoanSubmissionPage = () => {
         <Link
           underline="hover"
           color="text.primary"
-          onClick={() => navigate("/pjtoko/loans/pengajuan")}
+          onClick={() => navigate("/pjpinjaman/loans/pengajuan")}
           sx={{ cursor: "pointer", display: "flex", alignItems: "center" }}
         >
           Pengajuan Pinjaman

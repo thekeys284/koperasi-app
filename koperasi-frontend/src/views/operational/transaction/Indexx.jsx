@@ -8,7 +8,6 @@ import {
 import { IconSearch, IconPlus, IconEdit, IconTrash, IconPackage } from '@tabler/icons-react';
 import MainCard from '../../../components/cards/MainCard.jsx';
 import api from '@/api/axios';
-import { getCurrentRole, ROLES } from '../../../utils/auth';
 
 const TransactionPage = () => {
     const navigate = useNavigate();
@@ -27,12 +26,6 @@ const TransactionPage = () => {
     const handleCloseSnackbar = () => {
         setSnackbar({ ...snackbar, open: false });
     };
-
-    // Operator tidak boleh mengubah/menghapus struk yang sudah 'paid'.
-    // Admin & PJ Toko tetap boleh (full CRUD).
-    const currentRole = getCurrentRole();
-    const canAlwaysModify = currentRole === ROLES.ADMIN || currentRole === ROLES.PJ_TOKO;
-    const canModifyRow = (row) => canAlwaysModify || row.payment_status !== 'paid';
 
     useEffect(() => {
         fetchTransaction();
@@ -103,10 +96,9 @@ const TransactionPage = () => {
                     severity: 'success'
                 });
             } catch (error) {
-                handleCloseDelete();
                 setSnackbar({
                     open: true,
-                    message: error.response?.data?.message || 'Gagal menghapus data',
+                    message: 'Gagal menghapus data',
                     severity: 'error'
                 });
             }
@@ -143,7 +135,6 @@ const TransactionPage = () => {
                             <TableRow>
                                 <TableCell>Invoice</TableCell>
                                 <TableCell>Nama Customer</TableCell>
-                                <TableCell align='center'>Status</TableCell>
                                 <TableCell align='center'>Total Tagihan</TableCell>
                                 <TableCell align='right'>Tanggal Transaksi</TableCell>
                                 <TableCell align='center'>Aksi</TableCell>
@@ -159,13 +150,6 @@ const TransactionPage = () => {
                                         <TableCell>
                                             <Typography variant='subtitle2'>{row.member?.name}</Typography>
                                         </TableCell>
-                                        <TableCell align='center'>
-                                            <Chip
-                                                label={row.payment_status === 'paid' ? 'Lunas' : 'Belum Lunas'}
-                                                color={row.payment_status === 'paid' ? 'success' : 'warning'}
-                                                size='small'
-                                            />
-                                        </TableCell>
                                         <TableCell align='right'>
                                             Rp {new Intl.NumberFormat('id-ID').format(row.total_bill)}
                                         </TableCell>
@@ -173,25 +157,27 @@ const TransactionPage = () => {
                                             <Typography variant='subtitle2'>{row.transaction_date}</Typography>
                                         </TableCell>
                                         <TableCell align='center'>
-                                            {canModifyRow(row) ? (
-                                                <>
-                                                    <Button size='small' onClick={()=>navigate(`/operational/transactions/edit/${row.id}`)}>
-                                                        <IconEdit size={16}/>
-                                                    </Button>
-                                                    <Button size='small' color='error' onClick={() => handleOpenDelete(row.id)}>
-                                                        <IconTrash size='16'/>
-                                                    </Button>
-                                                </>
-                                            ) : (
-                                                <Typography variant='caption' color='text.secondary'>
-                                                    Struk lunas — hubungi Admin/PJ Toko
-                                                </Typography>
-                                            )}
+                                            <Button size='small' onClick={()=>navigate(`/operational/transactions/edit/${row.id}`)}>
+                                                <IconEdit size={16}/>
+                                            </Button>
+                                            <Button size='small' color='error'
+                                                onClick={async () => {
+                                                    if(window.confirm('Yakin ingin menghapus Transaksi ini?')) {
+                                                    try {
+                                                        await api.delete(`/transactions/${row.id}`);
+                                                        fetchTransaction(); // refresh tabel
+                                                    } catch(err) {
+                                                        console.error('Gagal menghapus transaksi', err);
+                                                    }
+                                                    }
+                                                }}>
+                                                <IconTrash size='16'/>
+                                            </Button>
                                         </TableCell>
                                     </TableRow>
                                 ))):(
                                     <TableRow>
-                                        <TableCell colSpan={6} align='center' sx={{py:3}}>Data tidak ditemukan</TableCell>
+                                        <TableCell colSpan={5} align='center' sx={{py:3}}>Data tidak ditemukan</TableCell>
                                     </TableRow>
                             )}
                         </TableBody>
@@ -215,6 +201,7 @@ const TransactionPage = () => {
                 onClose={handleCloseDelete}
                 aria-labelledby="alert-dialog-title"
                 aria-describedby="alert-dialog-description"
+                // Agar sudutnya melengkung khas Berry
                 PaperProps={{ sx: { borderRadius: '12px', p: 1 } }}
             >
                 <DialogTitle id="alert-dialog-title" sx={{ fontWeight: 600 }}>

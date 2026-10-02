@@ -12,7 +12,7 @@ import AuthCardWrapper from './AuthCardWrapper';
 
 import Logo from 'ui-component/Logo';
 import AuthFooter from 'ui-component/cards/AuthFooter';
-import AuthLogin from '../AuthLogin';
+import AuthLogin from './AuthLogin';
 
 // ================================|| AUTH3 - LOGIN ||================================ //
 
@@ -44,7 +44,7 @@ export default function Login() {
                 </Box>
                 <Divider sx={{ width: 1 }} />
                 <Stack sx={{ alignItems: 'center' }}>
-                  <Typography component={Link} to="/pages/register" variant="subtitle1" sx={{ textDecoration: 'none' }}>
+                  <Typography component={Link} to="/register" variant="subtitle1" sx={{ textDecoration: 'none' }}>
                     Don&apos;t have an account?
                   </Typography>
                 </Stack>

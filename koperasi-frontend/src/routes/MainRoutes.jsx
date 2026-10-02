@@ -3,6 +3,8 @@ import { lazy } from 'react';
 // project imports
 import MainLayout from 'layout/MainLayout';
 import Loadable from 'ui-component/Loadable';
+import RoleRoute from './RoleRoute';
+import { ROLES } from '../utils/auth';
 
 // ===================== DASHBOARD =====================
 const DashboardDefault = Loadable(lazy(() => import('../views/dashboard/Default')));
@@ -17,8 +19,8 @@ const CategoryForm = Loadable(lazy(() => import('../views/master/category/Catego
 const UnitPage = Loadable(lazy(() => import('../views/master/unit/Index.jsx')));
 const UnitForm = Loadable(lazy(() => import('../views/master/unit/UnitForm.jsx')));
 const ConvUnitPage = Loadable(lazy(() => import('../views/master/conversionunit/Index.jsx')));
-const PriceLogForm = Loadable(lazy(() => import('../views/operational/pricelogs/PriceLogForm.jsx'))); // NEW: PriceLog Form
-const PriceLogIndexPage = Loadable(lazy(() => import('../views/operational/pricelogs/Index.jsx'))); // NEW: PriceLog Index Page
+const PriceLogForm = Loadable(lazy(() => import('../views/operational/pricelogs/PriceLogForm.jsx')));
+const PriceLogIndexPage = Loadable(lazy(() => import('../views/operational/pricelogs/Index.jsx')));
 const ConvUnitForm = Loadable(lazy(() => import('../views/master/conversionunit/ConvUnitForm.jsx')));
 const StockBatchPage = Loadable(lazy(() => import('../views/master/stockbatch/Index.jsx')));
 const StockBatchForm = Loadable(lazy(() => import('../views/master/stockbatch/StockBatchForm')));
@@ -28,6 +30,12 @@ const PaymentMethodForm = Loadable(lazy(() => import('../views/master/payment/Pa
 // ===================== OPERATIONAL =====================
 const TransactionPage = Loadable(lazy(() => import('../views/operational/transaction/Index.jsx')));
 const TransactionForm = Loadable(lazy(() => import('../views/operational/transaction/TransactionForm.jsx')));
+const TransactionReportPage = Loadable(lazy(() => import('../views/operational/transactionreport/Index.jsx')));
+const CashDailyPage = Loadable(lazy(() => import('../views/operational/cashdaily/Index.jsx')));
+const PurchaseRecapPage = Loadable(lazy(() => import('../views/operational/purchaserecap/Index.jsx'))); // NEW
+
+// ===================== USER (ANGGOTA) =====================
+const MyPurchaseHistoryPage = Loadable(lazy(() => import('../views/user/purchases/Index.jsx'))); // NEW
 
 // ===================== LOAN MODULE =====================
 
@@ -38,14 +46,26 @@ const LeadLoanDetailPage = Loadable(lazy(() => import('../views/lead/loans/LeadL
 // -- PJ Toko --
 const PjtokoLoanSubmissionPage = Loadable(lazy(() => import('../views/pjtoko/loans/LoanSubmissionPage.jsx')));
 const PjtokoLoanSubmissionDetailPage = Loadable(lazy(() => import('../views/pjtoko/loans/LoanSubmissionDetail.jsx')));
-const PjtokoLoanIndexPage = Loadable(lazy(() => import('../views/pjtoko/loans/LoanPage.jsx'))); // PJ Toko's main loan list (active, paid, etc.)
+const PjtokoLoanIndexPage = Loadable(lazy(() => import('../views/pjtoko/loans/LoanPage.jsx')));
 const PjtokoLoanDetailsPage = Loadable(lazy(() => import('../views/pjtoko/loans/LoanDetails.jsx')));
 const PjtokoLoanGenerateReportPage = Loadable(lazy(() => import('../views/pjtoko/loans/LoanGenerateReport.jsx')));
 
 // -- User / Anggota -- (folder: views/users/loans)
-const UserLoansPage = Loadable(lazy(() => import('../views/master/users/loans/userLoans.jsx')));
-const UserPengajuanPage = Loadable(lazy(() => import('../views/master/users/loans/userPengajuan.jsx')));
-const UserCicilanPage = Loadable(lazy(() => import('../views/master/users/loans/userCicilan.jsx')));
+const UserLoansPage = Loadable(lazy(() => import('../views/user/loans/userLoans.jsx')));
+const UserPengajuanPage = Loadable(lazy(() => import('../views/user/loans/userPengajuan.jsx')));
+const UserCicilanPage = Loadable(lazy(() => import('../views/user/loans/userCicilan.jsx')));
+
+// ---------------------------------------------------------------
+// Daftar role dipakai berkali-kali -> definisikan sekali di sini
+// ---------------------------------------------------------------
+const ROLE_MASTER_DATA = [ROLES.ADMIN, ROLES.OPERATOR, ROLES.PJ_TOKO];
+const ROLE_PAYMENT_METHOD = [ROLES.ADMIN, ROLES.PJ_TOKO];
+const ROLE_PRICE_LOG = [ROLES.ADMIN, ROLES.OPERATOR, ROLES.PJ_TOKO];
+const ROLE_USER_MANAGEMENT = [ROLES.ADMIN, ROLES.PJ_TOKO, ROLES.PJ_PINJAMAN, ROLES.KETUA];
+const ROLE_TRANSACTION = [ROLES.ADMIN, ROLES.OPERATOR, ROLES.PJ_TOKO];
+const ROLE_ONLY_USER = [ROLES.USER];
+const ROLE_LOAN_MANAGEMENT = [ROLES.ADMIN, ROLES.PJ_PINJAMAN];
+const ROLE_LOAN_KETUA = [ROLES.ADMIN, ROLES.KETUA];
 
 const MainRoutes = {
     path: '/',
@@ -61,25 +81,25 @@ const MainRoutes = {
                 {
                     path: 'loans',
                     children: [
-                        { path: 'pengajuan', element: <LeadLoanPage /> },
-                        { path: 'pengajuan/details', element: <LeadLoanDetailPage /> }
+                        { path: 'pengajuan', element: <RoleRoute roles={ROLE_LOAN_KETUA}><LeadLoanPage /></RoleRoute> },
+                        { path: 'pengajuan/details', element: <RoleRoute roles={ROLE_LOAN_KETUA}><LeadLoanDetailPage /></RoleRoute> }
                     ]
                 }
             ]
         },
 
-        // ================= PJ TOKO =================
+        // ================= PJ PINJAMAN (Modul Pinjaman) =================
         {
-            path: 'pjtoko',
+            path: 'pjpinjaman',
             children: [
                 {
                     path: 'loans',
                     children: [
-                        { path: 'pengajuan', element: <PjtokoLoanSubmissionPage /> },
-                        { path: 'pengajuan/details', element: <PjtokoLoanSubmissionDetailPage /> }, // Detail for PJ Toko's submission review
-                        { path: 'daftar', element: <PjtokoLoanIndexPage /> },
-                        { path: 'details', element: <PjtokoLoanDetailsPage /> },
-                        { path: 'report', element: <PjtokoLoanGenerateReportPage /> }
+                        { path: 'pengajuan', element: <RoleRoute roles={ROLE_LOAN_MANAGEMENT}><PjtokoLoanSubmissionPage /></RoleRoute> },
+                        { path: 'pengajuan/details', element: <RoleRoute roles={ROLE_LOAN_MANAGEMENT}><PjtokoLoanSubmissionDetailPage /></RoleRoute> },
+                        { path: 'daftar', element: <RoleRoute roles={ROLE_LOAN_MANAGEMENT}><PjtokoLoanIndexPage /></RoleRoute> },
+                        { path: 'details', element: <RoleRoute roles={ROLE_LOAN_MANAGEMENT}><PjtokoLoanDetailsPage /></RoleRoute> },
+                        { path: 'report', element: <RoleRoute roles={ROLE_LOAN_MANAGEMENT}><PjtokoLoanGenerateReportPage /></RoleRoute> }
                     ]
                 }
             ]
@@ -92,46 +112,51 @@ const MainRoutes = {
                 {
                     path: 'loans',
                     children: [
-                        { path: '', element: <UserLoansPage /> },       // /user/loans
-                        { path: 'daftar', element: <UserLoansPage /> }, // /user/loans/daftar (User's list of loans)
-                        { path: 'pengajuan', element: <UserPengajuanPage /> }, // Added for /user/loans/pengajuan
-                        { path: 'add', element: <UserPengajuanPage /> },
-                        { path: 'topup', element: <UserPengajuanPage /> },
-                        { path: 'cicilan', element: <UserCicilanPage /> }
+                        { path: '', element: <RoleRoute roles={ROLE_ONLY_USER}><UserLoansPage /></RoleRoute> },
+                        { path: 'daftar', element: <RoleRoute roles={ROLE_ONLY_USER}><UserLoansPage /></RoleRoute> },
+                        { path: 'pengajuan', element: <RoleRoute roles={ROLE_ONLY_USER}><UserPengajuanPage /></RoleRoute> },
+                        { path: 'add', element: <RoleRoute roles={ROLE_ONLY_USER}><UserPengajuanPage /></RoleRoute> },
+                        { path: 'topup', element: <RoleRoute roles={ROLE_ONLY_USER}><UserPengajuanPage /></RoleRoute> },
+                        { path: 'cicilan', element: <RoleRoute roles={ROLE_ONLY_USER}><UserCicilanPage /></RoleRoute> }
                     ]
+                },
+                {
+                    // NEW: History belanja milik user sendiri
+                    path: 'purchases',
+                    children: [{ path: '', element: <RoleRoute roles={ROLE_ONLY_USER}><MyPurchaseHistoryPage /></RoleRoute> }]
                 }
             ]
         },
 
-        // ================= ADMIN =================
+        // ================= ADMIN (Manajemen User + Modul Pinjaman) =================
         {
             path: 'admin',
             children: [
                 {
                     path: 'users',
                     children: [
-                        { path: '', element: <UserPage /> },
-                        { path: 'add', element: <UserForm /> },
-                        { path: 'edit/:id', element: <UserForm /> }
+                        { path: '', element: <RoleRoute roles={ROLE_USER_MANAGEMENT}><UserPage /></RoleRoute> },
+                        { path: 'add', element: <RoleRoute roles={ROLE_USER_MANAGEMENT}><UserForm /></RoleRoute> },
+                        { path: 'edit/:id', element: <RoleRoute roles={ROLE_USER_MANAGEMENT}><UserForm /></RoleRoute> }
                     ]
                 },
 
                 // -- Loan: Lead --
-                { path: 'loans/pengajuan/lead', element: <LeadLoanPage /> },
-                { path: 'loans/pengajuan/lead/details', element: <LeadLoanDetailPage /> },
+                { path: 'loans/pengajuan/lead', element: <RoleRoute roles={ROLE_LOAN_KETUA}><LeadLoanPage /></RoleRoute> },
+                { path: 'loans/pengajuan/lead/details', element: <RoleRoute roles={ROLE_LOAN_KETUA}><LeadLoanDetailPage /></RoleRoute> },
 
                 // -- Loan: PJ Toko --
-                { path: 'loans/pengajuan/pjtoko', element: <PjtokoLoanSubmissionPage /> },
-                { path: 'loans/pengajuan/pjtoko/details', element: <PjtokoLoanSubmissionDetailPage /> },
-                { path: 'loans/daftar/pjtoko', element: <PjtokoLoanIndexPage /> },
-                { path: 'loans/daftar/pjtoko/details', element: <PjtokoLoanDetailsPage /> },
-                { path: 'loans/report/pjtoko', element: <PjtokoLoanGenerateReportPage /> },
+                { path: 'loans/pengajuan/pjtoko', element: <RoleRoute roles={ROLE_LOAN_MANAGEMENT}><PjtokoLoanSubmissionPage /></RoleRoute> },
+                { path: 'loans/pengajuan/pjtoko/details', element: <RoleRoute roles={ROLE_LOAN_MANAGEMENT}><PjtokoLoanSubmissionDetailPage /></RoleRoute> },
+                { path: 'loans/daftar/pjtoko', element: <RoleRoute roles={ROLE_LOAN_MANAGEMENT}><PjtokoLoanIndexPage /></RoleRoute> },
+                { path: 'loans/daftar/pjtoko/details', element: <RoleRoute roles={ROLE_LOAN_MANAGEMENT}><PjtokoLoanDetailsPage /></RoleRoute> },
+                { path: 'loans/report/pjtoko', element: <RoleRoute roles={ROLE_LOAN_MANAGEMENT}><PjtokoLoanGenerateReportPage /></RoleRoute> },
 
                 // -- Loan: User / Anggota --
-                { path: 'loans/daftar/user', element: <UserLoansPage /> },
-                { path: 'loans/add/user', element: <UserPengajuanPage /> },
-                { path: 'loans/topup/user', element: <UserPengajuanPage /> },
-                { path: 'loans/cicilan/user', element: <UserCicilanPage /> }
+                { path: 'loans/daftar/user', element: <RoleRoute roles={ROLE_ONLY_USER}><UserLoansPage /></RoleRoute> },
+                { path: 'loans/add/user', element: <RoleRoute roles={ROLE_ONLY_USER}><UserPengajuanPage /></RoleRoute> },
+                { path: 'loans/topup/user', element: <RoleRoute roles={ROLE_ONLY_USER}><UserPengajuanPage /></RoleRoute> },
+                { path: 'loans/cicilan/user', element: <RoleRoute roles={ROLE_ONLY_USER}><UserCicilanPage /></RoleRoute> }
             ]
         },
 
@@ -142,49 +167,49 @@ const MainRoutes = {
                 {
                     path: 'products',
                     children: [
-                        { path: '', element: <ProductPage /> },
-                        { path: 'add', element: <ProductForm /> },
-                        { path: 'edit/:id', element: <ProductForm /> }
+                        { path: '', element: <RoleRoute roles={ROLE_MASTER_DATA}><ProductPage /></RoleRoute> },
+                        { path: 'add', element: <RoleRoute roles={ROLE_MASTER_DATA}><ProductForm /></RoleRoute> },
+                        { path: 'edit/:id', element: <RoleRoute roles={ROLE_MASTER_DATA}><ProductForm /></RoleRoute> }
                     ]
                 },
                 {
                     path: 'stocks',
                     children: [
-                        { path: '', element: <StockBatchPage /> },
-                        { path: 'add', element: <StockBatchForm /> },
-                        { path: 'edit/:id', element: <StockBatchForm /> }
+                        { path: '', element: <RoleRoute roles={ROLE_MASTER_DATA}><StockBatchPage /></RoleRoute> },
+                        { path: 'add', element: <RoleRoute roles={ROLE_MASTER_DATA}><StockBatchForm /></RoleRoute> },
+                        { path: 'edit/:id', element: <RoleRoute roles={ROLE_MASTER_DATA}><StockBatchForm /></RoleRoute> }
                     ]
                 },
                 {
                     path: 'categories',
                     children: [
-                        { path: '', element: <CategoryPage /> },
-                        { path: 'add', element: <CategoryForm /> },
-                        { path: 'edit/:id', element: <CategoryForm /> }
+                        { path: '', element: <RoleRoute roles={ROLE_MASTER_DATA}><CategoryPage /></RoleRoute> },
+                        { path: 'add', element: <RoleRoute roles={ROLE_MASTER_DATA}><CategoryForm /></RoleRoute> },
+                        { path: 'edit/:id', element: <RoleRoute roles={ROLE_MASTER_DATA}><CategoryForm /></RoleRoute> }
                     ]
                 },
                 {
                     path: 'units',
                     children: [
-                        { path: '', element: <UnitPage /> },
-                        { path: 'add', element: <UnitForm /> },
-                        { path: 'edit/:id', element: <UnitForm /> }
+                        { path: '', element: <RoleRoute roles={ROLE_MASTER_DATA}><UnitPage /></RoleRoute> },
+                        { path: 'add', element: <RoleRoute roles={ROLE_MASTER_DATA}><UnitForm /></RoleRoute> },
+                        { path: 'edit/:id', element: <RoleRoute roles={ROLE_MASTER_DATA}><UnitForm /></RoleRoute> }
                     ]
                 },
                 {
                     path: 'conversionunit',
                     children: [
-                        { path: '', element: <ConvUnitPage /> },
-                        { path: 'add', element: <ConvUnitForm /> },
-                        { path: 'edit/:id', element: <ConvUnitForm /> }
+                        { path: '', element: <RoleRoute roles={ROLE_MASTER_DATA}><ConvUnitPage /></RoleRoute> },
+                        { path: 'add', element: <RoleRoute roles={ROLE_MASTER_DATA}><ConvUnitForm /></RoleRoute> },
+                        { path: 'edit/:id', element: <RoleRoute roles={ROLE_MASTER_DATA}><ConvUnitForm /></RoleRoute> }
                     ]
                 },
                 {
                     path: 'payment-methods',
                     children: [
-                        { path: '', element: <PaymentMethodPage /> },
-                        { path: 'add', element: <PaymentMethodForm /> },
-                        { path: 'edit/:id', element: <PaymentMethodForm /> }
+                        { path: '', element: <RoleRoute roles={ROLE_PAYMENT_METHOD}><PaymentMethodPage /></RoleRoute> },
+                        { path: 'add', element: <RoleRoute roles={ROLE_PAYMENT_METHOD}><PaymentMethodForm /></RoleRoute> },
+                        { path: 'edit/:id', element: <RoleRoute roles={ROLE_PAYMENT_METHOD}><PaymentMethodForm /></RoleRoute> }
                     ]
                 }
             ]
@@ -197,19 +222,31 @@ const MainRoutes = {
                 {
                     path: 'transactions',
                     children: [
-                        { path: '', element: <TransactionPage /> },
-                        { path: 'add', element: <TransactionForm /> },
-                        { path: 'edit/:id', element: <TransactionForm /> }
+                        { path: '', element: <RoleRoute roles={ROLE_TRANSACTION}><TransactionPage /></RoleRoute> },
+                        { path: 'add', element: <RoleRoute roles={ROLE_TRANSACTION}><TransactionForm /></RoleRoute> },
+                        { path: 'edit/:id', element: <RoleRoute roles={ROLE_TRANSACTION}><TransactionForm /></RoleRoute> }
                     ]
-                }
-                ,
-                { // NEW: Price Logs
+                },
+                {
                     path: 'pricelogs',
                     children: [
-                        { path: '', element: <PriceLogIndexPage /> }, // Index page
-                        { path: 'add', element: <PriceLogForm /> }, // Add form
-                        { path: 'edit/:id', element: <PriceLogForm /> } // Edit form
+                        { path: '', element: <RoleRoute roles={ROLE_PRICE_LOG}><PriceLogIndexPage /></RoleRoute> },
+                        { path: 'add', element: <RoleRoute roles={ROLE_PRICE_LOG}><PriceLogForm /></RoleRoute> },
+                        { path: 'edit/:id', element: <RoleRoute roles={ROLE_PRICE_LOG}><PriceLogForm /></RoleRoute> }
                     ]
+                },
+                {
+                    path: 'transaction-report',
+                    element: <RoleRoute roles={[ROLES.ADMIN, ROLES.PJ_TOKO, ROLES.OPERATOR]}><TransactionReportPage /></RoleRoute>
+                },
+                {
+                    path: 'cash-daily',
+                    element: <RoleRoute roles={[ROLES.ADMIN, ROLES.PJ_TOKO, ROLES.OPERATOR]}><CashDailyPage /></RoleRoute>
+                },
+                {
+                    // NEW: Rekap Pembelian User
+                    path: 'purchase-recap',
+                    children: [{ path: '', element: <RoleRoute><PurchaseRecapPage /></RoleRoute> }]
                 }
             ]
         }

@@ -107,7 +107,7 @@ const LoanSubmissionDetailPage = () => {
         window.dispatchEvent(new CustomEvent('refresh-menu-counts'));
 
         setTimeout(() => {
-          navigate("/pjtoko/loans/pengajuan");
+          navigate("/pjpinjaman/loans/pengajuan");
         }, 1200);
       }
     } catch (err) {
@@ -133,7 +133,7 @@ const LoanSubmissionDetailPage = () => {
         window.dispatchEvent(new CustomEvent('refresh-menu-counts'));
 
         setTimeout(() => {
-          navigate("/pjtoko/loans/pengajuan");
+          navigate("/pjpinjaman/loans/pengajuan");
         }, 1200);
       }
     } catch (err) {
@@ -190,7 +190,7 @@ const LoanSubmissionDetailPage = () => {
         <Link underline="hover" color="inherit" sx={{ cursor: "pointer" }}>
           Pengajuan Pinjaman
         </Link>
-        <Link underline="hover" color="inherit" onClick={() => navigate("/pjtoko/loans/pengajuan")} sx={{ cursor: "pointer" }}>
+        <Link underline="hover" color="inherit" onClick={() => navigate("/pjpinjaman/loans/pengajuan")} sx={{ cursor: "pointer" }}>
           Daftar Pengajuan
         </Link>
         <Typography color="text.primary">Detail Pengajuan</Typography>
@@ -327,7 +327,7 @@ const LoanSubmissionDetailPage = () => {
                     <Typography variant="body1" sx={{ width: 140, color: "#64748B", fontWeight: 500 }}>Referensi Loan</Typography>
                     <Typography 
                       variant="body1" 
-                      onClick={() => navigate(`/pjtoko/loans/pengajuan/details?loan_id=${loan.referred_loan.id}&user_id=${loan.user_id}`)}
+                      onClick={() => navigate(`/pjpinjaman/loans/pengajuan/details?loan_id=${loan.referred_loan.id}&user_id=${loan.user_id}`)}
                       sx={{ 
                         fontWeight: 700, 
                         color: "primary.main", 

@@ -11,6 +11,14 @@ use App\Http\Resources\Api\UserResource;
 
 class UserController extends Controller
 {
+    /** Daftar anggota untuk kebutuhan kasir, tanpa membuka CRUD manajemen user. */
+    public function members()
+    {
+        return response()->json([
+            'data' => User::where('role', 'user')->select('id', 'name', 'username')->orderBy('name')->get(),
+        ]);
+    }
+
     public function index(){
         $users = User::latest()->get();
         return UserResource::collection($users);

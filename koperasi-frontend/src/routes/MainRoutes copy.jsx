@@ -38,9 +38,9 @@ const PjtokoLoanDetailsPage = Loadable(lazy(() => import('../views/pjtoko/loans/
 const PjtokoLoanGenerateReportPage = Loadable(lazy(() => import('../views/pjtoko/loans/LoanGenerateReport.jsx'))); // PJ Toko Loan Report
 
 // User Loans
-const UserLoansPage = Loadable(lazy(() => import('../views/master/users/loans/userLoans.jsx'))); // User's list of loans
-const UserPengajuanPage = Loadable(lazy(() => import('../views/master/users/loans/userPengajuan.jsx'))); // User's loan application form
-const UserCicilanPage = Loadable(lazy(() => import('../views/master/users/loans/userCicilan.jsx'))); // User's installment details
+const UserLoansPage = Loadable(lazy(() => import('../views/user/loans/userLoans.jsx'))); // User's list of loans
+const UserPengajuanPage = Loadable(lazy(() => import('../views/user/loans/userPengajuan.jsx'))); // User's loan application form
+const UserCicilanPage = Loadable(lazy(() => import('../views/user/loans/userCicilan.jsx'))); // User's installment details
 
 const MainRoutes = {
     path: '/',

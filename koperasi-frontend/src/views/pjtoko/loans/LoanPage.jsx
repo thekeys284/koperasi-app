@@ -499,7 +499,7 @@ const LoanPage = () => {
   } = categorizeLoansByStatus(loans);
 
   const openLoanDetail = (loanId) => {
-    navigate(`/pjtoko/loans/details?loan_id=${loanId}&user_id=1`);
+    navigate(`/pjpinjaman/loans/details?loan_id=${loanId}&user_id=1`);
   };
 
   const openPostponeModal = (loan) => {
@@ -571,7 +571,7 @@ const LoanPage = () => {
         <Link
           underline="hover"
           color="text.primary"
-          onClick={() => navigate("/pjtoko/loans/daftar")}
+          onClick={() => navigate("/pjpinjaman/loans/daftar")}
           sx={{ cursor: "pointer", display: "flex", alignItems: "center" }}
         >
           Pinjaman

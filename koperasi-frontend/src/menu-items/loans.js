@@ -7,35 +7,39 @@ const loans = {
     children: [
         {
             id: 'lead-loan-submissions',
-            title: 'Pengajuan Pinjaman (Lead)',
+            title: 'Persetujuan Ketua',
             type: 'item',
             url: '/lead/loans/pengajuan',
             icon: IconFileText,
-            breadcrumbs: false
+            breadcrumbs: false,
+            roles: ['admin', 'ketua']
         },
         {
-            id: 'pjtoko-loan-submissions',
-            title: 'Pengajuan Pinjaman (PJ Toko)',
+            id: 'pjpinjaman-loan-submissions',
+            title: 'Pengajuan Masuk',
             type: 'item',
-            url: '/pjtoko/loans/pengajuan',
+            url: '/pjpinjaman/loans/pengajuan',
             icon: IconUserPlus,
-            breadcrumbs: false
+            breadcrumbs: false,
+            roles: ['admin', 'pj_pinjaman']
         },
         {
-            id: 'pjtoko-active-loans',
-            title: 'Daftar Pinjaman (PJ Toko)',
+            id: 'pjpinjaman-active-loans',
+            title: 'Daftar Pinjaman',
             type: 'item',
-            url: '/pjtoko/loans/daftar',
+            url: '/pjpinjaman/loans/daftar',
             icon: IconListDetails,
-            breadcrumbs: false
+            breadcrumbs: false,
+            roles: ['admin', 'pj_pinjaman']
         },
         {
-            id: 'pjtoko-loan-report',
-            title: 'Laporan Pinjaman (PJ Toko)',
+            id: 'pjpinjaman-loan-report',
+            title: 'Laporan Pinjaman',
             type: 'item',
-            url: '/pjtoko/loans/report',
+            url: '/pjpinjaman/loans/report',
             icon: IconReport,
-            breadcrumbs: false
+            breadcrumbs: false,
+            roles: ['admin', 'pj_pinjaman']
         },
         {
             id: 'user-my-loans',
@@ -43,7 +47,8 @@ const loans = {
             type: 'item',
             url: '/user/loans/daftar',
             icon: IconCreditCard,
-            breadcrumbs: false
+            breadcrumbs: false,
+            roles: ['user']
         },
         {
             id: 'user-apply-loan',
@@ -51,7 +56,8 @@ const loans = {
             type: 'item',
             url: '/user/loans/pengajuan',
             icon: IconUserPlus,
-            breadcrumbs: false
+            breadcrumbs: false,
+            roles: ['user']
         },
         {
             id: 'user-my-installments',
@@ -59,7 +65,8 @@ const loans = {
             type: 'item',
             url: '/user/loans/cicilan',
             icon: IconClipboardList,
-            breadcrumbs: false
+            breadcrumbs: false,
+            roles: ['user']
         }
     ]
 };
